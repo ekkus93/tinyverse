@@ -568,9 +568,9 @@ namespace Tinyverse.Building
             block.Clear();
             if (previewValid)
             {
-                // Same raw value the registry hands its shader, so the preview matches the placed prim.
-                var c = previewData.Color;
-                block.SetVector(BuildAssets.ColorId, new Vector4(c.r, c.g, c.b, 0.5f));
+                // PrimData.Color is sRGB; convert it as the registry does for its shader, so the preview matches the placed prim.
+                var c = PrimMaterials.ToShaderColor(previewData.Color);
+                block.SetVector(BuildAssets.ColorId, new Vector4(c.x, c.y, c.z, 0.5f));
             }
             else
             {
