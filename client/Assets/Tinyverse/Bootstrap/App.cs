@@ -351,6 +351,13 @@ namespace Tinyverse.Bootstrap
             UI.Host.StartRequested += s => StartHosting(s);
             UI.Host.StopRequested += () => StopHosting();
             UI.Host.BackRequested += () => ShowConnectScreen(null);
+            UI.Host.JoinRequested += () =>
+            {
+                if (!hosting.IsActive || hosting.Current == null) return;
+                var name = UI.Host.Settings.DisplayName;
+                Connect(hosting.Current.LocalUrl, string.IsNullOrEmpty(name) ? "Host" : name,
+                    UI.Host.Settings.Password, hosted: true);
+            };
             UI.Host.AddressCopied += a => UI.Toasts.Info("Copied " + a);
             hosting.LogLine += line => UI.Host.AppendLog(line);
             hosting.StateChanged += (s, text) => UI.Host.SetState(s, text);
