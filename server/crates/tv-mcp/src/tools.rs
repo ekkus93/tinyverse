@@ -13,7 +13,7 @@ use tv_proto::v1::{
 use crate::args::Args;
 use crate::format::{self, num, vec3};
 use crate::model::{LogLine, Session};
-use crate::world::{Bridge, Reply, error_text};
+use crate::world::{Bridge, Pending, Reply, error_text};
 
 /// What a tool call returns to the assistant.
 #[derive(Debug, Clone, PartialEq)]
@@ -34,10 +34,12 @@ const COORDS: &str = "Coordinates are metres in a left-handed, Y-up frame (as in
     y is height and the ground is at y = 0; seen from above, +x is to the right of +z. \
     Headings and yaw are degrees clockwise seen from above: 0 faces +z, 90 faces +x.";
 
-/// How long to wait for an `Error` to a message that has no success reply.
-const GRACE: Duration = Duration::from_millis(600);
-/// Within this distance (metres) of the target `move_to` counts as arrived.
+/// The server ends a `MoveTo` by snapping to the target with zero velocity.
+/// Stopped within this distance (metres) of the target counts as arrived.
 const ARRIVE_TOLERANCE: f32 = 0.5;
+/// Closer than this counts as already there, moving or not (the server sends
+/// no state at all for a move to the point the avatar stands on).
+const AT_TARGET: f32 = 0.01;
 const MAX_WAIT_S: f32 = 120.0;
 
 const SHAPES: &[&str] = &["box", "sphere", "cylinder", "cone", "wedge", "plane"];
@@ -196,7 +198,8 @@ pub fn definitions() -> Vec<Value> {
             "title": "Walk, run or fly to a point",
             "description": format!(
                 "Move your avatar in a straight line to a point (obstacles are ignored). Walking \
-                 and running stay on the ground, so y is ignored; flying moves in 3D. With \
+                 and running ignore y and keep your current height, so after flying, fly back \
+                 down (mode fly, y = 0) before walking; flying moves in 3D. With \
                  wait=true (the default) this returns when you arrive, stop, or the timeout \
                  passes, and reports where you ended up. With wait=false it returns at once \
                  while the avatar keeps moving. Typical speeds: walk 4 m/s, run 8 m/s, fly \
@@ -470,6 +473,24 @@ fn refused(msg: &ServerMessage, what: &str) -> Option<String> {
     error_text(msg).map(|e| format!("The world refused to {what}: {e}"))
 }
 
+/// Waits for the reply to a request whose success reply carries nothing we
+/// need (`Ack`, or the echo of our own chat line); fails on `Error`.
+async fn confirm(bridge: &Bridge, pending: &mut Pending, what: &str) -> Result<(), String> {
+    let limit = bridge.config().reply_timeout;
+    match pending.wait(limit).await {
+        Reply::Message(msg) => match refused(&msg, what) {
+            Some(e) => Err(e),
+            None => Ok(()),
+        },
+        Reply::TimedOut => {
+            Err(format!("The world did not answer within {} s.", limit.as_secs_f32()))
+        }
+        Reply::ConnectionLost => {
+            Err("The connection to the world was lost before it answered.".into())
+        }
+    }
+}
+
 // ---------------------------------------------------------------- look
 
 fn look_args(a: &Args) -> Result<Option<f32>, String> {
@@ -664,11 +685,7 @@ async fn move_to(bridge: &Bridge, m: MoveArgs) -> Outcome {
         if fly { vec3(Some(&target)) } else { format!("({}, {})", num(target.x), num(target.z)) };
 
     if !m.wait {
-        if let Reply::Message(msg) = pending.wait(GRACE).await
-            && let Some(e) = refused(&msg, "move there")
-        {
-            return Err(e);
-        }
+        confirm(bridge, &mut pending, "move there").await?;
         return Ok(format!(
             "Started to {mode} from {} towards {target_text}. Not waiting: use who or look to \
              check progress, stop to cancel.",
@@ -691,12 +708,13 @@ async fn move_to(bridge: &Bridge, m: MoveArgs) -> Outcome {
             } else {
                 format::distance_xz(&pos, &target)
             };
-            if left <= ARRIVE_TOLERANCE {
-                return Ok(format!("Arrived at {} ({mode}).", vec3(Some(&pos))));
-            }
             let speed_now =
                 t.velocity.map(|v| (v.x * v.x + v.y * v.y + v.z * v.z).sqrt()).unwrap_or(0.0);
-            if s.me_updates > start_updates && speed_now < 0.05 {
+            let stopped = s.me_updates > start_updates && speed_now < 0.05;
+            if left <= AT_TARGET || (stopped && left <= ARRIVE_TOLERANCE) {
+                return Ok(format!("Arrived at {} ({mode}).", vec3(Some(&pos))));
+            }
+            if stopped {
                 return Ok(format!(
                     "Stopped at {}, {} m short of {target_text}. The server ended the move early \
                      (for example at the world's edge, or another command cancelled it).",
@@ -742,11 +760,7 @@ async fn move_to(bridge: &Bridge, m: MoveArgs) -> Outcome {
 
 async fn stop(bridge: &Bridge) -> Outcome {
     let mut pending = bridge.send(C::Stop(tv_proto::v1::Stop {}))?;
-    if let Reply::Message(msg) = pending.wait(GRACE).await
-        && let Some(e) = refused(&msg, "stop")
-    {
-        return Err(e);
-    }
+    confirm(bridge, &mut pending, "stop").await?;
     with_session(bridge, |s| Ok(format!("Stopped at {}.", vec3(Some(&s.my_position())))))
 }
 
@@ -787,11 +801,8 @@ async fn say(bridge: &Bridge, a: SayArgs) -> Outcome {
     }
     let mut pending = bridge
         .send(C::Chat(tv_proto::v1::Chat { channel: a.channel as i32, text: a.text.clone() }))?;
-    if let Reply::Message(msg) = pending.wait(GRACE).await
-        && let Some(e) = refused(&msg, "pass on your message")
-    {
-        return Err(e);
-    }
+    // The server answers with our own ChatMessage (reply_to set) or an Error.
+    confirm(bridge, &mut pending, "pass on your message").await?;
     Ok(match a.channel {
         ChatChannel::World => format!("You said to the whole world: {}", a.text),
         _ => format!("You said (heard within {} m): {}", num(radius), a.text),
@@ -1153,8 +1164,7 @@ fn check_spec(s: &Session, spec: &SpecArgs, tool: &str) -> Result<(), String> {
         for (axis, v) in [("x", sc.x), ("y", sc.y), ("z", sc.z)] {
             if v < min || v > max {
                 return Err(format!(
-                    "{tool}: scale.{axis} is {} m; each axis must be from {} to {} m",
-                    num(v),
+                    "{tool}: scale.{axis} is {v} m; each axis must be from {} to {} m",
                     num(min),
                     num(max)
                 ));

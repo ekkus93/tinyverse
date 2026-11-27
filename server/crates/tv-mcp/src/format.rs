@@ -165,17 +165,8 @@ pub fn colour_names() -> String {
     NAMED_COLOURS.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(", ")
 }
 
-fn srgb_to_linear(c: f32) -> f32 {
-    if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
-}
-
-fn linear_to_srgb(c: f32) -> f32 {
-    let c = c.clamp(0.0, 1.0);
-    if c <= 0.003_130_8 { c * 12.92 } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 }
-}
-
 /// Parses `#rgb`, `#rrggbb`, `#rrggbbaa` (sRGB, as in CSS) or a colour name
-/// into the protocol's linear 0..1 colour.
+/// into the protocol's colour: sRGB 0..1 floats, the same values as the hex code.
 pub fn parse_colour(s: &str) -> Result<Color, String> {
     let t = s.trim().to_ascii_lowercase().replace([' ', '_', '-'], "");
     let hex = match NAMED_COLOURS.iter().find(|(n, _)| *n == t) {
@@ -199,7 +190,7 @@ pub fn parse_colour(s: &str) -> Result<Color, String> {
         _ => return Err(bad()),
     };
     let byte = |i: usize| u8::from_str_radix(&expanded[i..i + 2], 16).map_err(|_| bad());
-    let to = |b: u8| srgb_to_linear(b as f32 / 255.0);
+    let to = |b: u8| b as f32 / 255.0;
     Ok(Color {
         r: to(byte(0)?),
         g: to(byte(2)?),
@@ -208,10 +199,10 @@ pub fn parse_colour(s: &str) -> Result<Color, String> {
     })
 }
 
-/// Formats a linear colour as sRGB `#rrggbb` (plus alpha when not opaque).
+/// Formats a protocol colour (sRGB 0..1) as `#rrggbb`, plus alpha when not opaque.
 pub fn colour_hex(c: Option<&Color>) -> String {
     let c = c.copied().unwrap_or(Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
-    let to = |x: f32| (linear_to_srgb(x) * 255.0).round() as u8;
+    let to = |x: f32| (x.clamp(0.0, 1.0) * 255.0).round() as u8;
     let mut s = format!("#{:02x}{:02x}{:02x}", to(c.r), to(c.g), to(c.b));
     if c.a < 0.999 {
         s.push_str(&format!("{:02x}", (c.a.clamp(0.0, 1.0) * 255.0).round() as u8));
@@ -327,7 +318,7 @@ mod tests {
     fn colours_parse_and_print() {
         let c = parse_colour("#ff8000").unwrap();
         assert!(close(c.r, 1.0) && close(c.b, 0.0) && close(c.a, 1.0));
-        assert!(close(c.g, 0.21586), "sRGB 0x80 is linear 0.216, got {}", c.g);
+        assert!(close(c.g, 128.0 / 255.0), "0x80 is sent as 0.502, got {}", c.g);
         assert_eq!(colour_hex(Some(&c)), "#ff8000");
         assert_eq!(colour_hex(Some(&parse_colour("Sky Blue").unwrap())), "#87ceeb");
         assert_eq!(colour_hex(Some(&parse_colour("#f00").unwrap())), "#ff0000");

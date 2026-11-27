@@ -66,8 +66,12 @@ claude mcp add --transport stdio tinyverse -- \
   --url ws://192.168.1.10:7878/ws --token-file /path/to/scout.token --name Scout
 ```
 
-Add `--scope project` to share it through the project's `.mcp.json`, or
-`--scope user` for all your projects. The equivalent `.mcp.json` entry:
+(`--transport stdio` is the default and may be left out; `-e KEY=value`
+before the `--` sets environment variables for the server, e.g.
+`-e TINYVERSE_TOKEN=...`.) Add `--scope project` to share it through the
+project's `.mcp.json`, or `--scope user` for all your projects. Check it with
+`claude mcp get tinyverse`; it should say `✔ Connected`. This was checked with
+Claude Code 2.1.332, which speaks the 2026-07-28 revision to `tv-mcp`. The equivalent `.mcp.json` entry:
 
 ```json
 {
@@ -114,7 +118,7 @@ are plain numbers; tools accept them as numbers or strings.
 | Tool | Arguments | What it does |
 |---|---|---|
 | `look` | `radius?` | Asks the server for an `Observation`: its text summary, then nearby avatars and objects, nearest first, with id, position, distance and bearing (0 ahead, positive right). |
-| `move_to` | `x`, `z`, `y?`, `mode?` (`walk`/`run`/`fly`), `wait?` (default true), `timeout_s?` | Sends `MoveTo`. With `wait`, returns on arrival (within 0.5 m), when the server stops the avatar short, or at the timeout, with the final position. Walking and running ignore `y`. |
+| `move_to` | `x`, `z`, `y?`, `mode?` (`walk`/`run`/`fly`), `wait?` (default true), `timeout_s?` | Sends `MoveTo`. The server answers `Ack`; with `wait`, returns when the server's last state puts the avatar at the target, when it stops short, or at the timeout, with the final position. Walking and running ignore `y` and keep the current height (the server does not bring a flying avatar down), so fly to y = 0 before walking. |
 | `stop` | — | Sends `Stop`. |
 | `say` | `text`, `channel?` (`local`/`world`, default local) | Sends `Chat`. Local chat reaches about 20 m. |
 | `recent_chat` | `since_last?` (default true), `limit?` (default 50, max 300), `include_events?` (default true) | Buffered chat and events, oldest first, with UTC times. `since_last` returns only lines not yet returned by this tool or `wait_for_chat`. |
@@ -131,9 +135,10 @@ Shapes: `box`, `sphere`, `cylinder`, `cone`, `wedge`, `plane`. Materials:
 `{x, y, z}` or one number for all three; `position` is the object's centre,
 so a 1 m box resting on the ground has y = 0.5.
 
-Colours are `#rgb`, `#rrggbb` or `#rrggbbaa` in sRGB, as in CSS, or a common
-name (`red`, `navy`, `skyblue`, ...). They are converted to the protocol's
-linear 0..1 floats, and shown back as sRGB hex.
+Colours are `#rgb`, `#rrggbb` or `#rrggbbaa` (sRGB, as in CSS) or a common
+name (`red`, `navy`, `skyblue`, ...). The protocol carries the same sRGB
+values as 0..1 floats, so `#ff8000` is sent as (1.0, 0.502, 0.0) and shown
+back as `#ff8000`.
 
 `rotation_euler_deg` is `{x, y, z}` in degrees, applied as Unity's
 `Quaternion.Euler`: z (roll) first, then x (pitch), then y (yaw), about the
@@ -167,3 +172,7 @@ cargo test -p tv-mcp
 The tests run the MCP server in-process over in-memory pipes against a
 scripted mock world server (a real WebSocket on a random port), and run the
 built binary once to check that nothing but JSON-RPC reaches stdout.
+`tests/real_server.rs` also starts the real `tinyverse-server` from the
+target directory, with a second participant, and runs the tools through the
+bridge; it is skipped with a message when that binary has not been built
+(`cargo build --workspace`).

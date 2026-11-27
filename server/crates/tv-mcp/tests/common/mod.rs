@@ -79,6 +79,10 @@ pub struct Script {
     pub snapshot: Snapshot,
     pub history: Vec<ChatEntry>,
     pub refuse: Option<(ErrorCode, String)>,
+    /// Answer like the real server: `Ack` to MoveTo and Stop, and the
+    /// speaker's own ChatMessage (with reply_to) to Chat. Off for tests that
+    /// answer by hand, e.g. with an Error.
+    pub auto_reply: bool,
 }
 
 impl Default for Script {
@@ -146,6 +150,7 @@ impl Default for Script {
             },
             history: vec![chat(ADA, ADA_USER, "Ada", 2, "welcome, everyone")],
             refuse: None,
+            auto_reply: true,
         }
     }
 }
@@ -302,6 +307,19 @@ async fn serve(
                     };
                     let _ = sink.send(frame(&pong)).await;
                     continue;
+                }
+                if script.auto_reply {
+                    let reply = match &msg.body {
+                        Some(C::MoveTo(_) | C::Stop(_)) => Some(S::Ack(tv_proto::v1::Ack {})),
+                        Some(C::Chat(c)) => Some(S::ChatMessage(tv_proto::v1::ChatMessage {
+                            entry: Some(chat(ME, ME_USER, "Scout", c.channel, &c.text)),
+                        })),
+                        _ => None,
+                    };
+                    if let Some(body) = reply {
+                        let m = ServerMessage { reply_to: msg.seq, body: Some(body) };
+                        let _ = sink.send(frame(&m)).await;
+                    }
                 }
                 let _ = in_tx.send(msg);
             }
@@ -484,7 +502,12 @@ impl Client {
 
 /// Starts a mock world and a connected client.
 pub async fn connected() -> (MockWorld, MockConn, Client) {
-    let mut world = MockWorld::start(Script::default()).await;
+    connected_with(Script::default()).await
+}
+
+/// Like [`connected`], with a custom script.
+pub async fn connected_with(script: Script) -> (MockWorld, MockConn, Client) {
+    let mut world = MockWorld::start(script).await;
     let mut client = Client::start(config(&world.url()));
     client.initialize().await;
     let conn = world.next_conn().await;

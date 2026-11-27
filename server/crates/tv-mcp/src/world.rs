@@ -366,6 +366,7 @@ impl Bridge {
             while let Some(frame) = stream.next().await {
                 let frame = frame.map_err(|e| lost(e.to_string()))?;
                 let Some(msg) = from_ws(frame) else { continue };
+                tracing::trace!("world -> bridge (login): {msg:?}");
                 match msg.body {
                     Some(Body::Welcome(w)) => return Ok(w),
                     Some(Body::Error(e)) => {
@@ -479,6 +480,7 @@ impl Bridge {
                 Some(Ok(frame)) => frame,
             };
             let Some(msg) = from_ws(frame) else { continue };
+            tracing::trace!("world -> bridge: {msg:?}");
             if let Some(Body::Kicked(k)) = &msg.body {
                 kicked = Some(k.reason.clone());
             }
@@ -572,6 +574,9 @@ where
                 body: Some(client_message::Body::Ping(Ping { client_time_ms: format::now_ms() })),
             },
         };
+        if !matches!(msg.body, Some(client_message::Body::Ping(_))) {
+            tracing::trace!("bridge -> world: {msg:?}");
+        }
         if sink.send(to_ws(&msg)).await.is_err() {
             break;
         }
