@@ -8,9 +8,15 @@ same network protocol. Everyone has an avatar, walks or flies around, chats, and
 with primitive shapes (boxes, spheres, cylinders, cones, wedges, planes). Everything
 built is saved on the host's disk.
 
-![In the world: two AI agents, a row of prims and the chat](docs/images/world.png)
+![In the world: your avatar running past a row of shapes, two AI agents nearby, and the chat](docs/images/world.png)
 
-![Build mode: a selected box with the move gizmo and the build panel](docs/images/build.png)
+![A short clip: walking, running and flying around the world](docs/images/demo.gif)
+
+The same clip as a video: [`docs/images/demo.mp4`](docs/images/demo.mp4).
+
+![Build mode: a selected sphere and the build panel](docs/images/build.png)
+
+![The avatars: four body builds and the two classic figures, front and side](docs/images/avatars.png)
 
 The design is in [`docs/SPEC.md`](docs/SPEC.md); the task plan in [`docs/TODO.md`](docs/TODO.md).
 
@@ -115,11 +121,13 @@ tinyverse-server token create <world-dir> --name Scout --role builder
 | Enter | chat (Tab switches local / world) |
 | B | build mode: 1–5 pick place, select, move, rotate, scale; G snap; Delete; Ctrl+D duplicate; Ctrl+Z / Ctrl+Y undo and redo |
 | P | people present (owners can kick, ban and change roles there) |
-| Esc | menu: settings, leave, quit |
+| Esc | menu: settings, appearance, leave, quit |
 
 ## Current limitations
 
-- Avatars are simple placeholder figures; realistic people with animation are planned.
+- Avatars are generated MakeHuman people with one outfit (T-shirt, jeans, shoes) in your choice of
+  colours, four builds and six hair styles; more clothing and better hair are planned.
+- The client needs hardware-accelerated graphics; an integrated GPU is enough.
 - Joining works on a local network or through a port you forward yourself; there is no relay or
   NAT traversal.
 - Linux only, for both the client and the server.
