@@ -198,8 +198,8 @@ pub fn definitions() -> Vec<Value> {
             "title": "Walk, run or fly to a point",
             "description": format!(
                 "Move your avatar in a straight line to a point (obstacles are ignored). Walking \
-                 and running ignore y and keep your current height, so after flying, fly back \
-                 down (mode fly, y = 0) before walking; flying moves in 3D. With \
+                 and running ignore y and end on the ground (y = 0), coming down on the way if \
+                 you were in the air; flying moves in 3D. With \
                  wait=true (the default) this returns when you arrive, stop, or the timeout \
                  passes, and reports where you ended up. With wait=false it returns at once \
                  while the avatar keeps moving. Typical speeds: walk 4 m/s, run 8 m/s, fly \
@@ -641,6 +641,19 @@ fn outside(s: &Session, p: &Vec3, check_y: bool) -> Option<String> {
     })
 }
 
+/// How fast (m/s) the server brings a walking or running avatar down to the
+/// ground; only used to size the default timeout.
+const GROUND_SETTLE_SPEED: f32 = 10.0;
+
+/// Where a walking or running `MoveTo` ends vertically: the ground plane
+/// y = 0, clamped into the world bounds, as the server does.
+fn ground_y(s: &Session) -> f32 {
+    match bounds(s) {
+        Some((lo, hi)) => 0.0f32.clamp(lo.y, hi.y),
+        None => 0.0,
+    }
+}
+
 fn speed(s: &Session, mode: MoveMode) -> f32 {
     let l = &s.limits;
     let v = match mode {
@@ -665,16 +678,16 @@ async fn move_to(bridge: &Bridge, m: MoveArgs) -> Outcome {
         let st = bridge.lock();
         let s = st.session.as_ref().ok_or_else(not_connected)?;
         let here = s.my_position();
-        let target = Vec3 { x: m.x, y: m.y.unwrap_or(here.y), z: m.z };
+        // Walking and running end at ground level: the server brings the
+        // avatar down to y = 0 (clamped into the bounds) while it travels.
+        let y = if fly { m.y.unwrap_or(here.y) } else { ground_y(s) };
+        let target = Vec3 { x: m.x, y, z: m.z };
         if let Some(e) = outside(s, &target, fly) {
             return Err(format!("move_to: {e}."));
         }
-        let dist = if fly {
-            format::distance(&here, &target)
-        } else {
-            format::distance_xz(&here, &target)
-        };
-        let default = (dist / speed(s, m.mode) * 1.5 + 3.0).clamp(5.0, MAX_WAIT_S);
+        let travel = format::distance_xz(&here, &target) / speed(s, m.mode);
+        let settle = if fly { 0.0 } else { (here.y - target.y).abs() / GROUND_SETTLE_SPEED };
+        let default = (travel.max(settle) * 1.5 + 3.0).clamp(5.0, MAX_WAIT_S);
         (target, s.me_updates, here, m.timeout.unwrap_or(default))
     };
     let mut changed = bridge.subscribe();
@@ -703,15 +716,13 @@ async fn move_to(bridge: &Bridge, m: MoveArgs) -> Outcome {
             };
             let t = s.my_transform();
             let pos = t.position.unwrap_or_default();
-            let left = if fly {
-                format::distance(&pos, &target)
-            } else {
-                format::distance_xz(&pos, &target)
-            };
+            let left = format::distance(&pos, &target);
             let speed_now =
                 t.velocity.map(|v| (v.x * v.x + v.y * v.y + v.z * v.z).sqrt()).unwrap_or(0.0);
             let stopped = s.me_updates > start_updates && speed_now < 0.05;
-            if left <= AT_TARGET || (stopped && left <= ARRIVE_TOLERANCE) {
+            // Already there before the server sent anything: it will send nothing.
+            let already = s.me_updates == start_updates && left <= AT_TARGET;
+            if already || (stopped && left <= ARRIVE_TOLERANCE) {
                 return Ok(format!("Arrived at {} ({mode}).", vec3(Some(&pos))));
             }
             if stopped {
@@ -727,11 +738,7 @@ async fn move_to(bridge: &Bridge, m: MoveArgs) -> Outcome {
         if remaining.is_zero() {
             let st = bridge.lock();
             let pos = st.session.as_ref().map(|s| s.my_position()).unwrap_or_default();
-            let left = if fly {
-                format::distance(&pos, &target)
-            } else {
-                format::distance_xz(&pos, &target)
-            };
+            let left = format::distance(&pos, &target);
             return Ok(format!(
                 "Not there yet after {} s: now at {}, {} m from {target_text}. The avatar is still \
                  on its way; call move_to again to keep waiting, or stop to cancel.",

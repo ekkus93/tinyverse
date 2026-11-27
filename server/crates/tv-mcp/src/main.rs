@@ -29,6 +29,11 @@ struct Cli {
     /// read from TINYVERSE_PASSWORD.
     #[arg(long)]
     password: Option<String>,
+    /// PEM file of certificates to trust for a wss:// world, in addition to
+    /// the public roots, e.g. the world's self-signed cert.pem. Also read from
+    /// TINYVERSE_CA_FILE. Only valid with a wss:// URL.
+    #[arg(long)]
+    ca_file: Option<PathBuf>,
     /// More logging on stderr; repeat for more.
     #[arg(short, long, action = ArgAction::Count)]
     verbose: u8,
@@ -36,6 +41,8 @@ struct Cli {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    // Before anything can touch TLS: never rely on rustls picking a provider.
+    tv_mcp::tls::install_crypto_provider();
 
     let filter = match std::env::var("RUST_LOG") {
         Ok(f) if !f.is_empty() => EnvFilter::new(f),
@@ -73,6 +80,23 @@ fn main() -> ExitCode {
     config.token = token.filter(|t| !t.is_empty());
     config.name = cli.name.filter(|n| !n.trim().is_empty());
     config.password = cli.password.or_else(|| env("TINYVERSE_PASSWORD"));
+    if let Some(path) = cli.ca_file.or_else(|| env("TINYVERSE_CA_FILE").map(PathBuf::from)) {
+        if !tv_mcp::tls::is_wss(&config.url) {
+            eprintln!(
+                "tv-mcp: --ca-file (or TINYVERSE_CA_FILE) only applies to a wss:// URL, but the \
+                 URL is {}",
+                config.url
+            );
+            return ExitCode::from(2);
+        }
+        match tv_mcp::tls::load_ca_file(&path) {
+            Ok(certs) => config.ca_certs = certs,
+            Err(e) => {
+                eprintln!("tv-mcp: {e}");
+                return ExitCode::from(2);
+            }
+        }
+    }
 
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(r) => r,

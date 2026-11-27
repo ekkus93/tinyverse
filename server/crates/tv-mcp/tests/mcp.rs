@@ -326,6 +326,34 @@ async fn move_to_waits_for_arrival() {
 }
 
 #[tokio::test]
+async fn walking_from_the_air_arrives_on_the_ground() {
+    let (_world, mut conn, mut c) = connected().await;
+    let state = |x: f32, y: f32, z: f32, vy: f32| {
+        S::AvatarStates(AvatarStates {
+            server_time_ms: 0,
+            states: vec![avatar_states::Entry {
+                avatar_id: ME,
+                transform: Some(transform(v(x, y, z), v(0.0, vy, 0.0))),
+            }],
+        })
+    };
+    conn.send(0, state(0.0, 5.0, 0.0, 0.0));
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let id = c.start_call("move_to", json!({"x": 2, "z": 0})).await;
+    let msg = conn.recv().await;
+    let Some(C::MoveTo(m)) = &msg.body else { panic!("expected MoveTo, got {msg:?}") };
+    assert_eq!(m.target.unwrap().y, 0.0, "walking aims for the ground");
+    // Over the target horizontally but still coming down: not arrived yet.
+    conn.send(0, state(2.0, 2.0, 0.0, -10.0));
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    conn.send(0, state(2.0, 0.0, 0.0, 0.0));
+    let (text, err) = c.finish_call(id).await;
+    assert!(!err, "{text}");
+    assert_eq!(text, "Arrived at (2, 0, 0) (walk).");
+    c.shutdown().await;
+}
+
+#[tokio::test]
 async fn move_to_reports_a_timeout_and_an_early_stop() {
     let (_world, mut conn, mut c) = connected().await;
     let started = Instant::now();

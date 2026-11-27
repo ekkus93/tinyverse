@@ -25,8 +25,12 @@ cargo build --release -p tv-mcp
 Agents join with a token the host creates ahead of time:
 
 ```sh
-tinyverse-server token create <world-dir> --name scout --role builder
+tinyverse-server token create <world-dir> --name Scout --role builder
 ```
+
+It prints the new user's id and a `token:` line; the token is shown only once.
+Put it in a file (e.g. `scout.token`) for `--token-file`, or pass it with
+`--token` / `TINYVERSE_TOKEN`.
 
 Without a token, `tv-mcp` joins as a new user with `--name` (and `--password`
 if the world has one), and reuses the session token the server hands back when
@@ -35,7 +39,7 @@ it reconnects during the same run.
 ## Run
 
 ```text
-tv-mcp [--url ws://host:7878/ws] [--token TOKEN | --token-file FILE] [--name NAME] [--password PW] [-v]
+tv-mcp [--url ws://host:7878/ws | wss://host:7878/ws] [--ca-file PEM] [--token TOKEN | --token-file FILE] [--name NAME] [--password PW] [-v]
 ```
 
 | Flag | Meaning |
@@ -45,6 +49,7 @@ tv-mcp [--url ws://host:7878/ws] [--token TOKEN | --token-file FILE] [--name NAM
 | `--token-file` | File holding the token (whitespace trimmed). An unreadable or empty file is a start-up error. |
 | `--name` | Display name. Optional when the token belongs to an existing user. |
 | `--password` | The world's join password, if it has one and no token is used. Also `TINYVERSE_PASSWORD`. |
+| `--ca-file` | PEM file of certificates to trust for a `wss://` world in addition to the public roots, e.g. the world's self-signed `cert.pem`. Also `TINYVERSE_CA_FILE`. Using it with a `ws://` URL, or a file that is unreadable or holds no certificates, is a start-up error. |
 | `-v`, `-vv` | More logging. `RUST_LOG` overrides. |
 
 stdout carries only MCP messages; all logging goes to stderr.
@@ -55,6 +60,24 @@ that says why, and tries to connect again. After a dropped connection it
 reconnects in the background (1 s, 2 s, 4 s ... up to 30 s apart), except
 after being kicked, when it waits for the next tool call. It pings the world
 every 10 s.
+
+## TLS (`wss://`)
+
+A world serves `wss://` when its directory holds `cert.pem` and `key.pem`.
+With a certificate from a public CA, a `wss://` URL is all `tv-mcp` needs. For
+a self-signed one (`tinyverse-server tls self-signed <world-dir>`, valid for
+`localhost` and `127.0.0.1` unless `--host` says otherwise), give the bridge a
+copy of the world's `cert.pem`; it never needs `key.pem`:
+
+```sh
+tv-mcp --url wss://127.0.0.1:7878/ws --ca-file /path/to/cert.pem --token-file scout.token
+```
+
+Without `--ca-file` a self-signed world is refused, and every tool returns an
+error saying the certificate is not trusted and to pass `--ca-file`. A
+`ws://` URL for a TLS port, or a `wss://` URL for a plain one, also gives an
+error naming the fix. TLS uses rustls with the `ring` provider; reconnects go
+over TLS too.
 
 ## Add it to an MCP client
 
@@ -118,7 +141,7 @@ are plain numbers; tools accept them as numbers or strings.
 | Tool | Arguments | What it does |
 |---|---|---|
 | `look` | `radius?` | Asks the server for an `Observation`: its text summary, then nearby avatars and objects, nearest first, with id, position, distance and bearing (0 ahead, positive right). |
-| `move_to` | `x`, `z`, `y?`, `mode?` (`walk`/`run`/`fly`), `wait?` (default true), `timeout_s?` | Sends `MoveTo`. The server answers `Ack`; with `wait`, returns when the server's last state puts the avatar at the target, when it stops short, or at the timeout, with the final position. Walking and running ignore `y` and keep the current height (the server does not bring a flying avatar down), so fly to y = 0 before walking. |
+| `move_to` | `x`, `z`, `y?`, `mode?` (`walk`/`run`/`fly`), `wait?` (default true), `timeout_s?` | Sends `MoveTo`. The server answers `Ack`; with `wait`, returns when the server's last state puts the avatar at the target, when it stops short, or at the timeout, with the final position. Walking and running ignore `y` and end on the ground (y = 0); from the air the server brings the avatar down on the way. |
 | `stop` | — | Sends `Stop`. |
 | `say` | `text`, `channel?` (`local`/`world`, default local) | Sends `Chat`. Local chat reaches about 20 m. |
 | `recent_chat` | `since_last?` (default true), `limit?` (default 50, max 300), `include_events?` (default true) | Buffered chat and events, oldest first, with UTC times. `since_last` returns only lines not yet returned by this tool or `wait_for_chat`. |
@@ -173,6 +196,8 @@ The tests run the MCP server in-process over in-memory pipes against a
 scripted mock world server (a real WebSocket on a random port), and run the
 built binary once to check that nothing but JSON-RPC reaches stdout.
 `tests/real_server.rs` also starts the real `tinyverse-server` from the
-target directory, with a second participant, and runs the tools through the
-bridge; it is skipped with a message when that binary has not been built
+target directory and runs the tools through the bridge: over `ws://` with a
+second participant, and over `wss://` with a self-signed certificate and
+`--ca-file` (including a server restart and the TLS mismatch errors). These
+tests are skipped with a message when that binary has not been built
 (`cargo build --workspace`).
