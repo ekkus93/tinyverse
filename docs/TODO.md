@@ -28,7 +28,8 @@ Everything else depends on this. Do not parallelise.
 
 - [ ] **M0.1 Repo skeleton**
   - Owns: `server/Cargo.toml`, `server/crates/*/` (empty crates), `scripts/`, `.gitignore`, `README.md`
-  - Done when: `cargo build --workspace` passes with six stub crates.
+  - Fix `.gitignore`: it is the Unity template with root-anchored patterns (`/Library/`, `/Temp/`, ...), which will not match under `client/`. Re-anchor them to `client/` and add `server/target/`.
+  - Done when: `cargo build --workspace` passes with six stub crates, and `git status` is clean after a build.
 - [ ] **M0.2 Protocol schema**
   - Owns: `proto/tinyverse/v1/`
   - Write every message in SPEC 4.3, including the ones only used in later milestones, so the schema does not churn.
