@@ -1,4 +1,5 @@
-using System;
+using System.Collections.Generic;
+using System.Linq;
 using Tinyverse.Building;
 using Tinyverse.World;
 using UnityEngine;
@@ -7,9 +8,10 @@ using UIBuildTool = Tinyverse.UI.BuildTool;
 namespace Tinyverse.Bootstrap
 {
     /// <summary>
-    /// <c>--demo-build</c>: after joining, enters build mode, shows the placement preview, places one prim of
-    /// each shape in a row in front of the avatar through the real BuildController → network path, selects
-    /// one and steps through the move, rotate and scale gizmos, so screenshots show every part of build mode.
+    /// <c>--demo-build</c>: after joining, enters build mode, shows the placement preview, places a row of prims
+    /// (every shape and material, plus white and black) in front of the avatar through the real
+    /// BuildController → network path, steps through the move, rotate and scale gizmos on one of them, then
+    /// selects each prim in turn so screenshots show the outline on every colour and material.
     /// </summary>
     public sealed class DemoBuild
     {
@@ -23,12 +25,17 @@ namespace Tinyverse.Bootstrap
             (PrimShape.Cone, "#66ccff", PrimMaterial.Glass),
             (PrimShape.Wedge, "#ff3366", PrimMaterial.Emissive),
             (PrimShape.Plane, "#44bb44", PrimMaterial.Matte),
+            (PrimShape.Box, "#ffffff", PrimMaterial.Matte),
+            (PrimShape.Box, "#000000", PrimMaterial.Glossy),
         };
+
+        const float PreviewAt = 1f, PlaceAt = 5f, MoveAt = 7f, RotateAt = 11f, ScaleAt = 15f, CycleAt = 19f, CycleEvery = 2f;
 
         readonly WorldSession session;
         float t = -1f;
         int step;
-        ulong firstId;
+        List<ulong> placed;
+        int cycled = -1;
 
         public DemoBuild(WorldSession session)
         {
@@ -47,84 +54,102 @@ namespace Tinyverse.Bootstrap
             if (build == null) return;
             var panel = session.UI?.Build;
 
-            // Point at the ground a little ahead of the avatar, below the screen centre.
-            Input.Pointer = new Vector2(Screen.width * 0.5f, Screen.height * 0.3f);
+            // During the preview the pointer rests on the ground ahead of the avatar; otherwise in a corner.
+            bool previewing = step == 1;
+            Input.Pointer = previewing ? new Vector2(Screen.width * 0.5f, Screen.height * 0.3f) : new Vector2(10f, 10f);
 
-            if (Due(1f))
+            if (Due(0, PreviewAt))
             {
                 Phase = "preview";
                 session.SetBuildMode(true);
-                if (panel != null) panel.ChooseTool(UIBuildTool.Place); else build.Tool = BuildTool.Place;
+                Tool(UIBuildTool.Place);
                 build.CurrentShape = PrimShape.Box;
                 build.CurrentColor = Hex("#ff8000");
                 panel?.SetShape(Tinyverse.UI.ShapeKind.Box);
                 panel?.SetColor(Hex("#ff8000"));
             }
-            else if (Due(5f))
+            else if (Due(1, PlaceAt))
             {
                 Phase = "placing";
-                var avatar = session.LocalAvatar;
-                var basePos = avatar.transform.position;
-                var right = avatar.transform.right;
-                var originalPos = build.AvatarPosition;
-                for (int i = 0; i < Row.Length; i++)
-                {
-                    var (shape, hex, material) = Row[i];
-                    build.CurrentShape = shape;
-                    build.CurrentColor = Hex(hex);
-                    build.CurrentMaterial = material;
-                    var at = basePos + right * ((i - (Row.Length - 1) * 0.5f) * 1.8f);
-                    build.AvatarPosition = () => at;
-                    build.PlaceInFrontOfAvatar();
-                }
-                build.AvatarPosition = originalPos;
-                if (panel != null) panel.ChooseTool(UIBuildTool.Select); else build.Tool = BuildTool.Select;
-                Input.Pointer = new Vector2(10f, 10f);
+                PlaceRow(build);
+                Tool(UIBuildTool.Select);
             }
-            else if (Due(7f))
+            else if (Due(2, MoveAt))
             {
                 Phase = "move";
-                firstId = FindBox();
-                build.Select(firstId);
-                if (panel != null) panel.ChooseTool(UIBuildTool.Move); else build.Tool = BuildTool.Move;
+                placed = Own().ToList();
+                build.Select(placed.FirstOrDefault());
+                Tool(UIBuildTool.Move);
             }
-            else if (Due(11f))
+            else if (Due(3, RotateAt))
             {
                 Phase = "rotate";
-                if (panel != null) panel.ChooseTool(UIBuildTool.Rotate); else build.Tool = BuildTool.Rotate;
+                Tool(UIBuildTool.Rotate);
             }
-            else if (Due(15f))
+            else if (Due(4, ScaleAt))
             {
                 Phase = "scale";
-                if (panel != null) panel.ChooseTool(UIBuildTool.Scale); else build.Tool = BuildTool.Scale;
+                Tool(UIBuildTool.Scale);
             }
-            else if (Due(19f))
+            else if (step >= 5 && t >= CycleAt)
             {
-                Phase = "done";
+                // Select each placed prim in turn with the Select tool: the outline on every colour and material.
+                int i = (int)((t - CycleAt) / CycleEvery);
+                if (i != cycled)
+                {
+                    cycled = i;
+                    if (i == 0) Tool(UIBuildTool.Select);
+                    placed = Own().ToList();
+                    if (i < placed.Count)
+                    {
+                        build.Select(placed[i]);
+                        Phase = "select-" + i;
+                    }
+                    else Phase = "done";
+                }
             }
-            if (step >= 1 && step < 2) Input.Pointer = new Vector2(Screen.width * 0.5f, Screen.height * 0.3f);
-            else Input.Pointer = new Vector2(10f, 10f);
         }
 
-        bool Due(float at)
+        void PlaceRow(BuildController build)
         {
-            int index = (int)Math.Round(at) switch { 1 => 0, 5 => 1, 7 => 2, 11 => 3, 15 => 4, _ => 5 };
+            var avatar = session.LocalAvatar;
+            var basePos = avatar.transform.position;
+            var right = avatar.transform.right;
+            var originalPos = build.AvatarPosition;
+            for (int i = 0; i < Row.Length; i++)
+            {
+                var (shape, hex, material) = Row[i];
+                build.CurrentShape = shape;
+                build.CurrentColor = Hex(hex);
+                build.CurrentMaterial = material;
+                var at = basePos + right * ((i - (Row.Length - 1) * 0.5f) * 1.6f);
+                build.AvatarPosition = () => at;
+                build.PlaceInFrontOfAvatar();
+            }
+            build.AvatarPosition = originalPos;
+        }
+
+        void Tool(UIBuildTool tool)
+        {
+            var panel = session.UI?.Build;
+            if (panel != null) panel.ChooseTool(tool);
+            else session.Build.Tool = (BuildTool)(int)tool;
+        }
+
+        bool Due(int index, float at)
+        {
             if (step != index || t < at) return false;
             step++;
             return true;
         }
 
-        ulong FindBox()
+        /// <summary>This user's prims, left to right as seen from the avatar.</summary>
+        IEnumerable<ulong> Own()
         {
-            var target = Hex("#ff8000");
-            foreach (var d in session.Objects.All)
-                if (d.Shape == PrimShape.Box && Approximately(d.Color, target) && d.OwnerId == session.UserId) return d.Id;
-            foreach (var d in session.Objects.All) return d.Id;
-            return 0;
+            var a = session.LocalAvatar.transform;
+            return session.Objects.All.Where(d => d.OwnerId == session.UserId)
+                .OrderBy(d => Vector3.Dot(d.Position - a.position, a.right)).Select(d => d.Id);
         }
-
-        static bool Approximately(Color a, Color b) =>
-            Mathf.Abs(a.r - b.r) < 0.01f && Mathf.Abs(a.g - b.g) < 0.01f && Mathf.Abs(a.b - b.b) < 0.01f;
 
         static Color Hex(string hex) => ColorUtility.TryParseHtmlString(hex, out var c) ? c : Color.white;
     }

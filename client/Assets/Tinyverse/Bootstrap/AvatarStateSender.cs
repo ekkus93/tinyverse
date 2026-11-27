@@ -57,8 +57,8 @@ namespace Tinyverse.Bootstrap
     }
 
     /// <summary>
-    /// <c>--demo-walk</c>: drives the local avatar along a small figure — walking, running, a jump and a
-    /// short flight — so automated runs and screenshots show movement.
+    /// <c>--demo-walk</c>: drives the local avatar along a small figure — walking, running, jumps, flights,
+    /// a drop from the air and a landing — so automated runs and screenshots show movement.
     /// </summary>
     public sealed class DemoWalk
     {
@@ -70,18 +70,20 @@ namespace Tinyverse.Bootstrap
         public void Tick(float dt, bool isFlying)
         {
             t += dt;
-            // A 24 s cycle: walk a circle, run a circle, jump twice, fly up and land.
-            float c = t % 24f;
-            int p = c < 8f ? 0 : c < 14f ? 1 : c < 17f ? 2 : c < 18.5f ? 3 : 4;
+            // A 30 s cycle: walk a circle, run a circle, jump twice, fly up and along, stop flying in
+            // mid-air and drop, fly up again and descend to land.
+            float c = t % 30f;
+            int p = c < 8f ? 0 : c < 14f ? 1 : c < 17f ? 2 : c < 19f ? 3 : c < 21f ? 4 : c < 23f ? 5 : c < 24.5f ? 6 : 7;
             float turn = t * 0.55f;
-            Input.Move = new Vector2(Mathf.Sin(turn), Mathf.Cos(turn));
-            Input.Run = p == 1;
-            Input.Up = p == 3;
-            Input.Down = p == 4; // descending onto the ground ends the flight
+            Input.Move = p == 5 ? Vector2.zero : new Vector2(Mathf.Sin(turn), Mathf.Cos(turn));
+            Input.Run = p == 1 || p == 4;
+            Input.Up = p == 3 || p == 6;
+            Input.Down = p == 7; // descending onto the ground ends the flight
             if (p != phase)
             {
                 if (p == 2) Input.Jump();
-                if (p == 3 && !isFlying) Input.ToggleFly();
+                if ((p == 3 || p == 6) && !isFlying) Input.ToggleFly();
+                if (p == 5 && isFlying) Input.ToggleFly(); // the drop: gravity takes over
                 phase = p;
             }
             if (p == 2 && Mathf.Abs(c - 15.5f) < dt) Input.Jump();

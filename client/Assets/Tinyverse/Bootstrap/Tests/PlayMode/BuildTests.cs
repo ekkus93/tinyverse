@@ -119,7 +119,10 @@ namespace Tinyverse.Bootstrap.Tests
             h.BuildInput.Release();
             yield return Wait.For(() => Mathf.Abs(Only().Spec.Position.X - (start.x + 2f)) < 0.3f, 5f, "the server to have the moved box");
             yield return Wait.For(() => !h.Session.Objects.IsLocallyControlled(created.Id), 2f, "local control to end");
-            Assert.AreEqual(Only().Spec.Position.X, h.Session.Objects.GetGameObject(created.Id).transform.position.x, 0.01f);
+            // After local control ends the registry eases to the server's state; wait for it to land.
+            var boxGo = h.Session.Objects.GetGameObject(created.Id);
+            yield return Wait.For(() => Mathf.Abs(boxGo.transform.position.x - Only().Spec.Position.X) < 0.01f, 2f,
+                "the box to settle on the server's position");
             Assert.AreEqual(0, h.Session.CorrectionCount);
 
             // Recolour the selection (what the panel's ColorCommitted does).

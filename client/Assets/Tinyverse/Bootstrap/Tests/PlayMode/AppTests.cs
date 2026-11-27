@@ -181,6 +181,17 @@ namespace Tinyverse.Bootstrap.Tests
             yield return InWorld();
             Assert.AreEqual(P.Role.Owner, app.Session.Role, "rejoined as owner from the Connect screen");
 
+            // Again, and back in through the Host screen's Join (Escape on the Host screen joins while running).
+            app.RequestDisconnect();
+            app.UI.Confirm.Cancel();
+            app.ShowHostScreen();
+            Assert.AreEqual(UIScreen.Host, app.UI.Screen);
+            Assert.AreEqual(Tinyverse.UI.HostState.Running, app.UI.Host.State, "the Host screen shows the running server");
+            Assert.AreEqual("host-join", app.UI.HandleEscape());
+            yield return InWorld();
+            Assert.AreEqual(P.Role.Owner, app.Session.Role, "rejoined as owner through Join");
+            Assert.AreEqual(UIScreen.Hud, app.UI.Screen);
+
             app.Shutdown(); // what Application.quitting does
             Assert.AreEqual(Tinyverse.Host.HostState.Stopped, app.Hosting.Process == null ? Tinyverse.Host.HostState.Stopped : app.Hosting.Process.State);
             Assert.IsFalse(ProcessAlive(pid.Value), "the server process is gone");

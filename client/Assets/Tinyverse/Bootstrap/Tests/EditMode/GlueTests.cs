@@ -174,9 +174,11 @@ namespace Tinyverse.Bootstrap.Tests
             Assert.AreEqual(derived, ProtoConvert.ToLook(new P.Appearance(), "user-a").BodyColor);
             Assert.AreEqual(BodyColors.ForUser("user-a"), derived);
             Assert.AreNotEqual(BodyColors.ForUser("user-a"), BodyColors.ForUser("user-b"));
-            // The server stores a left-out colour as opaque white: treated as not chosen.
+            // A left-out colour arrives all-zero (not chosen); white is a real choice.
+            var zero = new P.Appearance { BodyColor = new P.Color() };
+            Assert.AreEqual(derived, ProtoConvert.ToLook(zero, "user-a").BodyColor);
             var white = new P.Appearance { BodyColor = new P.Color { R = 1, G = 1, B = 1, A = 1 } };
-            Assert.AreEqual(derived, ProtoConvert.ToLook(white, "user-a").BodyColor);
+            Assert.AreEqual(Color.white, ProtoConvert.ToLook(white, "user-a").BodyColor);
             var chosen = new P.Appearance { BodyColor = new P.Color { R = 0.2f, G = 0.4f, B = 0.6f, A = 1 } };
             Assert.AreEqual(new Color(0.2f, 0.4f, 0.6f, 1f), ProtoConvert.ToLook(chosen, "user-a").BodyColor);
         }
