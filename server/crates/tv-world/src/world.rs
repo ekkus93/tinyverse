@@ -2,6 +2,7 @@
 //! submodules: `movement`, `chat`, `objects`, `observe` and `admin`.
 
 mod admin;
+mod allowance;
 mod chat;
 mod movement;
 mod objects;
@@ -13,6 +14,7 @@ mod tests;
 
 use std::collections::{BTreeMap, VecDeque};
 
+use self::allowance::Allowance;
 use crate::command::{Command, JoinRequest};
 use crate::error::WorldError;
 use crate::event::{Audience, Event, EventKind};
@@ -35,8 +37,8 @@ pub struct World {
 struct Presence {
     /// `avatar.transform` is always the last accepted transform.
     avatar: Avatar,
-    /// When `avatar.transform` was last accepted or set by the world.
-    last_accepted_ms: i64,
+    /// How far the client may still move the avatar (the speed check).
+    allowance: Allowance,
     /// A `MoveTo` in progress.
     move_to: Option<MoveTarget>,
     /// `Some(server_driven)` if the transform changed since the last tick.
@@ -126,10 +128,8 @@ impl World {
             },
         };
         events.push(Event::new(Audience::AllExcept(id), EventKind::AvatarJoined(avatar.clone())));
-        self.avatars.insert(
-            id,
-            Presence { avatar, last_accepted_ms: now_ms, move_to: None, changed: None },
-        );
+        let allowance = Allowance::fresh(&self.config.limits, avatar.transform.move_mode, now_ms);
+        self.avatars.insert(id, Presence { avatar, allowance, move_to: None, changed: None });
         Ok((id, events))
     }
 
@@ -161,7 +161,7 @@ impl World {
         match command {
             Command::AvatarState(transform) => self.avatar_state(actor, transform, now_ms),
             Command::MoveTo { target, mode } => self.move_to(actor, target, mode),
-            Command::Stop => Ok(self.stop(actor)),
+            Command::Stop => Ok(self.stop(actor, now_ms)),
             Command::Chat { channel, text } => self.chat(actor, channel, &text, now_ms),
             Command::ChatHistory { since_ms, limit } => Ok(vec![Event::new(
                 Audience::Only(actor),
