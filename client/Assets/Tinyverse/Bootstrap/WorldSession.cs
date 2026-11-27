@@ -192,6 +192,8 @@ namespace Tinyverse.Bootstrap
             {
                 if (Orbit == null) Orbit = OrbitCamera.Create(camera);
                 Orbit.Follow(LocalAvatar);
+                // The demo walk steers in world space; its camera looks back at the spawn point (below).
+                if (demo != null) LocalAvatar.ViewYaw = () => 0f;
                 NameTag.ViewCamera = camera;
                 if (ui != null) Orbit.IsPointerOverUI = () => ui.IsPointerOverUI;
             }
@@ -346,6 +348,13 @@ namespace Tinyverse.Bootstrap
                 LocalAvatar.InputEnabled = !blocked;
                 if (Orbit != null) Orbit.InputEnabled = !blocked;
                 demo?.Tick(dt, LocalAvatar.IsFlying);
+                if (demo != null && Orbit != null)
+                {
+                    // Keep the spawn area (where others build) in view behind the walking avatar.
+                    var toCentre = ProtoConvert.ToVector3(Welcome?.World?.SpawnPoint) - LocalAvatar.transform.position;
+                    if (new Vector2(toCentre.x, toCentre.z).sqrMagnitude > 4f)
+                        Orbit.Yaw = Mathf.LerpAngle(Orbit.Yaw, AvatarMotion.YawOf(toCentre), 1f - Mathf.Exp(-2f * dt));
+                }
 
             }
             Objects.Tick(dt);

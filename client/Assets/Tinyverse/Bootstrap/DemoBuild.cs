@@ -122,7 +122,8 @@ namespace Tinyverse.Bootstrap
                 build.CurrentShape = shape;
                 build.CurrentColor = Hex(hex);
                 build.CurrentMaterial = material;
-                var at = basePos + right * ((i - (Row.Length - 1) * 0.5f) * 1.6f);
+                // Left of centre, so the row stays clear of the build panel on the right of the screen.
+                var at = basePos + right * ((i - (Row.Length - 1) * 0.5f) * 1.45f - 1.2f);
                 build.AvatarPosition = () => at;
                 build.PlaceInFrontOfAvatar();
             }

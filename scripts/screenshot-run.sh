@@ -4,7 +4,7 @@
 # Usage: scripts/screenshot-run.sh <out-dir> [seconds] [width height] [extra player args...]
 #   Starts tinyverse-server on a free port in a temporary world, two tv-cli bots (wander, circle),
 #   creates one object of every shape and material (including a #ff8000 box), says something in
-#   chat, then runs client/Builds/Linux/tinyverse.x86_64 with --connect, --demo-walk (DEMO_WALK= to drop it),
+#   chat, sends an agent to walk 90 m away next to a far box (distance haze), then runs client/Builds/Linux/tinyverse.x86_64 with --connect, --demo-walk (DEMO_WALK= to drop it),
 #   --screenshot-dir, --screenshot-tour and --quit-after. Everything it started is stopped on exit.
 set -uo pipefail
 
@@ -49,6 +49,9 @@ cli --name Builder create --shape wedge --pos 3.6,0.5,8 --color '#ff3366' --mate
 cli --name Builder create --shape plane --pos 6,0.01,8 --scale 2 --color '#44bb44' --material matte >/dev/null
 cli --name Builder create --shape box --pos 0,1.5,14 --scale 6,3,0.3 --color '#f5f0e6' --material matte --object-name wall >/dev/null
 cli --name Builder say "Hello from tv-cli, the world chat works" >/dev/null
+# Far away (90 m ahead of the spawn point): a box and an agent walking there, to show the distance haze.
+cli --name Builder create --shape box --pos -30,1,90 --scale 2 --color '#ff8000' --object-name "far box" >/dev/null
+( echo "/goto -26 0 90"; sleep "$(( ${secs%.*} + 60 ))" ) | cli --name Faraway connect >/dev/null 2>&1 & pids+=($!)
 
 "$player" -logFile "$out/player.log" -screen-width "$width" -screen-height "$height" -screen-fullscreen 0 \
   --fresh-profile "$work/profile" --connect "$url" --name "Camera" ${DEMO_WALK---demo-walk} \

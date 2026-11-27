@@ -299,6 +299,8 @@ namespace Tinyverse.Bootstrap
                 Hosted = hosted,
             });
             Session.Ended += OnSessionEnded;
+            // The Host screen said "Joining your world…" meanwhile; back to the running status.
+            if (hosted && hosting.Current != null) UI.Host.SetState(UIHostState.Running, "Running at " + hosting.Current.LocalUrl);
             UI.Connect.SetBusy(false);
             UI.Connect.ClearError();
             UI.Chat.Clear();

@@ -187,6 +187,7 @@ namespace Tinyverse.Bootstrap.Tests
             app.ShowHostScreen();
             Assert.AreEqual(UIScreen.Host, app.UI.Screen);
             Assert.AreEqual(Tinyverse.UI.HostState.Running, app.UI.Host.State, "the Host screen shows the running server");
+            StringAssert.StartsWith("Running at ws://", app.UI.Host.StatusText, "not stuck on \"Joining your world\"");
             Assert.AreEqual("host-join", app.UI.HandleEscape());
             yield return InWorld();
             Assert.AreEqual(P.Role.Owner, app.Session.Role, "rejoined as owner through Join");

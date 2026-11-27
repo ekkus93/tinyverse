@@ -80,6 +80,14 @@ namespace Tinyverse.Bootstrap
                 yield return new WaitForSecondsRealtime(0.6f);
                 yield return Shot("people");
                 app.UI.TogglePeople();
+                if (app.Hosting.IsRunning)
+                {
+                    // The Host screen while the server runs (log, share address, Join and Stop).
+                    app.UI.ShowScreen(UIScreen.Host);
+                    yield return new WaitForSecondsRealtime(0.6f);
+                    yield return Shot("host-running");
+                    app.UI.ShowScreen(UIScreen.Hud);
+                }
                 touring = false;
             }
         }
@@ -91,7 +99,9 @@ namespace Tinyverse.Bootstrap
             string file = Path.Combine(args.ScreenshotDirectory,
                 string.Format(CultureInfo.InvariantCulture, "shot-{0:000}-{1}-{2}x{3}.png", shotCount, label, Screen.width, Screen.height));
             ScreenCapture.CaptureScreenshot(file);
-            Debug.Log("[Bootstrap] screenshot " + file);
+            var s = app.Session;
+            Debug.Log("[Bootstrap] screenshot " + file + (s == null ? "" :
+                $" (avatars seen: {string.Join(", ", System.Linq.Enumerable.Select(s.RemoteAvatars.Values, r => r.DisplayName + " at " + r.transform.position.ToString("F1")))}; objects: {s.Objects.Count})"));
         }
 
         void Update()

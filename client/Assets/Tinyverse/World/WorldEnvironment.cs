@@ -328,7 +328,9 @@ namespace Tinyverse.World
             if (skyMaterial != null)
             {
                 skyMaterial.SetColor("_SkyTint", look.Tint);
-                skyMaterial.SetColor("_GroundColor", Color.Lerp(new Color(0.05f, 0.05f, 0.06f), new Color(0.37f, 0.36f, 0.33f), day));
+                // Below the horizon the sky shows past the ground's edge (seen from the air): match the fog's haze
+                // so the edge of the world fades out instead of meeting a dark band. The sky's exposure brightens it.
+                skyMaterial.SetColor("_GroundColor", haze * (1f / Mathf.Max(1f, look.Exposure)));
                 skyMaterial.SetFloat("_AtmosphereThickness", look.Atmosphere);
                 skyMaterial.SetFloat("_Exposure", Mathf.Lerp(0.12f, look.Exposure, day));
                 skyMaterial.SetFloat("_SunSize", elevation > -0.02f ? 0.04f : 0.02f);
