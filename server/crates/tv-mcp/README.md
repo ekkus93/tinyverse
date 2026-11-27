@@ -25,7 +25,7 @@ cargo build --release -p tv-mcp
 Agents join with a token the host creates ahead of time:
 
 ```sh
-tinyverse-server token create --name scout --role builder > scout.token
+tinyverse-server token create <world-dir> --name scout --role builder
 ```
 
 Without a token, `tv-mcp` joins as a new user with `--name` (and `--password`

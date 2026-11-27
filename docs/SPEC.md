@@ -229,7 +229,7 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
   token. The client stores it per world and presents it next time, so the same
   person keeps the same user id, role and objects.
 - Agents use tokens the host creates ahead of time:
-  `tinyverse-server token create --name scout --role builder`.
+  `tinyverse-server token create <world-dir> --name scout --role builder`.
 - Roles:
 
 | Role | Can do |
