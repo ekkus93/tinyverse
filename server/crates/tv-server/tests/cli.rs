@@ -13,8 +13,62 @@ use tv_world::{ClientKind, Role, UserId};
 
 const BIN: &str = env!("CARGO_BIN_EXE_tinyverse-server");
 
+fn command() -> Command {
+    let mut cmd = Command::new(BIN);
+    cmd.env_remove("RUST_LOG").env_remove("TINYVERSE_PASSWORD");
+    cmd
+}
+
 fn run(args: &[&str]) -> Output {
-    Command::new(BIN).args(args).env_remove("RUST_LOG").output().unwrap()
+    command().args(args).output().unwrap()
+}
+
+/// Runs with `input` on stdin and extra environment.
+fn run_with(args: &[&str], input: &str, env: &[(&str, &str)]) -> Output {
+    use std::io::Write;
+    let mut child = command()
+        .args(args)
+        .envs(env.iter().copied())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+    child.wait_with_output().unwrap()
+}
+
+/// Starts `run` and returns the child, the URL from its `listening on`
+/// line, and its stdout (still open).
+fn spawn_run(
+    dir: &Path,
+    extra: &[&str],
+) -> (std::process::Child, String, BufReader<std::process::ChildStdout>) {
+    let mut child = command()
+        .args(["run", s(dir), "--port", "0", "--bind", "127.0.0.1"])
+        .args(extra)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut line = String::new();
+    stdout.read_line(&mut line).unwrap();
+    let url = line.trim().strip_prefix("listening on ").unwrap_or_else(|| panic!("{line:?}"));
+    (child, url.to_owned(), stdout)
+}
+
+fn sigterm_and_wait(child: &mut std::process::Child) -> std::process::ExitStatus {
+    let status = Command::new("kill").args(["-TERM", &child.id().to_string()]).status().unwrap();
+    assert!(status.success());
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            return status;
+        }
+        assert!(Instant::now() < deadline, "server did not stop after SIGTERM");
+        std::thread::sleep(Duration::from_millis(20));
+    }
 }
 
 fn ok(args: &[&str]) -> String {
@@ -234,4 +288,165 @@ fn run_serves_until_sigterm() {
         std::thread::sleep(Duration::from_millis(50));
     };
     assert!(status.success(), "exit status {status:?}");
+}
+fn verify(dir: &Path, password: &str) -> bool {
+    let file = WorldFile::load(&WorldDir::new(dir)).unwrap();
+    tv_server::auth::verify_password(password, file.password_hash.as_deref().unwrap())
+}
+
+#[test]
+fn passwords_from_stdin_and_the_environment() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let a = tmp.path().join("stdin");
+    let out = run_with(&["init", s(&a), "--password-stdin"], "piped secret\n", &[]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(verify(&a, "piped secret"));
+
+    let b = tmp.path().join("env");
+    let out = run_with(&["init", s(&b)], "", &[("TINYVERSE_PASSWORD", "env secret")]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(verify(&b, "env secret"));
+
+    // Empty is an error, and nothing is created.
+    let c = tmp.path().join("empty");
+    let out = run_with(&["init", s(&c), "--password-stdin"], "\n", &[]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("empty"));
+    let out = run_with(&["init", s(&c)], "", &[("TINYVERSE_PASSWORD", "")]);
+    assert!(!out.status.success());
+    assert!(!c.exists());
+
+    let out = run_with(&["password", s(&a), "--set-stdin"], "new one\r\n", &[]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(verify(&a, "new one"));
+    let out =
+        run_with(&["password", s(&a), "--set-from-env"], "", &[("TINYVERSE_PASSWORD", "from env")]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(verify(&a, "from env"));
+    let out = run_with(&["password", s(&a), "--set-from-env"], "", &[]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("TINYVERSE_PASSWORD"));
+    assert!(verify(&a, "from env"), "a failed attempt changes nothing");
+
+    let help = ok(&["init", "--help"]);
+    assert!(help.contains("process list") && help.contains("--password-stdin"), "{help}");
+    let help = ok(&["password", "--help"]);
+    assert!(help.contains("process list") && help.contains("--set-from-env"), "{help}");
+}
+
+/// The process that launched the server dies: the read ends of its stdout
+/// and stderr go away while it keeps running, then it gets SIGTERM. It must
+/// still save the world and exit 0.
+#[tokio::test]
+async fn survives_dead_stdout_and_stderr() {
+    use common::{Client, box_at, hello, join_client};
+    use tv_proto::v1::{self, client_message::Body as C, server_message::Body as S};
+
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("w");
+    ok(&["init", s(&dir)]);
+    let mut child = command()
+        .args(["run", s(&dir), "--port", "0", "--bind", "127.0.0.1"])
+        // Debug logging, so plenty is written after the pipes are gone.
+        .env("RUST_LOG", "debug")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut line = String::new();
+    stdout.read_line(&mut line).unwrap();
+    let url = line.trim().strip_prefix("listening on ").unwrap().to_owned();
+    // Close both read ends.
+    drop(stdout);
+    drop(child.stderr.take());
+
+    let client = Client::connect_url(&url, tv_proto::Encoding::Json, None).await.unwrap();
+    let mut session = join_client(client, hello("survivor")).await;
+    let seq =
+        session.send(C::ObjectCreate(v1::ObjectCreate { spec: Some(box_at(1.0, 0.5, 1.0)) })).await;
+    let msg = session
+        .recv_where("ObjectCreated", |m| {
+            m.reply_to == seq && matches!(m.body, Some(S::ObjectCreated(_)))
+        })
+        .await;
+    let Some(S::ObjectCreated(created)) = msg.body else { unreachable!() };
+    let id = created.object.unwrap().id;
+    session.client.close().await;
+
+    let status = tokio::task::spawn_blocking(move || sigterm_and_wait(&mut child)).await.unwrap();
+    assert!(status.success(), "exit status {status:?}");
+    let loaded = store(&dir).load_world().unwrap();
+    assert_eq!(loaded.objects.iter().map(|o| o.id).collect::<Vec<_>>(), vec![id]);
+}
+
+#[tokio::test]
+async fn run_serves_tls_from_the_world_directory() {
+    use common::{Client, hello, join_client, trusting};
+
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("w");
+    ok(&["init", s(&dir)]);
+    assert!(fails(&["tls", "self-signed", s(&tmp.path().join("nope"))]).contains("init"));
+
+    let out = ok(&["tls", "self-signed", s(&dir), "--host", "localhost", "--host", "127.0.0.1"]);
+    let printed = out
+        .lines()
+        .find_map(|l| l.strip_prefix("SHA-256 fingerprint: "))
+        .unwrap_or_else(|| panic!("{out}"))
+        .to_owned();
+    let cert = dir.join("cert.pem");
+    let key = dir.join("key.pem");
+    {
+        use rustls::pki_types::CertificateDer;
+        use rustls::pki_types::pem::PemObject;
+        let der = CertificateDer::from_pem_file(&cert).unwrap();
+        assert_eq!(printed, tv_server::tls::fingerprint(der.as_ref()));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&key).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+    assert!(fails(&["tls", "self-signed", s(&dir)]).contains("--force"));
+
+    // cert.pem and key.pem are picked up without flags.
+    let (mut child, url, _stdout) = spawn_run(&dir, &[]);
+    assert!(url.starts_with("wss://127.0.0.1:") && url.ends_with("/ws"), "{url}");
+    let client =
+        Client::connect_url(&url, tv_proto::Encoding::Json, Some(trusting(&cert))).await.unwrap();
+    let session = join_client(client, hello("secure")).await;
+    session.client.close().await;
+    let status = tokio::task::spawn_blocking(move || sigterm_and_wait(&mut child)).await.unwrap();
+    assert!(status.success());
+
+    // --no-tls refuses them.
+    let (mut child, url, _stdout) = spawn_run(&dir, &["--no-tls"]);
+    assert!(url.starts_with("ws://"), "{url}");
+    assert!(sigterm_and_wait(&mut child).success());
+
+    // Explicit flags point anywhere.
+    let elsewhere = tmp.path().join("certs");
+    std::fs::create_dir(&elsewhere).unwrap();
+    std::fs::rename(&cert, elsewhere.join("c.pem")).unwrap();
+    std::fs::rename(&key, elsewhere.join("k.pem")).unwrap();
+    let (c, k) = (elsewhere.join("c.pem"), elsewhere.join("k.pem"));
+    let (mut child, url, _stdout) = spawn_run(&dir, &["--tls-cert", s(&c), "--tls-key", s(&k)]);
+    assert!(url.starts_with("wss://"), "{url}");
+    assert!(sigterm_and_wait(&mut child).success());
+
+    // Half a pair in the world directory is a clear error.
+    std::fs::copy(&c, &cert).unwrap();
+    let err = fails(&["run", s(&dir), "--port", "0", "--bind", "127.0.0.1"]);
+    assert!(err.contains("key.pem") && err.contains("--no-tls"), "{err}");
+    // A mismatched explicit pair too.
+    let other = tmp.path().join("other");
+    ok(&["init", s(&other)]);
+    ok(&["tls", "self-signed", s(&other)]);
+    let other_key = other.join("key.pem");
+    let err =
+        fails(&["run", s(&dir), "--port", "0", "--tls-cert", s(&c), "--tls-key", s(&other_key)]);
+    assert!(err.contains("do not form a usable pair"), "{err}");
 }
