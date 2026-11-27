@@ -134,6 +134,14 @@ async fn usage_errors_exit_1_and_help_exits_0() {
         EXIT_FAILED
     );
     assert_eq!(run_cli(&["--token-file", "/nonexistent/token", "look"]).await.0, EXIT_FAILED);
+    // --ca-file is only for wss://, and must hold certificates.
+    let not_pem = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
+    let ws = ["--url", "ws://127.0.0.1:1/ws", "--ca-file", not_pem, "say", "x"];
+    assert_eq!(run_cli(&ws).await.0, EXIT_FAILED);
+    let missing = ["--url", "wss://127.0.0.1:1/ws", "--ca-file", "/nonexistent.pem", "look"];
+    assert_eq!(run_cli(&missing).await.0, EXIT_FAILED);
+    let no_certs = ["--url", "wss://127.0.0.1:1/ws", "--ca-file", not_pem, "smoke"];
+    assert_eq!(run_cli(&no_certs).await.0, EXIT_FAILED);
     assert_eq!(run_cli(&["--help"]).await.0, EXIT_OK);
 }
 

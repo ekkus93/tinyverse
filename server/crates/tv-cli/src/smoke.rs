@@ -58,6 +58,8 @@ pub struct SmokeOptions {
     pub timeout: Duration,
     /// How long to watch for something that must not arrive.
     pub quiet: Duration,
+    /// Extra trusted certificates for `wss://`, used by every connection.
+    pub ca_certs: Vec<rustls::pki_types::CertificateDer<'static>>,
 }
 
 impl SmokeOptions {
@@ -70,11 +72,13 @@ impl SmokeOptions {
             skip: Vec::new(),
             timeout: Duration::from_secs(5),
             quiet: Duration::from_secs(1),
+            ca_certs: Vec::new(),
         }
     }
 
     pub fn from_cli(g: &Global, a: &SmokeArgs) -> Result<Self, Failure> {
         let mut o = SmokeOptions::new(&g.url);
+        o.ca_certs = crate::cli::ca_certs(g)?;
         o.password = g.password.clone().unwrap_or_default();
         o.token = match (&g.token, &g.token_file) {
             (Some(_), Some(_)) => {
@@ -261,6 +265,7 @@ fn options(
     c.kind = kind;
     c.appearance = Some(crate::cli::random_appearance());
     c.join_timeout = o.timeout.max(Duration::from_secs(5));
+    c.ca_certs = o.ca_certs.clone();
     c
 }
 

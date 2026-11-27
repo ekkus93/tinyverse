@@ -72,6 +72,22 @@ pub struct Global {
     /// More logging; repeat for even more.
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
+    /// PEM file of certificates to trust for wss:// in addition to the
+    /// public roots, e.g. a self-signed server's cert.pem.
+    #[arg(long, global = true, value_name = "PEM")]
+    pub ca_file: Option<PathBuf>,
+}
+
+/// Loads `--ca-file`, refusing it for anything but a wss:// URL.
+pub fn ca_certs(g: &Global) -> Result<Vec<rustls::pki_types::CertificateDer<'static>>, Failure> {
+    let Some(path) = &g.ca_file else { return Ok(Vec::new()) };
+    if !g.url.to_ascii_lowercase().starts_with("wss://") {
+        return Err(Failure::Failed(format!(
+            "--ca-file only applies to wss:// URLs, but --url is {}",
+            g.url
+        )));
+    }
+    crate::tls::load_ca_file(path).map_err(Failure::Failed)
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -322,6 +338,7 @@ pub fn client_options(g: &Global) -> Result<ClientOptions, Failure> {
     };
     o.encoding = if g.json { Encoding::Json } else { Encoding::Binary };
     o.appearance = Some(random_appearance());
+    o.ca_certs = ca_certs(g)?;
     Ok(o)
 }
 

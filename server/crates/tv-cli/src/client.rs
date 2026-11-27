@@ -23,7 +23,7 @@ use tokio::{
     task::JoinHandle,
     time::{Instant, timeout_at},
 };
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, trace, warn};
 use tv_proto::{
     Encoding, Frame, PROTOCOL_VERSION, decode, encode,
@@ -125,6 +125,9 @@ pub struct ClientOptions {
     pub ping_interval: Option<Duration>,
     /// Limit for opening the socket and for the whole join sequence.
     pub join_timeout: Duration,
+    /// Extra trusted certificates for `wss://` (see [`crate::tls::load_ca_file`]).
+    /// Must be empty for `ws://` URLs.
+    pub ca_certs: Vec<rustls::pki_types::CertificateDer<'static>>,
 }
 
 impl ClientOptions {
@@ -140,6 +143,7 @@ impl ClientOptions {
             client_name: format!("tv-cli/{}", env!("CARGO_PKG_VERSION")),
             ping_interval: Some(PING_INTERVAL),
             join_timeout: Duration::from_secs(10),
+            ca_certs: Vec::new(),
         }
     }
 }
@@ -203,10 +207,10 @@ impl Client {
     pub async fn connect(opts: ClientOptions) -> Result<Client, ClientError> {
         let deadline = Instant::now() + opts.join_timeout;
         let url = opts.url.clone();
-        let (ws, _) = timeout_at(deadline, connect_async(url.as_str()))
+        let ws = timeout_at(deadline, crate::tls::open(&url, &opts.ca_certs))
             .await
             .map_err(|_| ClientError::Connect { url: url.clone(), reason: "timed out".into() })?
-            .map_err(|e| ClientError::Connect { url: url.clone(), reason: e.to_string() })?;
+            .map_err(|reason| ClientError::Connect { url: url.clone(), reason })?;
         let (mut sink, mut stream) = ws.split();
 
         let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Outgoing>();

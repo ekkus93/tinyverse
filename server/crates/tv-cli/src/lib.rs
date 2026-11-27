@@ -12,5 +12,6 @@ pub mod motion;
 pub mod parse;
 pub mod repl;
 pub mod smoke;
+pub mod tls;
 
 pub use client::{Client, ClientError, ClientOptions};

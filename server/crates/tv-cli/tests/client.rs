@@ -156,6 +156,16 @@ async fn connect_to_nothing_fails() {
     let url = common::dead_url().await;
     let err = Client::connect(opts(&url, Encoding::Binary)).await.err().unwrap();
     assert!(matches!(err, ClientError::Connect { .. }), "{err:?}");
+    assert!(err.to_string().contains("connection refused"), "{err}");
+}
+
+#[tokio::test]
+async fn ca_certs_are_refused_for_plain_ws() {
+    let url = common::dead_url().await;
+    let mut o = opts(&url, Encoding::Binary);
+    o.ca_certs = vec![rustls::pki_types::CertificateDer::from(vec![0u8; 4])];
+    let err = Client::connect(o).await.err().unwrap();
+    assert!(err.to_string().contains("only applies to wss://"), "{err}");
 }
 
 #[tokio::test]
