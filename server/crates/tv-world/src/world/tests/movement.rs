@@ -48,13 +48,94 @@ fn legal_walk_run_and_fly_are_accepted() {
     }
 }
 
-#[test]
-fn speed_is_checked_in_three_dimensions() {
-    let mut w = world();
+/// A world whose avatars spawn high up, so there is room to fall.
+fn high_world(spawn_y: f32) -> (World, EntityId) {
+    let mut w = world_with(|c| c.spawn_point = Vec3::new(0.0, spawn_y, 0.0));
     let id = join(&mut w, "a", Role::Visitor);
-    // 4 m along each axis is 6.93 m in total: too far for a 1 s walk.
-    assert!(!report(&mut w, id, Vec3::splat(4.0), MoveMode::Walk, T0 + 1000));
-    assert!(report(&mut w, id, Vec3::splat(3.0), MoveMode::Walk, T0 + 1000));
+    (w, id)
+}
+
+#[test]
+fn walking_falls_are_accepted_up_to_free_fall_speed() {
+    // 20 m at 30 m/s, reported every 100 ms (3 m per report).
+    let (mut w, id) = high_world(30.0);
+    let mut y = 30.0;
+    let mut now = T0;
+    while y > 10.0 {
+        y = (y - 3.0f32).max(10.0);
+        now += 100;
+        assert!(report(&mut w, id, Vec3::new(0.0, y, 0.0), MoveMode::Walk, now), "y = {y}");
+    }
+    assert_eq!(w.avatar(id).unwrap().transform.position.y, 10.0);
+
+    // 80 m/s is faster than free fall allows (60 m/s, no tolerance).
+    let (mut w, id) = high_world(30.0);
+    assert!(!report(&mut w, id, Vec3::new(0.0, 22.0, 0.0), MoveMode::Walk, T0 + 100));
+    assert!(report(&mut w, id, Vec3::new(0.0, 24.1, 0.0), MoveMode::Run, T0 + 100));
+}
+
+#[test]
+fn jumps_are_accepted_but_fast_rises_are_not() {
+    // A 1.2 m jump at 5 m/s, up then down again.
+    let (mut w, id) = high_world(0.0);
+    assert!(report(&mut w, id, Vec3::new(0.0, 0.6, 0.0), MoveMode::Walk, T0 + 120));
+    assert!(report(&mut w, id, Vec3::new(0.0, 1.2, 0.0), MoveMode::Walk, T0 + 240));
+    assert!(report(&mut w, id, Vec3::new(0.0, 0.6, 0.0), MoveMode::Walk, T0 + 360));
+    assert!(report(&mut w, id, Vec3::new(0.0, 0.0, 0.0), MoveMode::Walk, T0 + 480));
+
+    // Rising at 15 m/s exceeds the fixed 10 m/s limit, in Walk and in Run.
+    for mode in [MoveMode::Walk, MoveMode::Run] {
+        let (mut w, id) = high_world(0.0);
+        assert!(!report(&mut w, id, Vec3::new(0.0, 1.5, 0.0), mode, T0 + 100));
+        assert!(report(&mut w, id, Vec3::new(0.0, 0.99, 0.0), mode, T0 + 100));
+    }
+}
+
+#[test]
+fn horizontal_limits_are_unchanged_while_falling() {
+    for (mode, ok, too_far) in [(MoveMode::Walk, 5.9, 6.1), (MoveMode::Run, 11.9, 12.1)] {
+        let (mut w, id) = high_world(100.0);
+        // Falling 50 m in the same second does not use up any horizontal budget ...
+        assert!(report(&mut w, id, Vec3::new(ok, 50.0, 0.0), mode, T0 + 1000));
+        // ... nor does it add any.
+        let (mut w, id) = high_world(100.0);
+        assert!(!report(&mut w, id, Vec3::new(0.0, 50.0, too_far), mode, T0 + 1000));
+    }
+}
+
+#[test]
+fn a_long_gap_caps_each_component_at_two_seconds() {
+    let later = T0 + 60_000;
+    // Falling: 2 s * 60 m/s = 120 m.
+    let (mut w, id) = high_world(200.0);
+    assert!(!report(&mut w, id, Vec3::new(0.0, 79.0, 0.0), MoveMode::Walk, later));
+    assert!(report(&mut w, id, Vec3::new(0.0, 81.0, 0.0), MoveMode::Walk, later));
+    // Rising: 2 s * 10 m/s = 20 m.
+    let (mut w, id) = high_world(0.0);
+    assert!(!report(&mut w, id, Vec3::new(0.0, 21.0, 0.0), MoveMode::Walk, later));
+    assert!(report(&mut w, id, Vec3::new(0.0, 19.0, 0.0), MoveMode::Walk, later));
+    // Horizontal: 2 s * 6 m/s = 12 m, even combined with a fall.
+    let (mut w, id) = high_world(200.0);
+    assert!(!report(&mut w, id, Vec3::new(12.5, 150.0, 0.0), MoveMode::Walk, later));
+    assert!(report(&mut w, id, Vec3::new(11.9, 150.0, 0.0), MoveMode::Walk, later));
+}
+
+#[test]
+fn flying_is_still_judged_in_three_dimensions() {
+    // fly 16 m/s * 1.5 = 24 m in one second, along any direction.
+    let (mut w, id) = high_world(100.0);
+    assert!(!report(&mut w, id, Vec3::new(14.0, 114.0, 14.0), MoveMode::Fly, T0 + 1000));
+    assert!(report(&mut w, id, Vec3::new(13.8, 113.8, 13.8), MoveMode::Fly, T0 + 1000));
+    // No free-fall allowance: dropping 30 m in a second while flying is too fast ...
+    let (mut w, id) = high_world(100.0);
+    assert!(!report(&mut w, id, Vec3::new(0.0, 70.0, 0.0), MoveMode::Fly, T0 + 1000));
+    // ... but climbing 23.9 m is fine, beyond the walking rise limit.
+    assert!(report(&mut w, id, Vec3::new(0.0, 123.9, 0.0), MoveMode::Fly, T0 + 1000));
+    // 4 m along each axis (6.93 m) is fine for a 1 s walk now, but a 0.25 s fly
+    // allows only 6 m in 3D.
+    let (mut w, id) = high_world(0.0);
+    assert!(!report(&mut w, id, Vec3::splat(4.0), MoveMode::Fly, T0 + 250));
+    assert!(report(&mut w, id, Vec3::splat(4.0), MoveMode::Walk, T0 + 1000));
 }
 
 #[test]

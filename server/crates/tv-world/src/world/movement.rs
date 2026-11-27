@@ -28,6 +28,29 @@ pub(super) fn speed(limits: &Limits, mode: MoveMode) -> f32 {
     }
 }
 
+/// Fastest fall accepted in Walk and Run mode, in metres per second. Fixed,
+/// with no tolerance factor: the client applies gravity.
+const MAX_FALL_SPEED: f32 = 60.0;
+/// Fastest rise accepted in Walk and Run mode (jumps, steps, being pushed up
+/// onto an object), in metres per second. Fixed, with no tolerance factor.
+const MAX_RISE_SPEED: f32 = 10.0;
+
+/// Whether moving by `delta` within `elapsed_s` (already clamped) respects the
+/// speed limits of `mode`. Flying is judged in 3D; walking and running are
+/// judged horizontally against the mode's speed, and vertically against the
+/// fixed fall and rise limits.
+fn plausible_move(limits: &Limits, mode: MoveMode, delta: Vec3, elapsed_s: f32) -> bool {
+    let allowed = speed(limits, mode) * limits.speed_tolerance * elapsed_s + SPEED_EPSILON_M;
+    match mode {
+        MoveMode::Fly => delta.length() <= allowed,
+        MoveMode::Walk | MoveMode::Run => {
+            let vertical_limit = if delta.y < 0.0 { MAX_FALL_SPEED } else { MAX_RISE_SPEED };
+            delta.x.hypot(delta.z) <= allowed
+                && delta.y.abs() <= vertical_limit * elapsed_s + SPEED_EPSILON_M
+        }
+    }
+}
+
 fn moving_animation(mode: MoveMode) -> &'static str {
     match mode {
         MoveMode::Walk => "walk",
@@ -66,9 +89,13 @@ impl World {
         } else {
             let elapsed_s = (now_ms.saturating_sub(presence.last_accepted_ms) as f32 / 1000.0)
                 .clamp(MIN_ELAPSED_S, MAX_ELAPSED_S);
-            let allowed = speed(limits, transform.move_mode) * limits.speed_tolerance * elapsed_s;
-            let moved = transform.position.distance(presence.avatar.transform.position);
-            (moved > allowed + SPEED_EPSILON_M).then_some("too fast")
+            (!plausible_move(
+                limits,
+                transform.move_mode,
+                transform.position - presence.avatar.transform.position,
+                elapsed_s,
+            ))
+            .then_some("too fast")
         };
         if let Some(reason) = violation {
             return Ok(vec![Event::new(
