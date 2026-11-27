@@ -1666,6 +1666,7 @@ version = "0.1.0"
 dependencies = [
  "glam",
  "hex",
+ "rand 0.10.4",
  "rusqlite",
  "sha2",
  "tempfile",
