@@ -8,22 +8,26 @@ Everything through M3 is implemented and merged, plus most of M4. The work was
 done per crate and per client module, not strictly in the waves below; the
 boxes record what is finished.
 
-Verified: `scripts/check.sh` (Rust fmt, clippy, all tests including tv-cli's
-17-check smoke run and tv-mcp against the real server binary); the Unity
-EditMode and PlayMode suites, including Bootstrap's tests against the real
-server; the built Linux player on screen through screenshots; the packaged
-archive hosting a world with its bundled server.
+Verified on master: `scripts/check.sh` (Rust fmt, clippy, all tests, including
+tv-cli's 17-check smoke run and tv-mcp against the real server binary, both
+also over `wss://`); the Unity suites (401 EditMode, 144 PlayMode), including
+Bootstrap's tests against the real server; the built Linux player on screen
+through screenshots at 1280x720 and 1920x1080; two players in one world at
+once; a 150 s walk with no speed corrections; the packaged archive hosting a
+world with its bundled server; Claude Code joining a world through `tv-mcp`.
 
-Not yet verified by a person: real keyboard and mouse input, two Unity
-clients in one world, performance on a real GPU, the package on a fresh
-machine, and the greeter agent's Claude-backed path (no API key was set).
+Not yet verified by a person: real keyboard and mouse input, a real GPU (this
+machine renders in software at about 10 fps), two machines on a LAN, the
+package on a fresh machine, and the greeter agent's Claude-backed path (no
+API key was set).
 
 Open:
 
-- [ ] M4.D realistic human avatars (a capsule placeholder stands in)
+- [ ] M4.D realistic human avatars (a simple placeholder figure stands in)
 - [ ] M4.I on a fresh machine: download, host, and a second machine joins; tag `v0.1.0`
-- [ ] Play-test with real input and two Unity clients
+- [ ] Play-test with real input on a machine with a GPU
 - [ ] TLS for LAN guests: the self-signed certificate covers only localhost unless made with `--host <lan-ip>`, and the Unity client has no way to trust it yet
+- [ ] Name tags of avatars standing close together overlap
 
 ## How to read this
 
