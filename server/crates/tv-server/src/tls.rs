@@ -108,7 +108,8 @@ pub struct SelfSigned {
 }
 
 /// Writes a new self-signed certificate for `hosts` (DNS names or IP
-/// addresses) and its key (mode 0600) into `dir`. Refuses to replace an
+/// addresses) into `dir`: the certificate world-readable (it is public), its
+/// key with mode 0600. Refuses to replace an
 /// existing pair unless `force`.
 pub fn write_self_signed(dir: &Path, hosts: &[String], force: bool) -> anyhow::Result<SelfSigned> {
     let files = TlsFiles::in_dir(dir);
@@ -132,6 +133,13 @@ pub fn write_self_signed(dir: &Path, hosts: &[String], force: bool) -> anyhow::R
         .with_context(|| format!("cannot write {}", files.key.display()))?;
     std::fs::write(&files.cert, generated.cert.pem())
         .with_context(|| format!("cannot write {}", files.cert.display()))?;
+    // Public, so readable by everyone whatever the umask.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&files.cert, std::fs::Permissions::from_mode(0o644))
+            .with_context(|| format!("cannot set the mode of {}", files.cert.display()))?;
+    }
     Ok(SelfSigned { fingerprint: fingerprint(generated.cert.der()), files, hosts })
 }
 

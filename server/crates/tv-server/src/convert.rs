@@ -3,8 +3,10 @@
 //!
 //! Inbound rules: a sub-message the command cannot do without (a position, a
 //! target, a spec, a transform) is `INVALID_ARGUMENT` naming the field. Other
-//! missing sub-messages take a neutral value: colour white, rotation identity
-//! (also for an all-zero quaternion), scale one, velocity zero. Unspecified
+//! missing sub-messages take a neutral value: an object's colour white, an
+//! appearance colour all-zero ("not set; the client uses its default"),
+//! rotation identity (also for an all-zero quaternion), scale one, velocity
+//! zero. Unspecified
 //! enums take their documented default (walk, local, matte, human); an
 //! unspecified shape on create or role in `SetRole` is refused, and so is any
 //! enum number the schema does not define.
@@ -131,16 +133,27 @@ pub fn color_from(c: Option<&v1::Color>) -> w::Color {
     c.map_or(w::Color::WHITE, |c| w::Color::new(c.r, c.g, c.b, c.a))
 }
 
+/// The colour that means "not chosen; the client uses its default".
+pub const UNSET_COLOR: w::Color = w::Color::new(0.0, 0.0, 0.0, 0.0);
+
+/// An appearance colour: a missing one is [`UNSET_COLOR`], not white, so
+/// clients can tell "not chosen" from "white".
+pub fn appearance_color_from(c: Option<&v1::Color>) -> w::Color {
+    c.map_or(UNSET_COLOR, |c| w::Color::new(c.r, c.g, c.b, c.a))
+}
+
+/// An appearance; a missing one has every colour unset and empty presets.
 pub fn appearance_from(a: Option<&v1::Appearance>) -> w::Appearance {
-    let Some(a) = a else { return w::Appearance::default() };
+    let default = v1::Appearance::default();
+    let a = a.unwrap_or(&default);
     w::Appearance {
-        body_color: color_from(a.body_color.as_ref()),
+        body_color: appearance_color_from(a.body_color.as_ref()),
         body_preset: a.body_preset.clone(),
-        skin_color: color_from(a.skin_color.as_ref()),
-        hair_color: color_from(a.hair_color.as_ref()),
+        skin_color: appearance_color_from(a.skin_color.as_ref()),
+        hair_color: appearance_color_from(a.hair_color.as_ref()),
         hair_style: a.hair_style.clone(),
-        top_color: color_from(a.top_color.as_ref()),
-        bottom_color: color_from(a.bottom_color.as_ref()),
+        top_color: appearance_color_from(a.top_color.as_ref()),
+        bottom_color: appearance_color_from(a.bottom_color.as_ref()),
     }
 }
 
@@ -873,25 +886,102 @@ mod tests {
     }
 
     #[test]
-    fn appearance_defaults_to_white() {
+    fn unset_appearance_colours_are_all_zero() {
+        let grey = v1::Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 };
         let a = appearance_from(Some(&v1::Appearance {
-            body_color: Some(v1::Color { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }),
+            body_color: Some(grey),
             hair_style: "bob".into(),
             ..Default::default()
         }));
         assert_eq!(a.body_color, w::Color::new(0.5, 0.5, 0.5, 1.0));
-        assert_eq!(a.skin_color, w::Color::WHITE);
+        for c in [a.skin_color, a.hair_color, a.top_color, a.bottom_color] {
+            assert_eq!(c, UNSET_COLOR);
+        }
         assert_eq!(a.hair_style, "bob");
-        assert_eq!(appearance_from(None), w::Appearance::default());
+
+        // No appearance at all: every colour unset.
+        let none = appearance_from(None);
+        for c in
+            [none.body_color, none.skin_color, none.hair_color, none.top_color, none.bottom_color]
+        {
+            assert_eq!(c, UNSET_COLOR);
+        }
+
+        // All-zero goes out as all-zero, present on the wire.
+        let out = appearance_to(&a);
+        let zero = v1::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+        assert_eq!(out.body_color, Some(grey));
+        assert_eq!(out.skin_color, Some(zero));
+        assert_eq!(out.bottom_color, Some(zero));
+        let msg = v1::ServerMessage {
+            reply_to: 0,
+            body: Some(S::AvatarUpdated(v1::AvatarUpdated {
+                avatar: Some(v1::AvatarInfo { appearance: Some(out), ..Default::default() }),
+            })),
+        };
+        let tv_proto::Frame::Text(json) = tv_proto::encode(&msg, tv_proto::Encoding::Json) else {
+            unreachable!()
+        };
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let skin = &value["avatarUpdated"]["avatar"]["appearance"]["skinColor"];
+        assert_eq!(*skin, serde_json::json!({"r": 0.0, "g": 0.0, "b": 0.0, "a": 0.0}));
+
         let err =
             command_from(&C::SetAppearance(v1::SetAppearance { appearance: None })).unwrap_err();
         assert!(err.message.contains("set_appearance.appearance"));
-        assert!(matches!(
-            command_from(&C::SetAppearance(v1::SetAppearance {
-                appearance: Some(Default::default())
-            })),
-            Ok(Command::SetAppearance(_))
-        ));
+        let Ok(Command::SetAppearance(set)) = command_from(&C::SetAppearance(v1::SetAppearance {
+            appearance: Some(Default::default()),
+        })) else {
+            panic!()
+        };
+        assert_eq!(set.top_color, UNSET_COLOR);
+    }
+
+    #[test]
+    fn object_colour_still_defaults_to_white() {
+        let spec = v1::ObjectSpec {
+            shape: v1::Shape::Box as i32,
+            position: Some(v(0.0, 0.0, 0.0)),
+            color: None,
+            ..Default::default()
+        };
+        assert_eq!(spec_from(Some(&spec), "spec").unwrap().color, w::Color::WHITE);
+        let patch = patch_from(&v1::ObjectUpdate { id: 1, ..Default::default() }).unwrap();
+        assert_eq!(patch.color, None, "a missing colour in an update leaves it unchanged");
+    }
+
+    #[test]
+    fn the_world_keeps_unset_colours() {
+        let mut world = w::World::new(WorldConfig::default(), Vec::new(), 1);
+        let partial = appearance_from(Some(&v1::Appearance {
+            body_color: Some(v1::Color { r: 0.2, g: 0.4, b: 0.6, a: 1.0 }),
+            ..Default::default()
+        }));
+        let (id, _) = world
+            .join(
+                w::JoinRequest {
+                    user_id: w::UserId("u".into()),
+                    name: "Ada".into(),
+                    kind: w::ClientKind::Human,
+                    role: w::Role::Builder,
+                    appearance: partial.clone(),
+                },
+                1,
+            )
+            .unwrap();
+        let stored = &world.avatar(id).unwrap().appearance;
+        assert_eq!(stored, &partial);
+        assert_eq!(stored.skin_color, UNSET_COLOR);
+
+        let events = world
+            .apply(id, Command::SetAppearance(appearance_from(Some(&Default::default()))), 2)
+            .unwrap();
+        let Some(EventKind::AvatarUpdated(a)) = events.first().map(|e| &e.kind) else {
+            panic!("{events:?}")
+        };
+        assert_eq!(a.appearance.body_color, UNSET_COLOR);
+        let sent = avatar_to(a).appearance.unwrap();
+        assert_eq!(sent.body_color, Some(v1::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }));
     }
 
     #[test]

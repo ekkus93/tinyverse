@@ -409,7 +409,14 @@ async fn run_serves_tls_from_the_world_directory() {
         use std::os::unix::fs::PermissionsExt;
         let mode = std::fs::metadata(&key).unwrap().permissions().mode();
         assert_eq!(mode & 0o777, 0o600);
+        // The certificate is public: readable by others, and said so.
+        let mode = std::fs::metadata(&cert).unwrap().permissions().mode();
+        assert_eq!(mode & 0o044, 0o044, "cert.pem mode {mode:o}");
     }
+    assert!(out.contains("cert.pem (certificate, public)"), "{out}");
+    assert!(out.contains("key.pem (private key, mode 0600)"), "{out}");
+    let help = ok(&["tls", "self-signed", "--help"]);
+    assert!(help.contains("world-readable") && help.contains("mode 0600"), "{help}");
     assert!(fails(&["tls", "self-signed", s(&dir)]).contains("--force"));
 
     // cert.pem and key.pem are picked up without flags.
