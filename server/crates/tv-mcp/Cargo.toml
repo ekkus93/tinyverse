@@ -10,12 +10,16 @@ tv-proto.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 futures-util.workspace = true
+rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+# Already in the build through tokio-tungstenite (rustls-tls-webpki-roots);
+# needed directly to combine the public roots with a --ca-file.
+webpki-roots = "1"
 
 [lints]
 workspace = true

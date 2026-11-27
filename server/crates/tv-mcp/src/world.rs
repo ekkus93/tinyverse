@@ -37,6 +37,9 @@ pub struct Config {
     pub ping_interval: Duration,
     /// First delay before reconnecting after a drop; doubles up to 30 s.
     pub reconnect_delay: Duration,
+    /// Extra certificates to trust for `wss://` (from `--ca-file`), on top
+    /// of the public web roots.
+    pub ca_certs: Vec<rustls::pki_types::CertificateDer<'static>>,
 }
 
 impl Config {
@@ -50,6 +53,7 @@ impl Config {
             reply_timeout: Duration::from_secs(10),
             ping_interval: Duration::from_secs(10),
             reconnect_delay: Duration::from_secs(1),
+            ca_certs: Vec::new(),
         }
     }
 }
@@ -83,6 +87,8 @@ struct Inner {
     connect_lock: tokio::sync::Mutex<()>,
     seq: AtomicU32,
     conn_ids: AtomicU64,
+    /// The TLS setup for a `wss://` URL, or why it could not be built.
+    tls: Option<Result<Arc<rustls::ClientConfig>, String>>,
 }
 
 /// Handle to the world connection. Cheap to clone.
@@ -180,9 +186,12 @@ fn hint_for(code: i32) -> &'static str {
 
 impl Bridge {
     pub fn new(cfg: Config) -> Self {
+        crate::tls::install_crypto_provider();
         let (changed, _) = watch::channel(0);
+        let tls = crate::tls::is_wss(&cfg.url).then(|| crate::tls::client_config(&cfg.ca_certs));
         Bridge {
             inner: Arc::new(Inner {
+                tls,
                 cfg,
                 state: Mutex::new(State::default()),
                 changed,
@@ -317,9 +326,19 @@ impl Bridge {
     async fn connect_inner(&self) -> Result<(), ConnectError> {
         let cfg = &self.inner.cfg;
         let url = &cfg.url;
+        let connector = match &self.inner.tls {
+            None => tokio_tungstenite::Connector::Plain,
+            Some(Ok(config)) => tokio_tungstenite::Connector::Rustls(config.clone()),
+            Some(Err(e)) => return Err(ConnectError::permanent(e.clone())),
+        };
         let ws = match tokio::time::timeout(
             cfg.connect_timeout,
-            tokio_tungstenite::connect_async(url.as_str()),
+            tokio_tungstenite::connect_async_tls_with_config(
+                url.as_str(),
+                None,
+                false,
+                Some(connector),
+            ),
         )
         .await
         {
@@ -330,8 +349,10 @@ impl Bridge {
                 )));
             }
             Ok(Err(e)) => {
+                let e = e.to_string();
+                let hint = crate::tls::hint(url, &e, !cfg.ca_certs.is_empty());
                 return Err(ConnectError::transient(format!(
-                    "cannot reach the world at {url} ({e})"
+                    "cannot reach the world at {url} ({e}){hint}"
                 )));
             }
             Ok(Ok((ws, _))) => ws,

@@ -1924,6 +1924,7 @@ dependencies = [
  "anyhow",
  "clap",
  "futures-util",
+ "rustls",
  "serde",
  "serde_json",
  "tempfile",
@@ -1932,6 +1933,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tv-proto",
+ "webpki-roots 1.0.12",
 ]
 
 [[package]]

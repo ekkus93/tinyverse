@@ -10,6 +10,7 @@ mod args;
 pub mod format;
 pub mod model;
 pub mod rpc;
+pub mod tls;
 pub mod tools;
 pub mod world;
 
