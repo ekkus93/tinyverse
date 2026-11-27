@@ -9,7 +9,7 @@
 //! hold up other connections; finished streams are handed to axum through
 //! [`TlsListener`].
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,12 +18,12 @@ use anyhow::{Context, bail};
 use rustls::ServerConfig;
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use sha2::{Digest, Sha256};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::server::TlsStream;
+pub use tv_tls::Pin;
 
 /// File name of the certificate chain inside a world directory.
 pub const CERT_PEM: &str = "cert.pem";
@@ -53,6 +53,8 @@ pub struct TlsSetup {
     pub config: Arc<ServerConfig>,
     /// SHA-256 fingerprint of the leaf certificate, `AB:CD:...`.
     pub fingerprint: String,
+    /// The same, as the pin clients put in a URL (`#sha256=<hex>`).
+    pub pin: Pin,
 }
 
 /// The crypto provider used everywhere in this crate.
@@ -63,8 +65,24 @@ pub fn provider() -> Arc<rustls::crypto::CryptoProvider> {
 /// The SHA-256 fingerprint of a DER certificate, as colon-separated
 /// upper-case hex.
 pub fn fingerprint(der: &[u8]) -> String {
-    let digest = Sha256::digest(der);
-    digest.iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(":")
+    tv_tls::sha256_colons(der)
+}
+
+/// The leaf (first) certificate of a PEM chain file.
+pub fn read_leaf(cert: &Path) -> anyhow::Result<CertificateDer<'static>> {
+    let cert_text = std::fs::read(cert)
+        .with_context(|| format!("cannot read the TLS certificate {}", cert.display()))?;
+    let certs = CertificateDer::pem_slice_iter(&cert_text)
+        .collect::<Result<Vec<_>, _>>()
+        .with_context(|| format!("{} is not a PEM certificate file", cert.display()))?;
+    certs.into_iter().next().with_context(|| format!("{} holds no certificate", cert.display()))
+}
+
+/// The line `run` and `tls fingerprint` print for a certificate, on stdout:
+/// `tls certificate sha256=<64 hex digits>`. Scripts and the desktop client
+/// look for it; keep it stable.
+pub fn certificate_line(pin: &Pin) -> String {
+    format!("tls certificate {pin}")
 }
 
 /// Reads and checks a certificate chain and key, failing with a message
@@ -83,6 +101,7 @@ pub fn load(files: &TlsFiles) -> anyhow::Result<TlsSetup> {
     let key = PrivateKeyDer::from_pem_slice(&key_text)
         .with_context(|| format!("{} holds no PEM private key", files.key.display()))?;
     let fingerprint = fingerprint(certs[0].as_ref());
+    let pin = Pin::of(certs[0].as_ref());
     let mut config = ServerConfig::builder_with_provider(provider())
         .with_safe_default_protocol_versions()
         .context("TLS setup failed")?
@@ -96,7 +115,7 @@ pub fn load(files: &TlsFiles) -> anyhow::Result<TlsSetup> {
             )
         })?;
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
-    Ok(TlsSetup { config: Arc::new(config), fingerprint })
+    Ok(TlsSetup { config: Arc::new(config), fingerprint, pin })
 }
 
 /// What `tls self-signed` wrote.
@@ -104,20 +123,57 @@ pub fn load(files: &TlsFiles) -> anyhow::Result<TlsSetup> {
 pub struct SelfSigned {
     pub files: TlsFiles,
     pub fingerprint: String,
+    pub pin: Pin,
     pub hosts: Vec<String>,
 }
 
-/// Writes a new self-signed certificate for `hosts` (DNS names or IP
-/// addresses) into `dir`: the certificate world-readable (it is public), its
-/// key with mode 0600. Refuses to replace an
-/// existing pair unless `force`.
-pub fn write_self_signed(dir: &Path, hosts: &[String], force: bool) -> anyhow::Result<SelfSigned> {
+/// This machine's current non-loopback addresses that others on the network
+/// could use: IPv4 and IPv6, without link-local IPv6 (which needs a zone).
+pub fn lan_addresses() -> Vec<IpAddr> {
+    let mut found: Vec<IpAddr> = if_addrs::get_if_addrs()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|i| i.ip())
+        .filter(|ip| usable_lan_address(*ip))
+        .collect();
+    found.sort();
+    found.dedup();
+    found
+}
+
+fn usable_lan_address(ip: IpAddr) -> bool {
+    if ip.is_loopback() || ip.is_unspecified() || ip.is_multicast() {
+        return false;
+    }
+    match ip {
+        IpAddr::V4(_) => true,
+        // fe80::/10
+        IpAddr::V6(v6) => (v6.segments()[0] & 0xffc0) != 0xfe80,
+    }
+}
+
+/// The names a self-signed certificate is made for: `localhost`,
+/// `127.0.0.1`, `::1`, then `lan` and `extra`, without repeats.
+pub fn certificate_names(lan: &[IpAddr], extra: &[String]) -> Vec<String> {
+    let mut names = vec!["localhost".to_owned(), "127.0.0.1".to_owned(), "::1".to_owned()];
+    names.extend(lan.iter().map(IpAddr::to_string));
+    names.extend(extra.iter().map(|h| h.trim().trim_matches(['[', ']']).to_owned()));
+    let mut seen = std::collections::HashSet::new();
+    names.retain(|n| !n.is_empty() && seen.insert(n.to_ascii_lowercase()));
+    names
+}
+
+/// Writes a new self-signed certificate into `dir`, valid for localhost,
+/// 127.0.0.1, ::1, every current LAN address and `extra_hosts` (DNS names or
+/// IP addresses): the certificate world-readable (it is public), its key
+/// with mode 0600. Refuses to replace an existing pair unless `force`.
+pub fn write_self_signed(
+    dir: &Path,
+    extra_hosts: &[String],
+    force: bool,
+) -> anyhow::Result<SelfSigned> {
     let files = TlsFiles::in_dir(dir);
-    let hosts: Vec<String> = if hosts.is_empty() {
-        vec!["localhost".to_owned(), "127.0.0.1".to_owned()]
-    } else {
-        hosts.to_vec()
-    };
+    let hosts = certificate_names(&lan_addresses(), extra_hosts);
     for path in [&files.cert, &files.key] {
         if path.exists() {
             if !force {
@@ -140,7 +196,8 @@ pub fn write_self_signed(dir: &Path, hosts: &[String], force: bool) -> anyhow::R
         std::fs::set_permissions(&files.cert, std::fs::Permissions::from_mode(0o644))
             .with_context(|| format!("cannot set the mode of {}", files.cert.display()))?;
     }
-    Ok(SelfSigned { fingerprint: fingerprint(generated.cert.der()), files, hosts })
+    let der = generated.cert.der();
+    Ok(SelfSigned { fingerprint: fingerprint(der), pin: Pin::of(der), files, hosts })
 }
 
 /// A TCP listener that completes TLS handshakes before handing connections
@@ -215,9 +272,17 @@ mod tests {
     fn self_signed_pair_loads_and_has_a_private_key() {
         let dir = tempfile::tempdir().unwrap();
         let made = write_self_signed(dir.path(), &[], false).unwrap();
-        assert_eq!(made.hosts, vec!["localhost", "127.0.0.1"]);
+        assert_eq!(made.hosts[..3], ["localhost", "127.0.0.1", "::1"]);
         let setup = load(&made.files).unwrap();
         assert_eq!(setup.fingerprint, made.fingerprint);
+        assert_eq!(setup.pin, made.pin);
+        assert_eq!(setup.pin.colons(), made.fingerprint);
+        let leaf = read_leaf(&made.files.cert).unwrap();
+        assert!(made.pin.matches(leaf.as_ref()));
+        assert_eq!(
+            certificate_line(&made.pin),
+            format!("tls certificate sha256={}", made.pin.hex())
+        );
         assert_eq!(made.fingerprint.len(), 32 * 3 - 1);
         assert_eq!(setup.config.alpn_protocols, vec![b"http/1.1".to_vec()]);
         #[cfg(unix)]
@@ -257,6 +322,56 @@ mod tests {
         // A key file given as the certificate, and vice versa.
         let swapped = TlsFiles { cert: one.files.key.clone(), key: one.files.cert.clone() };
         assert!(load(&swapped).is_err());
+    }
+
+    /// Whether a client that trusts the certificate itself would accept it
+    /// for `name`: that is, whether `name` is among its subject alternative
+    /// names.
+    fn valid_for(cert: &CertificateDer<'static>, name: &str) -> bool {
+        use rustls::client::danger::ServerCertVerifier;
+        use rustls::pki_types::{ServerName, UnixTime};
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(cert.clone()).unwrap();
+        let verifier = rustls::client::WebPkiServerVerifier::builder_with_provider(
+            Arc::new(roots),
+            provider(),
+        )
+        .build()
+        .unwrap();
+        let name = ServerName::try_from(name.to_owned()).unwrap();
+        verifier.verify_server_cert(cert, &[], &name, &[], UnixTime::now()).is_ok()
+    }
+
+    #[test]
+    fn self_signed_names_cover_loopback_every_lan_address_and_extra_hosts() {
+        let dir = tempfile::tempdir().unwrap();
+        let made =
+            write_self_signed(dir.path(), &["world.example".into(), "10.9.8.7".into()], false)
+                .unwrap();
+        let leaf = read_leaf(&made.files.cert).unwrap();
+        for name in ["localhost", "127.0.0.1", "::1", "world.example", "10.9.8.7"] {
+            assert!(valid_for(&leaf, name), "{name} is in {:?}", made.hosts);
+        }
+        let lan = lan_addresses();
+        for ip in &lan {
+            assert!(valid_for(&leaf, &ip.to_string()), "LAN address {ip} is in {:?}", made.hosts);
+        }
+        assert!(!valid_for(&leaf, "other.example"));
+        assert!(!valid_for(&leaf, "10.9.8.6"));
+        assert_eq!(made.hosts.len(), 5 + lan.len(), "{:?}", made.hosts);
+    }
+
+    #[test]
+    fn certificate_names_are_deduplicated_and_skip_link_local() {
+        let lan: Vec<IpAddr> = vec!["192.168.1.20".parse().unwrap(), "fd00::5".parse().unwrap()];
+        let names = certificate_names(&lan, &["LOCALHOST".into(), "[fd00::6]".into(), "".into()]);
+        assert_eq!(names, ["localhost", "127.0.0.1", "::1", "192.168.1.20", "fd00::5", "fd00::6"]);
+        assert!(usable_lan_address("192.168.1.20".parse().unwrap()));
+        assert!(usable_lan_address("2001:db8::1".parse().unwrap()));
+        assert!(!usable_lan_address("fe80::1".parse().unwrap()));
+        assert!(!usable_lan_address("127.0.0.1".parse().unwrap()));
+        assert!(!usable_lan_address("::1".parse().unwrap()));
+        assert!(!usable_lan_address("0.0.0.0".parse().unwrap()));
     }
 
     #[test]

@@ -48,7 +48,10 @@ pub struct Cli {
 
 #[derive(Args, Debug, Clone)]
 pub struct Global {
-    /// WebSocket URL of the server.
+    /// WebSocket URL of the server. A wss:// URL may end in
+    /// #sha256=<hex>, the SHA-256 of the server's certificate: then exactly
+    /// that certificate is accepted, whoever signed it and whatever names it
+    /// holds (`tinyverse-server tls fingerprint <world-dir>` prints it).
     #[arg(long, global = true, default_value = "ws://127.0.0.1:7878/ws")]
     pub url: String,
     /// Display name. Defaults to tv-cli-XXXX, or to the stored name when a token is given.

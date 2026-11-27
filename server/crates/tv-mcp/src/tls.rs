@@ -1,18 +1,18 @@
 //! TLS for `wss://` worlds: rustls with the `ring` provider, trusting the
 //! public web roots plus, optionally, the certificates of a `--ca-file`
-//! (for a world serving a self-signed certificate).
+//! (for a world serving a self-signed certificate) — or, when the URL ends
+//! in `#sha256=<hex>`, exactly the certificate with that fingerprint (see
+//! [`tv_tls`]).
 
 use std::path::Path;
-use std::sync::Arc;
 
 use rustls::pki_types::CertificateDer;
 use rustls::pki_types::pem::PemObject;
-use rustls::{ClientConfig, RootCertStore};
 
 /// Installs `ring` as the process-wide rustls provider, so that nothing in
 /// the process can panic for want of one. Safe to call more than once.
 pub fn install_crypto_provider() {
-    let _ = rustls::crypto::ring::default_provider().install_default();
+    tv_tls::install_crypto_provider();
 }
 
 /// Reads every certificate in a PEM file.
@@ -28,25 +28,9 @@ pub fn load_ca_file(path: &Path) -> Result<Vec<CertificateDer<'static>>, String>
     Ok(certs)
 }
 
-/// A client configuration trusting the public roots and `extra`.
-pub fn client_config(extra: &[CertificateDer<'static>]) -> Result<Arc<ClientConfig>, String> {
-    let mut roots = RootCertStore::empty();
-    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    for cert in extra {
-        roots.add(cert.clone()).map_err(|e| format!("CA certificate not usable: {e}"))?;
-    }
-    let config =
-        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .map_err(|e| format!("TLS setup failed: {e}"))?
-            .with_root_certificates(roots)
-            .with_no_client_auth();
-    Ok(Arc::new(config))
-}
-
 /// Whether a URL asks for TLS.
 pub fn is_wss(url: &str) -> bool {
-    url.trim_start().to_ascii_lowercase().starts_with("wss://")
+    tv_tls::is_wss(url)
 }
 
 /// A hint to append to a connection error, naming the likely fix.

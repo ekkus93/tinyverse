@@ -99,6 +99,14 @@ impl Server {
         self.world.join("cert.pem")
     }
 
+    /// The certificate's pin, from `tinyverse-server tls fingerprint`.
+    fn pin(&self, bin: &Path) -> String {
+        let out = Command::new(bin).args(["tls", "fingerprint"]).arg(&self.world).output().unwrap();
+        let out = String::from_utf8(out.stdout).unwrap();
+        let hex = out.lines().find_map(|l| l.strip_prefix("tls certificate sha256="));
+        hex.unwrap_or_else(|| panic!("no pin in {out:?}")).to_owned()
+    }
+
     fn owner_token(&self) -> String {
         std::fs::read_to_string(self.world.join("owner.token")).unwrap().trim().into()
     }
@@ -190,14 +198,63 @@ async fn smoke_passes_over_wss_with_a_ca_file() {
 }
 
 #[tokio::test]
+async fn a_pinned_url_joins_a_self_signed_world_without_a_ca_file() {
+    let Some(bin) = server_binary() else { return };
+    let tls = Server::start(&bin, true);
+    let other = Server::start(&bin, true);
+    let pinned = format!("{}#sha256={}", tls.url, tls.pin(&bin));
+
+    // The whole smoke run, pinned and nothing else.
+    let mut opts = SmokeOptions::new(&pinned);
+    opts.owner_token = Some(tls.owner_token());
+    let mut out = Vec::new();
+    let report = smoke::run(opts, &mut out).await;
+    assert_eq!(report.exit_code(), EXIT_OK, "{}", String::from_utf8_lossy(&out));
+
+    // The real binary, with a CA file that would not vouch for the server:
+    // the pin decides.
+    let other_cert = other.cert();
+    let out = Command::new(env!("CARGO_BIN_EXE_tv-cli"))
+        .args(["--url", &pinned, "--ca-file", other_cert.to_str().unwrap(), "say", "pinned hi"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(EXIT_OK), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("pinned hi"));
+
+    // Another world's pin: refused with exit 2, naming both fingerprints.
+    let wrong = format!("{}#sha256={}", tls.url, other.pin(&bin));
+    let why = connect_error(&wrong, None).await;
+    assert!(why.contains("does not match the pin"), "{why}");
+    assert!(why.contains(&tls.pin(&bin)) && why.contains(&other.pin(&bin)), "{why}");
+    let out = Command::new(env!("CARGO_BIN_EXE_tv-cli"))
+        .args(["--url", &wrong, "say", "x"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(EXIT_CONNECT));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("does not match the pin"));
+
+    // Malformed pins and pins on ws:// are refused before connecting.
+    for (url, want) in [
+        (format!("{}#sha256=12", tls.url), "64 hex digits"),
+        (format!("ws://{}/ws#sha256={}", tls.addr(), tls.pin(&bin)), "only applies to wss://"),
+        (format!("{}#other", tls.url), "#sha256="),
+    ] {
+        let why = connect_error(&url, None).await;
+        assert!(why.contains(want), "{url}: {why}");
+    }
+}
+
+#[tokio::test]
 async fn tls_mismatches_fail_readably_with_exit_2() {
     let Some(bin) = server_binary() else { return };
     let tls = Server::start(&bin, true);
     let plain = Server::start(&bin, false);
 
-    // Self-signed server, no --ca-file.
+    // Self-signed server, no --ca-file: refused, naming the fingerprint and
+    // the pinned URL to use once the host confirms it.
     let why = connect_error(&tls.url, None).await;
     assert!(why.contains("not trusted") && why.contains("--ca-file"), "{why}");
+    assert!(why.contains(&format!("{}#sha256={}", tls.url, tls.pin(&bin))), "{why}");
     assert_eq!(common::run_cli(&["--url", &tls.url, "say", "x"]).await.0, EXIT_CONNECT);
 
     // ws:// to the TLS port.

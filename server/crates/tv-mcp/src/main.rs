@@ -12,7 +12,10 @@ use tracing_subscriber::EnvFilter;
 #[derive(Parser, Debug)]
 #[command(name = "tv-mcp", version)]
 struct Cli {
-    /// WebSocket URL of the world.
+    /// WebSocket URL of the world. A wss:// URL may end in #sha256=<hex>,
+    /// the SHA-256 of the world's certificate: then exactly that certificate
+    /// is accepted, whoever signed it and whatever names it holds, and
+    /// --ca-file is not used.
     #[arg(long, default_value = "ws://127.0.0.1:7878/ws")]
     url: String,
     /// Agent token from `tinyverse-server token create`. Also read from the
@@ -76,6 +79,10 @@ fn main() -> ExitCode {
         (None, None) => env("TINYVERSE_TOKEN"),
     };
 
+    if let Err(e) = tv_tls::split_url(&cli.url) {
+        eprintln!("tv-mcp: --url {}: {e}", cli.url);
+        return ExitCode::from(2);
+    }
     let mut config = tv_mcp::Config::new(cli.url);
     config.token = token.filter(|t| !t.is_empty());
     config.name = cli.name.filter(|n| !n.trim().is_empty());

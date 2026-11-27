@@ -1,16 +1,14 @@
 //! Opening the WebSocket over `ws://` or `wss://`, with an optional extra
-//! CA file, and turning connection failures into readable messages.
+//! CA file or a certificate pin in the URL (`#sha256=<hex>`, see
+//! [`tv_tls`]), and turning connection failures into readable messages.
 //!
 //! Only the `ring` crypto provider is compiled into the workspace; it is
 //! installed as the process default before the first connection, so rustls
 //! never panics looking for one.
 
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
-use rustls::{
-    ClientConfig, RootCertStore,
-    pki_types::{CertificateDer, pem::PemObject},
-};
+use rustls::pki_types::{CertificateDer, pem::PemObject};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
     Connector, MaybeTlsStream, WebSocketStream, connect_async, connect_async_tls_with_config,
@@ -110,30 +108,34 @@ pub fn describe(url: &str, e: &tungstenite::Error, with_ca: bool) -> String {
     }
 }
 
-/// Opens the WebSocket. With `ca` (only allowed for `wss://`) the server's
-/// certificate may chain to one of those certificates or to a public root.
+/// Opens the WebSocket.
+///
+/// A `wss://` URL may end in `#sha256=<hex>`: then the server must present
+/// exactly that certificate, and `ca` is not used. Without a pin the
+/// server's certificate must chain to a public root or to one of `ca` (only
+/// allowed for `wss://`). A refused certificate is reported with its
+/// fingerprint and the pinned URL to use if the host confirms it.
 pub async fn open(url: &str, ca: &[CertificateDer<'static>]) -> Result<WsStream, String> {
     install_crypto_provider();
-    if ca.is_empty() {
-        return connect_async(url).await.map(|(ws, _)| ws).map_err(|e| describe(url, &e, false));
+    let (target, pin) = tv_tls::split_url(url)?;
+    if !is_wss(&target) {
+        if !ca.is_empty() {
+            return Err("--ca-file only applies to wss:// URLs".into());
+        }
+        return connect_async(target.as_str())
+            .await
+            .map(|(ws, _)| ws)
+            .map_err(|e| describe(&target, &e, false));
     }
-    if !is_wss(url) {
-        return Err("--ca-file only applies to wss:// URLs".into());
-    }
-    let mut roots = RootCertStore::empty();
-    let (added, _) = roots.add_parsable_certificates(ca.iter().cloned());
-    if added == 0 {
-        return Err("none of the certificates in the CA file could be used".into());
-    }
-    let config = ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
-    let connector = Connector::Rustls(Arc::new(config));
-    match connect_async_tls_with_config(url, None, false, Some(connector)).await {
+    let with_ca = pin.is_none() && !ca.is_empty();
+    let (config, seen) = tv_tls::client_config(pin, if pin.is_some() { &[] } else { ca })?;
+    let connector = Connector::Rustls(config);
+    match connect_async_tls_with_config(target.as_str(), None, false, Some(connector)).await {
         Ok((ws, _)) => Ok(ws),
-        // Not signed by the CA file: the public roots may still vouch for it.
-        Err(first) if is_certificate_error(&first) => match connect_async(url).await {
-            Ok((ws, _)) => Ok(ws),
-            Err(_) => Err(describe(url, &first, true)),
-        },
-        Err(e) => Err(describe(url, &e, true)),
+        Err(e) if is_certificate_error(&e) => {
+            Err(tv_tls::explain_refusal(&target, pin, &seen, with_ca)
+                .unwrap_or_else(|| describe(&target, &e, with_ca)))
+        }
+        Err(e) => Err(describe(&target, &e, with_ca)),
     }
 }

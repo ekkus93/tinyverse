@@ -140,6 +140,13 @@ impl World {
         self.world.join("cert.pem")
     }
 
+    /// The certificate's pin, from `tinyverse-server tls fingerprint`.
+    fn pin(&self) -> String {
+        let out = self.cli(&["tls", "fingerprint", self.path()]);
+        let hex = out.lines().find_map(|l| l.strip_prefix("tls certificate sha256="));
+        hex.unwrap_or_else(|| panic!("no pin in {out:?}")).to_owned()
+    }
+
     /// Bridge settings for this world, using the scheme it serves.
     fn config(&self) -> tv_mcp::Config {
         let mut cfg = tv_mcp::Config::new(self.url(if self.tls { "wss" } else { "ws" }));
@@ -304,9 +311,12 @@ async fn tls_mismatches_give_readable_errors() {
     let mut cfg = tls.config();
     cfg.ca_certs.clear();
     let mut c = Client::start(cfg);
+    let pinned = format!("{}#sha256={}", tls.url("wss"), tls.pin());
     for tool in ["who", "look"] {
         let text = c.fails(tool, json!({})).await;
-        assert!(text.contains("invalid peer certificate") && text.contains("--ca-file"), "{text}");
+        assert!(text.contains("not trusted") && text.contains("--ca-file"), "{text}");
+        // It names the fingerprint and the pinned URL to use once confirmed.
+        assert!(text.contains(&pinned), "{text}");
     }
     c.shutdown().await;
 
@@ -316,7 +326,7 @@ async fn tls_mismatches_give_readable_errors() {
     cfg.ca_certs = tv_mcp::tls::load_ca_file(&other.cert()).unwrap();
     let mut c = Client::start(cfg);
     let text = c.fails("who", json!({})).await;
-    assert!(text.contains("not signed by the --ca-file"), "{text}");
+    assert!(text.contains("signed neither by a certificate in --ca-file"), "{text}");
     c.shutdown().await;
 
     // ws:// to the TLS port.
@@ -335,6 +345,77 @@ async fn tls_mismatches_give_readable_errors() {
     let text = c.fails("who", json!({})).await;
     assert!(text.contains("try a ws:// URL"), "{text}");
     c.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_pinned_url_joins_a_self_signed_world_without_a_ca_file() {
+    let Some(bin) = server_binary() else { return };
+    let mut world = World::start(&bin, true).await;
+    let other = World::start(&bin, true).await;
+    let pin = world.pin();
+
+    // The right pin: in, and back in after a restart. A CA file that would
+    // not vouch for the server does not matter then.
+    let mut cfg = world.config();
+    cfg.url = format!("{}#sha256={pin}", world.url("wss"));
+    cfg.ca_certs = tv_mcp::tls::load_ca_file(&other.cert()).unwrap();
+    let mut c = Client::start(cfg);
+    let text = c.ok("who", json!({})).await;
+    assert!(text.contains("you: Scout (agent, builder)"), "{text}");
+    world.stop();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    world.run().await;
+    let mut text = String::new();
+    for _ in 0..50 {
+        let (t, err) = c.call("who", json!({})).await;
+        if !err {
+            text = t;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(text.contains("you: Scout"), "never reconnected with the pin: {text}");
+    c.shutdown().await;
+
+    // Another world's pin: refused, naming both fingerprints.
+    let mut cfg = world.config();
+    cfg.ca_certs.clear();
+    cfg.url = format!("{}#sha256={}", world.url("wss"), other.pin());
+    let mut c = Client::start(cfg);
+    let text = c.fails("who", json!({})).await;
+    assert!(text.contains("does not match the pin"), "{text}");
+    assert!(text.contains(&pin) && text.contains(&other.pin()), "{text}");
+    c.shutdown().await;
+
+    // Upper case and colons are read too.
+    let colons =
+        pin.as_bytes().chunks(2).map(|c| std::str::from_utf8(c).unwrap()).collect::<Vec<_>>();
+    let mut cfg = world.config();
+    cfg.ca_certs.clear();
+    cfg.url = format!("{}#SHA256={}", world.url("wss"), colons.join(":").to_uppercase());
+    let mut c = Client::start(cfg);
+    let text = c.ok("who", json!({})).await;
+    assert!(text.contains("you: Scout"), "{text}");
+    c.shutdown().await;
+}
+
+#[test]
+fn bad_pins_are_start_up_errors() {
+    let plain_with_pin = format!("ws://127.0.0.1:1/ws#sha256={}", "ab".repeat(32));
+    for (url, want) in [
+        ("wss://127.0.0.1:1/ws#sha256=1234", "64 hex digits"),
+        (plain_with_pin.as_str(), "only applies to wss://"),
+        ("wss://127.0.0.1:1/ws#top", "#sha256="),
+    ] {
+        let out = Command::new(env!("CARGO_BIN_EXE_tv-mcp"))
+            .args(["--url", url])
+            .stdin(Stdio::null())
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(2), "{url}");
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains(want), "{url}: wanted {want:?} in {err}");
+    }
 }
 
 #[test]

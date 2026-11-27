@@ -14,6 +14,7 @@ repository = "https://github.com/ekkus93/tinyverse"
 tv-proto = { path = "crates/tv-proto" }
 tv-world = { path = "crates/tv-world" }
 tv-store = { path = "crates/tv-store" }
+tv-tls = { path = "crates/tv-tls" }
 
 anyhow = "1"
 argon2 = "0.6"
@@ -22,6 +23,8 @@ clap = { version = "4", features = ["derive"] }
 futures-util = "0.3"
 glam = "0.34"
 hex = "0.4"
+# The machine's network addresses, for the names of a self-signed certificate.
+if-addrs = "0.15"
 pbjson = "0.9"
 pbjson-build = "0.9"
 prost = "0.14"
