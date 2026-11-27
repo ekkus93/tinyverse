@@ -29,7 +29,7 @@ async fn handshake_in_both_encodings() {
         assert_eq!(info.name, "Test World");
         let limits = w.limits.as_ref().unwrap();
         assert_eq!(limits.max_message_bytes, 65536);
-        assert_eq!(limits.walk_speed, 1000.0);
+        assert_eq!(limits.walk_speed, 4.0);
         let avatar = w.avatar.as_ref().unwrap();
         assert_eq!(avatar.id, w.avatar_id);
         assert_eq!(avatar.name, "Ada");

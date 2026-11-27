@@ -61,10 +61,7 @@ async fn two_clients_see_each_other_join_move_and_leave() {
 
 #[tokio::test]
 async fn move_to_is_server_driven_and_reported_to_the_mover() {
-    let world = TestWorld::with(|f| {
-        // Real speeds, so the walk takes a few ticks.
-        f.limits.walk_speed = Some(4.0);
-    });
+    let world = TestWorld::new();
     let server = world.start().await;
     let mut agent = join(&server, "agent").await;
     let id = agent.avatar_id();
@@ -78,9 +75,17 @@ async fn move_to_is_server_driven_and_reported_to_the_mover() {
     server.shutdown().await.unwrap();
 }
 
+/// The next chat line a client receives, with its reply_to.
+async fn next_chat(c: &mut Session) -> (u32, v1::ChatEntry) {
+    let msg = c.recv_where("ChatMessage", |m| matches!(m.body, Some(S::ChatMessage(_)))).await;
+    let Some(S::ChatMessage(chat)) = msg.body else { unreachable!() };
+    (msg.reply_to, chat.entry.unwrap())
+}
+
 #[tokio::test]
 async fn local_chat_carries_20_m_and_world_chat_everywhere() {
-    let world = TestWorld::new();
+    // Fast limits: the listeners jump 10 m and 30 m in one report.
+    let world = TestWorld::fast();
     let server = world.start().await;
     let mut a = join(&server, "speaker").await;
     let mut near = join(&server, "near").await;
@@ -88,44 +93,43 @@ async fn local_chat_carries_20_m_and_world_chat_everywhere() {
     move_and_wait(&mut near, &mut a, 10.0, 0.0).await;
     move_and_wait(&mut far, &mut a, 30.0, 0.0).await;
 
-    a.send(C::Chat(v1::Chat { channel: v1::ChatChannel::Local as i32, text: "psst".into() })).await;
-    let msg = near.recv_where("local chat", |m| matches!(m.body, Some(S::ChatMessage(_)))).await;
-    let Some(S::ChatMessage(c)) = msg.body else { unreachable!() };
-    let entry = c.entry.unwrap();
-    assert_eq!(entry.text, "psst");
-    assert_eq!(entry.sender_name, "speaker");
-    assert_eq!(entry.sender_avatar_id, a.avatar_id());
-    assert_eq!(entry.channel, v1::ChatChannel::Local as i32);
-    assert_eq!(msg.reply_to, 0);
-
-    let seq = a
+    let local = a
+        .send(C::Chat(v1::Chat { channel: v1::ChatChannel::Local as i32, text: "psst".into() }))
+        .await;
+    let world_seq = a
         .send(C::Chat(v1::Chat {
             channel: v1::ChatChannel::World as i32,
             text: "hello all".into(),
         }))
         .await;
-    // The far avatar's next chat line is the world one: it never heard "psst".
-    let msg = far.recv_where("chat", |m| matches!(m.body, Some(S::ChatMessage(_)))).await;
-    let Some(S::ChatMessage(c)) = msg.body else { unreachable!() };
-    assert_eq!(c.entry.unwrap().text, "hello all");
-    let msg = near.recv_where("chat", |m| matches!(m.body, Some(S::ChatMessage(_)))).await;
-    let Some(S::ChatMessage(c)) = msg.body else { unreachable!() };
-    assert_eq!(c.entry.unwrap().channel, v1::ChatChannel::World as i32);
-    // If the speaker gets its own copy of world chat, it answers its seq.
-    for m in a.collect(Duration::from_millis(300)).await {
-        if let Some(S::ChatMessage(c)) = &m.body {
-            assert_eq!(c.entry.as_ref().unwrap().text, "hello all");
-            assert_eq!(m.reply_to, seq);
-        }
-    }
+
+    // Local chat reaches everyone within 20 m, the speaker included (its copy
+    // answers the seq); world chat reaches everyone.
+    let (reply_to, entry) = next_chat(&mut a).await;
+    assert_eq!((reply_to, entry.text.as_str()), (local, "psst"));
+    let (reply_to, entry) = next_chat(&mut a).await;
+    assert_eq!((reply_to, entry.text.as_str()), (world_seq, "hello all"));
+
+    let (reply_to, entry) = next_chat(&mut near).await;
+    assert_eq!((reply_to, entry.text.as_str()), (0, "psst"));
+    assert_eq!(entry.sender_name, "speaker");
+    assert_eq!(entry.sender_avatar_id, a.avatar_id());
+    assert_eq!(entry.sender_user_id, a.user_id());
+    assert_eq!(entry.channel, v1::ChatChannel::Local as i32);
+    let (reply_to, entry) = next_chat(&mut near).await;
+    assert_eq!((reply_to, entry.text.as_str()), (0, "hello all"));
+    assert_eq!(entry.channel, v1::ChatChannel::World as i32);
+
+    // The far avatar's first chat line is the world one: it never heard "psst".
+    let (reply_to, entry) = next_chat(&mut far).await;
+    assert_eq!((reply_to, entry.text.as_str()), (0, "hello all"));
 
     // A latecomer gets the world line (not the local one) in its history.
-    let late = join(&server, "late").await;
+    let mut late = join(&server, "late").await;
     let texts: Vec<_> = late.history.iter().map(|e| e.text.as_str()).collect();
     assert_eq!(texts, vec!["hello all"]);
 
     // ChatHistoryRequest answers with the same.
-    let mut late = late;
     let seq = late.send(C::ChatHistoryRequest(v1::ChatHistoryRequest::default())).await;
     let msg = late.recv_where("ChatHistory", |m| matches!(m.body, Some(S::ChatHistory(_)))).await;
     assert_eq!(msg.reply_to, seq);
@@ -136,7 +140,8 @@ async fn local_chat_carries_20_m_and_world_chat_everywhere() {
 
 #[tokio::test]
 async fn observe_and_set_appearance() {
-    let world = TestWorld::new();
+    // Fast limits: the subject jumps 5 m in one report.
+    let world = TestWorld::fast();
     let server = world.start().await;
     let mut a = join(&server, "observer").await;
     let mut b = join(&server, "subject").await;
@@ -147,34 +152,32 @@ async fn observe_and_set_appearance() {
     assert_eq!(msg.reply_to, seq);
     let Some(S::Observation(o)) = msg.body else { unreachable!() };
     assert_eq!(o.self_.unwrap().id, a.avatar_id());
-    assert!(o.avatars.iter().any(|s| s.avatar.as_ref().unwrap().id == b.avatar_id()));
+    let seen = o.avatars.iter().find(|s| s.avatar.as_ref().unwrap().id == b.avatar_id()).unwrap();
+    assert!((seen.distance - 5.0).abs() < 1e-3, "{seen:?}");
     assert!(!o.summary.is_empty());
 
+    // AvatarUpdated goes to everyone; the changer's own copy answers its seq.
     let red = v1::Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
     let seq = b
         .send(C::SetAppearance(v1::SetAppearance {
             appearance: Some(v1::Appearance { body_color: Some(red), ..Default::default() }),
         }))
         .await;
-    let msg = a.recv_where("AvatarUpdated", |m| matches!(m.body, Some(S::AvatarUpdated(_)))).await;
-    assert_eq!(msg.reply_to, 0);
-    let Some(S::AvatarUpdated(u)) = msg.body else { unreachable!() };
-    let info = u.avatar.unwrap();
-    assert_eq!(info.id, b.avatar_id());
-    assert_eq!(info.appearance.unwrap().body_color, Some(red));
-    for m in b.collect(Duration::from_millis(300)).await {
-        if matches!(m.body, Some(S::AvatarUpdated(_))) {
-            assert_eq!(m.reply_to, seq, "own copy answers the seq");
-        }
+    for (client, want) in [(&mut a, 0), (&mut b, seq)] {
+        let msg = client
+            .recv_where("AvatarUpdated", |m| matches!(m.body, Some(S::AvatarUpdated(_))))
+            .await;
+        assert_eq!(msg.reply_to, want);
+        let Some(S::AvatarUpdated(u)) = msg.body else { unreachable!() };
+        let info = u.avatar.unwrap();
+        assert_eq!(info.name, "subject");
+        assert_eq!(info.appearance.unwrap().body_color, Some(red));
     }
     server.shutdown().await.unwrap();
 }
-
 #[tokio::test]
 async fn speeding_is_corrected() {
-    let world = TestWorld::with(|f| {
-        f.limits.walk_speed = Some(4.0);
-    });
+    let world = TestWorld::new();
     let server = world.start().await;
     let mut a = join(&server, "racer").await;
     a.send(state_at(100.0, 0.0, 0.0)).await;

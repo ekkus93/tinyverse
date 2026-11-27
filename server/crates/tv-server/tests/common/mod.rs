@@ -20,8 +20,7 @@ use tv_world::{ClientKind, Role, UserId};
 
 pub const WAIT: Duration = Duration::from_secs(5);
 
-/// A world directory made by `init`, with speed limits raised so tests can
-/// move avatars far in one step.
+/// A world directory made by `init`, with the default limits.
 pub struct TestWorld {
     _tmp: tempfile::TempDir,
     dir: PathBuf,
@@ -30,6 +29,15 @@ pub struct TestWorld {
 impl TestWorld {
     pub fn new() -> Self {
         Self::with(|_| {})
+    }
+
+    /// A world whose speed limits let a test move an avatar far in one step.
+    pub fn fast() -> Self {
+        Self::with(|f| {
+            f.limits.walk_speed = Some(1000.0);
+            f.limits.run_speed = Some(1000.0);
+            f.limits.fly_speed = Some(1000.0);
+        })
     }
 
     pub fn with(edit: impl FnOnce(&mut WorldFile)) -> Self {
@@ -46,9 +54,6 @@ impl TestWorld {
         execute(cli, &mut Vec::new()).unwrap();
         let paths = WorldDir::new(&dir);
         let mut file = WorldFile::load(&paths).unwrap();
-        file.limits.walk_speed = Some(1000.0);
-        file.limits.run_speed = Some(1000.0);
-        file.limits.fly_speed = Some(1000.0);
         edit(&mut file);
         std::fs::write(paths.toml(), file.to_toml()).unwrap();
         TestWorld { _tmp: tmp, dir }

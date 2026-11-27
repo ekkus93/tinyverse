@@ -15,7 +15,9 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::{Instant, MissedTickBehavior};
 use tv_proto::v1::{self, server_message::Body as S};
 use tv_proto::{Encoding, Frame};
-use tv_world::{Audience, Command, EntityId, Event, EventKind, JoinRequest, Role, UserId, World};
+use tv_world::{
+    Audience, Command, EntityId, Event, EventKind, JoinRequest, Role, UserId, World, WorldError,
+};
 
 use crate::convert::{self, Refusal};
 use crate::now_ms;
@@ -272,6 +274,28 @@ pub struct Hub {
     users: Arc<AtomicUsize>,
     failed_tx: mpsc::UnboundedSender<SaveBatch>,
     failed_rx: mpsc::UnboundedReceiver<SaveBatch>,
+    checked_tx: mpsc::UnboundedSender<CheckedAdmin>,
+    checked_rx: mpsc::UnboundedReceiver<CheckedAdmin>,
+}
+
+/// An owner's `Ban`, `Unban` or `SetRole` after the store said whether the
+/// target user exists.
+struct CheckedAdmin {
+    avatar: EntityId,
+    seq: u32,
+    command: Command,
+    /// `Ok(true)` if the user exists; `Err` if the store could not tell.
+    exists: Result<bool, String>,
+}
+
+/// The target of an admin command that must name a known user.
+fn stored_target(command: &Command) -> Option<&UserId> {
+    match command {
+        Command::Ban { user_id, .. }
+        | Command::Unban { user_id }
+        | Command::SetRole { user_id, .. } => Some(user_id),
+        _ => None,
+    }
 }
 
 impl Hub {
@@ -283,6 +307,7 @@ impl Hub {
         users: Arc<AtomicUsize>,
     ) -> Self {
         let (failed_tx, failed_rx) = mpsc::unbounded_channel();
+        let (checked_tx, checked_rx) = mpsc::unbounded_channel();
         Hub {
             world,
             fanout: Fanout::default(),
@@ -291,6 +316,8 @@ impl Hub {
             users,
             failed_tx,
             failed_rx,
+            checked_tx,
+            checked_rx,
         }
     }
 
@@ -327,6 +354,7 @@ impl Hub {
                 }
                 _ = flush.tick() => self.flush(),
                 Some(batch) = self.failed_rx.recv() => self.dirty.restore(&batch, 0),
+                Some(checked) = self.checked_rx.recv() => self.checked_admin(checked),
                 msg = rx.recv() => match msg {
                     Some(msg) => self.handle(msg),
                     None => break,
@@ -345,17 +373,67 @@ impl Hub {
                 if !self.fanout.contains(avatar) {
                     return; // dropped or kicked meanwhile
                 }
-                match self.world.apply(avatar, command, now_ms()) {
-                    Ok(events) => self.deliver(events, Some((avatar, seq))),
-                    Err(error) => {
-                        let body = Refusal::from(&error).body();
-                        if let Some(dropped) = self.fanout.send(avatar, seq, body) {
-                            self.drop_avatar(dropped);
-                        }
-                    }
+                if stored_target(&command).is_some() {
+                    self.check_admin(avatar, seq, command);
+                } else {
+                    self.apply(avatar, seq, command);
                 }
             }
             ToWorld::Leave { avatar } => self.drop_avatar(avatar),
+        }
+    }
+
+    fn apply(&mut self, avatar: EntityId, seq: u32, command: Command) {
+        match self.world.apply(avatar, command, now_ms()) {
+            Ok(events) => self.deliver(events, Some((avatar, seq))),
+            Err(error) => self.refuse(avatar, seq, Refusal::from(&error)),
+        }
+    }
+
+    fn refuse(&mut self, avatar: EntityId, seq: u32, refusal: Refusal) {
+        if let Some(dropped) = self.fanout.send(avatar, seq, refusal.body()) {
+            self.drop_avatar(dropped);
+        }
+    }
+
+    /// `Ban`, `Unban` and `SetRole` may name users who are not present, so
+    /// the world cannot tell a typo from an absent user. Check the actor's
+    /// role here first, then ask the store (off the world task) whether the
+    /// user exists, and only then apply the command.
+    fn check_admin(&mut self, avatar: EntityId, seq: u32, command: Command) {
+        let is_owner = self.world.avatar(avatar).is_some_and(|a| a.role == Role::Owner);
+        if !is_owner {
+            let refusal = Refusal::from(WorldError::PermissionDenied(
+                "only world owners may do this".to_owned(),
+            ));
+            self.refuse(avatar, seq, refusal);
+            return;
+        }
+        let user = stored_target(&command).expect("checked by the caller").clone();
+        let checked = self.checked_tx.clone();
+        self.store.submit(move |s| {
+            let exists = s.user(&user).map(|u| u.is_some()).map_err(|e| e.to_string());
+            let _ = checked.send(CheckedAdmin { avatar, seq, command, exists });
+        });
+    }
+
+    fn checked_admin(&mut self, checked: CheckedAdmin) {
+        let CheckedAdmin { avatar, seq, command, exists } = checked;
+        if !self.fanout.contains(avatar) {
+            return;
+        }
+        match exists {
+            Ok(true) => self.apply(avatar, seq, command),
+            Ok(false) => {
+                let user = stored_target(&command).expect("an admin command");
+                let refusal =
+                    Refusal::from(WorldError::NotFound(format!("no user {user} in this world")));
+                self.refuse(avatar, seq, refusal);
+            }
+            Err(e) => {
+                tracing::error!("cannot look up a user: {e}");
+                self.refuse(avatar, seq, Refusal::internal("cannot read the user database"));
+            }
         }
     }
 
@@ -501,7 +579,11 @@ impl Hub {
         while let Ok(batch) = self.failed_rx.try_recv() {
             self.dirty.restore(&batch, 0);
         }
-        let Some(batch) = self.take_batch() else { return };
+        let Some(batch) = self.take_batch() else {
+            // Nothing to save, but still wait for queued writes (bans, roles).
+            let _ = self.store.call(|_| ()).await;
+            return;
+        };
         let saved = self
             .store
             .call(move |s| s.save_objects(&batch.upserts, &batch.deletes, batch.next_entity_id))

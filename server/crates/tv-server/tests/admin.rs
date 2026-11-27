@@ -102,11 +102,19 @@ async fn set_role_applies_now_and_later() {
             role: v1::Role::Visitor as i32,
         })))
         .await;
-    ack(&mut host, seq).await;
+    // AvatarUpdated goes to everyone (the owner's copy answers the seq), then
+    // the owner gets Ack.
+    let msg =
+        host.recv_where("AvatarUpdated", |m| matches!(m.body, Some(S::AvatarUpdated(_)))).await;
+    assert_eq!(msg.reply_to, seq);
+    let next = host.recv().await;
+    assert!(matches!(next.body, Some(S::Ack(_))) && next.reply_to == seq, "{next:?}");
     let msg =
         guest.recv_where("AvatarUpdated", |m| matches!(m.body, Some(S::AvatarUpdated(_)))).await;
+    assert_eq!(msg.reply_to, 0);
     let Some(S::AvatarUpdated(u)) = msg.body else { unreachable!() };
-    assert_eq!(u.avatar.unwrap().role, v1::Role::Visitor as i32);
+    let info = u.avatar.unwrap();
+    assert_eq!((info.id, info.role), (guest.avatar_id(), v1::Role::Visitor as i32));
 
     let seq =
         guest.send(C::ObjectCreate(v1::ObjectCreate { spec: Some(box_at(0.0, 0.0, 0.0)) })).await;
@@ -148,5 +156,66 @@ async fn only_owners_moderate() {
     let seq = guest.send(C::Admin(v1::Admin { action: None })).await;
     let (reply_to, e) = guest.error().await;
     assert_eq!((reply_to, code(&e)), (seq, ErrorCode::InvalidArgument));
+
+    // The role is checked before the user id: a non-owner naming an unknown
+    // user is refused for its role, not told the user does not exist.
+    for action in [
+        admin::Action::Ban(admin::Ban { user_id: "nobody".into(), reason: String::new() }),
+        admin::Action::Unban(admin::Unban { user_id: "nobody".into() }),
+        admin::Action::SetRole(admin::SetRole {
+            user_id: "nobody".into(),
+            role: v1::Role::Owner as i32,
+        }),
+    ] {
+        let seq = guest.send(admin_body(action)).await;
+        let (reply_to, e) = guest.error().await;
+        assert_eq!((reply_to, code(&e)), (seq, ErrorCode::PermissionDenied), "{}", e.message);
+    }
     server.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn unknown_users_are_not_found() {
+    let world = TestWorld::new();
+    let (absent, _) = world.create_token("absent", tv_world::ClientKind::Agent, Role::Builder);
+    let server = world.start().await;
+    let mut host = owner(&world, &server).await;
+
+    for action in [
+        admin::Action::Kick(admin::Kick { user_id: "nobody".into(), reason: String::new() }),
+        admin::Action::Ban(admin::Ban { user_id: "nobody".into(), reason: String::new() }),
+        admin::Action::Unban(admin::Unban { user_id: "nobody".into() }),
+        admin::Action::SetRole(admin::SetRole {
+            user_id: "nobody".into(),
+            role: v1::Role::Visitor as i32,
+        }),
+        // Known but not present: Kick has nobody to remove.
+        admin::Action::Kick(admin::Kick { user_id: absent.0.clone(), reason: String::new() }),
+    ] {
+        let seq = host.send(admin_body(action.clone())).await;
+        let (reply_to, e) = host.error().await;
+        assert_eq!((reply_to, code(&e)), (seq, ErrorCode::NotFound), "{action:?}: {}", e.message);
+    }
+
+    // Ban and SetRole work on a known user who is not present.
+    let seq = host
+        .send(admin_body(admin::Action::SetRole(admin::SetRole {
+            user_id: absent.0.clone(),
+            role: v1::Role::Visitor as i32,
+        })))
+        .await;
+    ack(&mut host, seq).await;
+    let seq = host
+        .send(admin_body(admin::Action::Ban(admin::Ban {
+            user_id: absent.0.clone(),
+            reason: "later".into(),
+        })))
+        .await;
+    ack(&mut host, seq).await;
+    // Shutdown waits for the final save, which the store thread runs after
+    // both writes.
+    server.shutdown().await.unwrap();
+    let user = world.store().user(&absent).unwrap().unwrap();
+    assert_eq!(user.role, Role::Visitor);
+    assert_eq!(user.banned.as_deref(), Some("later"));
 }
