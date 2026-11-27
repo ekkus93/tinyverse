@@ -63,6 +63,93 @@ namespace Tinyverse.World
             return loaded;
         }
 
+        // ------------------------------------------------------------ selection outline
+
+        public const string OutlineShaderName = "Tinyverse/World/PrimOutline";
+
+        /// <summary>Bright outline band colour (sRGB) and the faint body pulse colour.</summary>
+        public static readonly Color OutlineColor = new Color(1f, 0.72f, 0.05f, 1f);
+
+        /// <summary>Dark line drawn tight against the silhouette, inside the bright band.</summary>
+        public static readonly Color OutlineInnerColor = new Color(0.06f, 0.05f, 0.04f, 1f);
+
+        /// <summary>Strength of the faint emissive pulse on a highlighted prim's body.</summary>
+        public const float HighlightFill = 0.03f;
+
+        /// <summary>The three outline passes, in draw order.</summary>
+        public enum OutlineLayer { Mask, Outer, Inner }
+
+        static Material[] outline;
+
+        public static string OutlineResourcePath(OutlineLayer layer) => ResourceFolder + "PrimOutline" + layer;
+
+        /// <summary>
+        /// The shared materials of the selection outline renderer, in draw order (mask, outer,
+        /// inner). Never modify or destroy them.
+        /// </summary>
+        public static Material[] GetOutlineMaterials()
+        {
+            if (outline != null && outline[0] != null) return outline;
+            var layers = (OutlineLayer[])System.Enum.GetValues(typeof(OutlineLayer));
+            outline = new Material[layers.Length];
+            foreach (var layer in layers)
+            {
+                var m = Resources.Load<Material>(OutlineResourcePath(layer));
+                if (m == null)
+                {
+                    Debug.LogError($"[World] material {OutlineResourcePath(layer)} missing from Resources; building one at runtime");
+                    var shader = Shader.Find(OutlineShaderName);
+                    m = new Material(shader != null ? shader : Shader.Find("Universal Render Pipeline/Unlit")) { name = "PrimOutline" + layer + " (runtime)" };
+                    ConfigureOutline(m, layer);
+                }
+                outline[(int)layer] = m;
+            }
+            return outline;
+        }
+
+        /// <summary>Sets a material up as one layer of the selection outline (asset authoring and fallback).</summary>
+        public static void ConfigureOutline(Material m, OutlineLayer layer)
+        {
+            m.enableInstancing = true;
+            m.SetColor("_PulseColor", new Color(1f, 0.95f, 0.6f, 1f));
+            m.SetFloat("_WidthPerMetre", 0.006f);
+            m.SetFloat("_MinWidth", 0.015f);
+            m.SetFloat("_MaxWidth", 0.6f);
+            switch (layer)
+            {
+                case OutlineLayer.Mask:
+                    m.SetFloat("_Grow", 0f);
+                    m.SetFloat("_ColorMask", 0f);
+                    m.SetFloat("_StencilComp", (float)CompareFunction.Always);
+                    m.SetFloat("_StencilPass", (float)StencilOp.Replace);
+                    m.SetFloat("_OffsetUnits", -1f);
+                    m.SetColor("_OutlineColor", Color.black);
+                    m.SetFloat("_PulseAmount", 0f);
+                    m.renderQueue = (int)RenderQueue.Transparent + 10;
+                    break;
+                case OutlineLayer.Outer:
+                    m.SetFloat("_Grow", 1f);
+                    m.SetFloat("_ColorMask", 15f);
+                    m.SetFloat("_StencilComp", (float)CompareFunction.NotEqual);
+                    m.SetFloat("_StencilPass", (float)StencilOp.Keep);
+                    m.SetFloat("_OffsetUnits", 0f);
+                    m.SetColor("_OutlineColor", OutlineColor);
+                    m.SetFloat("_PulseAmount", 0.35f);
+                    m.renderQueue = (int)RenderQueue.Transparent + 11;
+                    break;
+                case OutlineLayer.Inner:
+                    m.SetFloat("_Grow", 0.35f);
+                    m.SetFloat("_ColorMask", 15f);
+                    m.SetFloat("_StencilComp", (float)CompareFunction.NotEqual);
+                    m.SetFloat("_StencilPass", (float)StencilOp.Keep);
+                    m.SetFloat("_OffsetUnits", 0f);
+                    m.SetColor("_OutlineColor", OutlineInnerColor);
+                    m.SetFloat("_PulseAmount", 0f);
+                    m.renderQueue = (int)RenderQueue.Transparent + 12;
+                    break;
+            }
+        }
+
         /// <summary>
         /// Sets a material up as the given preset. Used to author the material assets and as a
         /// fallback; at runtime the assets are used as they are.
@@ -76,6 +163,8 @@ namespace Tinyverse.World
             m.SetFloat("_Opacity", 1);
             m.SetFloat("_EmissionStrength", 0);
             m.SetFloat("_Cull", (float)CullMode.Back);
+            m.SetColor("_HighlightColor", OutlineColor);
+            m.SetFloat("_HighlightFill", HighlightFill);
             SetOpaque(m);
             m.DisableKeyword("_EMISSION");
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;

@@ -13,7 +13,8 @@ Shader "Tinyverse/World/Prim"
         _Metallic("Metallic", Range(0, 1)) = 0
         _Opacity("Opacity (transparent only)", Range(0, 1)) = 1
         _EmissionStrength("Emission strength", Float) = 0
-        _HighlightColor("Highlight colour", Color) = (0.35, 0.85, 1, 1)
+        _HighlightColor("Highlight colour", Color) = (1, 0.72, 0.05, 1)
+        _HighlightFill("Highlight fill strength", Range(0, 0.2)) = 0.03
 
         [HideInInspector] _Surface("__surface", Float) = 0
         [HideInInspector] _SrcBlend("__src", Float) = 1
@@ -42,6 +43,7 @@ Shader "Tinyverse/World/Prim"
             half _Opacity;
             half _EmissionStrength;
             half4 _HighlightColor;
+            half _HighlightFill;
             half _Surface;
         CBUFFER_END
 
@@ -77,11 +79,11 @@ Shader "Tinyverse/World/Prim"
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
-            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Fog.hlsl"
 
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "TinyverseFog.hlsl"
 
             struct Attributes
             {
@@ -95,7 +97,6 @@ Shader "Tinyverse/World/Prim"
                 float4 positionCS : SV_POSITION;
                 float3 positionWS : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
-                half fogFactor : TEXCOORD2;
                 half3 vertexSH : TEXCOORD3;
             #ifdef _ADDITIONAL_LIGHTS_VERTEX
                 half3 vertexLight : TEXCOORD4;
@@ -117,7 +118,6 @@ Shader "Tinyverse/World/Prim"
                 output.positionCS = vertexInput.positionCS;
                 output.positionWS = vertexInput.positionWS;
                 output.normalWS = normalWS;
-                output.fogFactor = ComputeFogFactor(vertexInput.positionCS.z);
                 output.vertexSH = SampleSH(normalWS);
             #ifdef _ADDITIONAL_LIGHTS_VERTEX
                 output.vertexLight = VertexLighting(vertexInput.positionWS, normalWS);
@@ -146,7 +146,7 @@ Shader "Tinyverse/World/Prim"
             #else
                 inputData.shadowCoord = float4(0, 0, 0, 0);
             #endif
-                inputData.fogCoord = InitializeInputDataFog(float4(input.positionWS, 1.0), input.fogFactor);
+                inputData.fogCoord = 0;
             #ifdef _ADDITIONAL_LIGHTS_VERTEX
                 inputData.vertexLighting = input.vertexLight;
             #endif
@@ -171,17 +171,21 @@ Shader "Tinyverse/World/Prim"
             #if defined(_EMISSION)
                 emission = baseColor.rgb * _EmissionStrength;
             #endif
-                // Selection highlight: a pulsing rim plus a faint fill, readable on any colour.
+                // Selection is marked by the outline renderer (PrimOutline.shader); the body only
+                // gets a very faint pulse so its true colour stays readable while recolouring.
                 if (highlight > 0)
                 {
-                    half rim = pow(1 - saturate(dot(normalWS, inputData.viewDirectionWS)), 2);
-                    half pulse = 0.55 + 0.45 * sin(_TimeParameters.x * 6.0);
-                    emission += _HighlightColor.rgb * highlight * (0.2 + 1.3 * rim) * pulse;
+                    half pulse = 0.5 + 0.5 * sin(_TimeParameters.x * 4.0);
+                    emission += _HighlightColor.rgb * highlight * _HighlightFill * pulse;
                 }
                 surfaceData.emission = emission;
 
                 half4 color = UniversalFragmentPBR(inputData, surfaceData);
-                color.rgb = MixFog(color.rgb, inputData.fogCoord);
+            #if defined(_ALPHAPREMULTIPLY_ON)
+                color.rgb = TinyverseApplyFogPremultiplied(color.rgb, color.a, input.positionWS);
+            #else
+                color.rgb = TinyverseApplyFog(color.rgb, input.positionWS);
+            #endif
                 color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
                 return color;
             }

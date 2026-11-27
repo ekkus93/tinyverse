@@ -30,8 +30,10 @@ namespace Tinyverse.World
         public const string GroundMaterialPath = "Tinyverse/World/Materials/Ground";
         public const string SkyMaterialPath = "Tinyverse/World/Materials/Sky";
 
-        /// <summary>Metres covered by one repeat of the ground texture (a 2 x 2 checker of 8 m cells with 1 m lines).</summary>
-        public const float GroundTileMetres = 16f;
+        public const string GroundShaderName = "Tinyverse/World/Ground";
+
+        /// <summary>Exponential-squared fog density times the ground size (see ApplyLighting).</summary>
+        public const float FogDensityFactor = 2.6f;
 
         static readonly string[] skyNames = { "day", "overcast" };
 
@@ -41,9 +43,8 @@ namespace Tinyverse.World
         Light sun;
         ReflectionProbe probe;
         GameObject bounds;
-        Material groundMaterial;
+        Material groundFallback;
         Material skyMaterial;
-        Texture2D groundTexture;
         Saved saved;
         bool hasSaved;
 
@@ -83,14 +84,12 @@ namespace Tinyverse.World
         public void Clear()
         {
             ObjectRegistry.DestroyObject(root);
-            ObjectRegistry.DestroyObject(groundMaterial);
+            ObjectRegistry.DestroyObject(groundFallback);
             ObjectRegistry.DestroyObject(skyMaterial);
-            ObjectRegistry.DestroyObject(groundTexture);
             root = ground = bounds = null;
             sun = null;
             probe = null;
-            groundMaterial = skyMaterial = null;
-            groundTexture = null;
+            groundFallback = skyMaterial = null;
             if (hasSaved)
             {
                 saved.Restore();
@@ -138,11 +137,14 @@ namespace Tinyverse.World
             box.center = new Vector3(0, -0.5f, 0); // top face at y = 0
             box.size = Vector3.one;
 
-            groundTexture = MakeGroundTexture();
-            var groundAsset = Resources.Load<Material>(GroundMaterialPath);
-            groundMaterial = groundAsset != null ? new Material(groundAsset) : FallbackLit();
-            groundMaterial.name = "Ground (instance)";
-            groundMaterial.mainTexture = groundTexture;
+            // The grid is procedural in world space, so the shared asset is used unmodified.
+            var groundMaterial = Resources.Load<Material>(GroundMaterialPath);
+            if (groundMaterial == null)
+            {
+                Debug.LogError($"[World] {GroundMaterialPath} missing from Resources");
+                var shader = Shader.Find(GroundShaderName);
+                groundMaterial = groundFallback = new Material(shader != null ? shader : Shader.Find("Universal Render Pipeline/Lit")) { name = "Ground (runtime)" };
+            }
             renderer.sharedMaterial = groundMaterial;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = true;
@@ -176,12 +178,6 @@ namespace Tinyverse.World
             }
         }
 
-        static Material FallbackLit()
-        {
-            Debug.LogError($"[World] {GroundMaterialPath} missing from Resources");
-            return new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        }
-
         static Mesh groundMesh;
 
         static Mesh GroundMesh()
@@ -200,49 +196,9 @@ namespace Tinyverse.World
             return groundMesh;
         }
 
-        // 16 m per repeat: a 2 x 2 checker of 8 m cells whose brightness differs by a few percent,
-        // thin lines every metre and slightly stronger ones on the 8 m cell edges.
-        static Texture2D MakeGroundTexture()
-        {
-            const int size = 1024;
-            const int perMetre = size / 16;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true, false)
-            {
-                name = "GroundGrid",
-                wrapMode = TextureWrapMode.Repeat,
-                filterMode = FilterMode.Trilinear,
-                anisoLevel = 8,
-            };
-            var basis = new Color32(118, 128, 112, 255);
-            var px = new Color32[size * size];
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    bool checker = ((x / (size / 2)) + (y / (size / 2))) % 2 == 0;
-                    float k = checker ? 1.0f : 0.94f;
-                    int mx = x % perMetre, my = y % perMetre;
-                    bool metreLine = mx == 0 || my == 0;
-                    int cx = x % (size / 2), cy = y % (size / 2);
-                    bool cellLine = cx <= 1 || cx >= size / 2 - 1 || cy <= 1 || cy >= size / 2 - 1;
-                    if (cellLine) k *= 0.80f;
-                    else if (metreLine) k *= 0.90f;
-                    px[y * size + x] = new Color32((byte)(basis.r * k), (byte)(basis.g * k), (byte)(basis.b * k), 255);
-                }
-            }
-            tex.SetPixels32(px);
-            tex.Apply(true, true); // no longer readable: frees the CPU copy
-            return tex;
-        }
-
         void ApplyGround(float size)
         {
             ground.transform.localScale = new Vector3(size, 1f, size);
-            float tiles = size / GroundTileMetres;
-            groundMaterial.mainTextureScale = new Vector2(tiles, tiles);
-            // Centre the checker on the origin.
-            float offset = (tiles * 0.5f) % 1f;
-            groundMaterial.mainTextureOffset = new Vector2(-offset, -offset);
             if (probe != null) probe.size = new Vector3(size * 2f, Mathf.Max(200f, size), size * 2f);
         }
 
@@ -301,7 +257,7 @@ namespace Tinyverse.World
                     return new SkyLook
                     {
                         Tint = new Color(0.55f, 0.56f, 0.58f), Atmosphere = 2.4f, Exposure = 0.9f,
-                        SunScale = 0.35f, AmbientScale = 1.25f, FogScale = 2.2f, Desaturate = 0.6f,
+                        SunScale = 0.35f, AmbientScale = 1.25f, FogScale = 1.5f, Desaturate = 0.6f,
                     };
                 default:
                     return new SkyLook
@@ -356,11 +312,17 @@ namespace Tinyverse.World
             RenderSettings.ambientIntensity = 1f;
             RenderSettings.ambientProbe = TrilightProbe(skyCol, horizon, groundCol);
 
-            // Fog matched to the horizon, scaled so the far edge of the ground fades softly.
+            // Haze in the colour of the sky at the horizon (RenderSettings colours are sRGB), so
+            // the far edge of the ground melts into the sky instead of ending in a hard line.
+            // Exponential-squared keeps the near field clear: with density 2.6 / size, fog is
+            // about 7% at a tenth of the ground size and about 80% at its edge.
+            Color hazeDay = new Color(0.84f, 0.92f, 0.96f), hazeDusk = new Color(0.86f, 0.62f, 0.48f), hazeNight = new Color(0.035f, 0.045f, 0.075f);
+            Color haze = Color.Lerp(hazeNight, Color.Lerp(hazeDusk, hazeDay, high), day);
+            if (look.Desaturate > 0) haze = Desaturate(haze, look.Desaturate) * 0.88f;
             RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Exponential;
-            RenderSettings.fogColor = Color.Lerp(horizon, horizon * 1.15f, day);
-            RenderSettings.fogDensity = 0.8f / Mathf.Max(s.GroundSize, 100f) * look.FogScale;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = haze;
+            RenderSettings.fogDensity = FogDensityFactor / Mathf.Max(s.GroundSize, 64f) * look.FogScale;
 
             RenderSettings.sun = sun;
             if (skyMaterial != null)

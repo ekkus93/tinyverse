@@ -347,6 +347,39 @@ namespace Tinyverse.World.Tests
         }
 
         [Test]
+        public void HighlightAddsOutlineRendererOnlyWhileSelected()
+        {
+            reg.Upsert(Prim(1, PrimShape.Box));
+            var go = reg.GetGameObject(1);
+            Assert.That(reg.GetOutlineRenderer(1), Is.Null);
+            Assert.That(go.transform.childCount, Is.EqualTo(0), "unselected prims carry nothing extra");
+
+            reg.SetHighlighted(1, true);
+            var outline = reg.GetOutlineRenderer(1);
+            Assert.That(outline, Is.Not.Null);
+            Assert.That(outline.transform.parent, Is.SameAs(go.transform));
+            Assert.That(outline.transform.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(outline.GetComponent<MeshFilter>().sharedMesh, Is.SameAs(PrimMeshes.Get(PrimShape.Box)));
+            Assert.That(outline.sharedMaterials, Is.EqualTo(PrimMaterials.GetOutlineMaterials()));
+            Assert.That(outline.GetComponent<Collider>(), Is.Null, "never picked by raycasts");
+            Assert.That(outline.shadowCastingMode, Is.EqualTo(UnityEngine.Rendering.ShadowCastingMode.Off));
+            // The prim itself keeps its material and colour.
+            Assert.That(go.GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(PrimMaterials.Get(PrimMaterial.Matte)));
+            Assert.That(ColourOf(go), Is.EqualTo(PrimMaterials.ToShaderColor(new Color(0.2f, 0.4f, 0.6f, 1f))));
+
+            reg.SetHighlighted(1, true); // idempotent
+            Assert.That(go.transform.childCount, Is.EqualTo(1));
+
+            reg.Upsert(Prim(1, PrimShape.Cone));
+            Assert.That(outline.GetComponent<MeshFilter>().sharedMesh, Is.SameAs(PrimMeshes.Get(PrimShape.Cone)), "follows shape changes");
+
+            reg.SetHighlighted(1, false);
+            Assert.That(reg.GetOutlineRenderer(1), Is.Null);
+            Assert.That(outline == null, Is.True, "outline destroyed");
+            Assert.That(go.transform.childCount, Is.EqualTo(0));
+        }
+
+        [Test]
         public void InputIsNormalised()
         {
             var p = Prim(1);
