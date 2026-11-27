@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -24,11 +25,63 @@ namespace Tinyverse.Avatars.Tests
             Assert.That(HumanCatalog.FindPreset(name), Is.Null, "unknown presets draw the placeholder");
         }
 
+        [TestCase("masculine_heavy", AvatarStyle.Modern, "masculine_heavy")]
+        [TestCase("Heavy", AvatarStyle.Modern, "masculine_heavy")]
+        [TestCase("feminine_slim", AvatarStyle.Modern, "feminine_slim")]
+        [TestCase("slim", AvatarStyle.Modern, "feminine_slim")]
+        [TestCase("masculine_heavy", AvatarStyle.Classic, "masculine")]
+        [TestCase("feminine_slim", AvatarStyle.Classic, "feminine")]
+        [TestCase("female", AvatarStyle.Classic, "feminine")]
+        [TestCase("", AvatarStyle.Classic, "masculine")]
+        public void PresetsResolvePerStyle(string name, AvatarStyle style, string expected)
+        {
+            var p = HumanCatalog.FindPreset(name, style);
+            Assert.That(p?.Id, Is.EqualTo(expected));
+            Assert.That(p.Style, Is.EqualTo(style));
+        }
+
+        [Test]
+        public void ModernIsTheDefaultStyleAndOffersMoreBuilds()
+        {
+            Assert.That(HumanCatalog.ParseStyle(new string[0]), Is.EqualTo(AvatarStyle.Modern));
+            Assert.That(HumanCatalog.PresetsOf(AvatarStyle.Modern).Select(p => p.Id),
+                Is.SupersetOf(new[] { HumanCatalog.Masculine, HumanCatalog.Feminine, HumanCatalog.MasculineHeavy, HumanCatalog.FeminineSlim }));
+            Assert.That(HumanCatalog.PresetsOf(AvatarStyle.Classic).Select(p => p.Id), Is.EqualTo(new[] { HumanCatalog.Masculine, HumanCatalog.Feminine }));
+            Assert.That(HumanCatalog.PresetsOf(AvatarStyle.Modern).All(p => p.Style == AvatarStyle.Modern), Is.True);
+            Assert.That(HumanCatalog.FindPreset("robot", AvatarStyle.Modern), Is.Null);
+            Assert.That(HumanCatalog.FindPreset("robot", AvatarStyle.Classic), Is.Null);
+        }
+
+        [TestCase(new[] { "tinyverse", "--avatar-style=classic" }, AvatarStyle.Classic)]
+        [TestCase(new[] { "tinyverse", "--avatar-style", "Classic" }, AvatarStyle.Classic)]
+        [TestCase(new[] { "tinyverse", "--avatar-style=modern" }, AvatarStyle.Modern)]
+        [TestCase(new[] { "tinyverse", "--avatar-style=nonsense" }, AvatarStyle.Modern)]
+        [TestCase(new[] { "tinyverse", "--avatar-style" }, AvatarStyle.Modern)]
+        [TestCase(new[] { "tinyverse", "--connect", "ws://x", "--avatar-style=classic", "--name", "A" }, AvatarStyle.Classic)]
+        [TestCase(new[] { "classic" }, AvatarStyle.Modern)]
+        public void StyleComesFromTheCommandLine(string[] args, AvatarStyle expected)
+        {
+            Assert.That(HumanCatalog.ParseStyle(args), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void ModernHairIsOneFittedModelPerPresetAndStyle()
+        {
+            var slim = HumanCatalog.FindPreset(HumanCatalog.FeminineSlim, AvatarStyle.Modern);
+            Assert.That(HumanCatalog.FindHairStyle("", slim).Id, Is.EqualTo("long"));
+            Assert.That(HumanCatalog.FindHairStyle("bald", slim).ModelsFor(slim), Is.EqualTo(new[] { "Hair_feminine_slim_bald" }), "eyebrows stay on a bald head");
+            Assert.That(HumanCatalog.FindHairStyle("beard", slim).ModelsFor(slim), Is.EqualTo(new[] { "Hair_feminine_slim_beard" }));
+            Assert.That(slim.Gender, Is.EqualTo(HumanCatalog.Feminine));
+            Assert.That(slim.SkinMaterial, Is.EqualTo("Skin_feminine_slim"));
+            Assert.That(slim.TopMaterial, Is.EqualTo("Top_feminine_slim"));
+            Assert.That(slim.BottomMaterial, Is.EqualTo("Bottom_feminine_slim"));
+        }
+
         [Test]
         public void HairStylesResolveWithPresetDefaults()
         {
-            var masc = HumanCatalog.FindPreset(HumanCatalog.Masculine);
-            var fem = HumanCatalog.FindPreset(HumanCatalog.Feminine);
+            var masc = HumanCatalog.FindPreset(HumanCatalog.Masculine, AvatarStyle.Classic);
+            var fem = HumanCatalog.FindPreset(HumanCatalog.Feminine, AvatarStyle.Classic);
             Assert.That(HumanCatalog.FindHairStyle("LONG", masc).Id, Is.EqualTo("long"));
             Assert.That(HumanCatalog.FindHairStyle("", masc).Id, Is.EqualTo(masc.DefaultHairStyle));
             Assert.That(HumanCatalog.FindHairStyle("mohawk", fem).Id, Is.EqualTo(fem.DefaultHairStyle));

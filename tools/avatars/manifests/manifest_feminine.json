@@ -1,0 +1,162 @@
+{
+  "body_model": "Body_feminine",
+  "bones": [
+    "Root",
+    "ball_l",
+    "ball_r",
+    "calf_l",
+    "calf_r",
+    "clavicle_l",
+    "clavicle_r",
+    "foot_l",
+    "foot_r",
+    "hand_l",
+    "hand_r",
+    "head",
+    "index_01_l",
+    "index_01_r",
+    "index_02_l",
+    "index_02_r",
+    "index_03_l",
+    "index_03_r",
+    "lowerarm_l",
+    "lowerarm_r",
+    "middle_01_l",
+    "middle_01_r",
+    "middle_02_l",
+    "middle_02_r",
+    "middle_03_l",
+    "middle_03_r",
+    "neck_01",
+    "pelvis",
+    "pinky_01_l",
+    "pinky_01_r",
+    "pinky_02_l",
+    "pinky_02_r",
+    "pinky_03_l",
+    "pinky_03_r",
+    "ring_01_l",
+    "ring_01_r",
+    "ring_02_l",
+    "ring_02_r",
+    "ring_03_l",
+    "ring_03_r",
+    "spine_01",
+    "spine_02",
+    "spine_03",
+    "thigh_l",
+    "thigh_r",
+    "thumb_01_l",
+    "thumb_01_r",
+    "thumb_02_l",
+    "thumb_02_r",
+    "thumb_03_l",
+    "thumb_03_r",
+    "upperarm_l",
+    "upperarm_r"
+  ],
+  "default_hair": "long",
+  "gender": "feminine",
+  "hair": {
+    "bald": {
+      "model": "Hair_feminine_bald",
+      "texture": "Hair_none.png",
+      "triangles": 560
+    },
+    "beard": {
+      "model": "Hair_feminine_beard",
+      "texture": "Hair_short02_diffuse_BeardViking.png",
+      "triangles": 3145
+    },
+    "buns": {
+      "model": "Hair_feminine_buns",
+      "texture": "Hair_ponytail01_diffuse.png",
+      "triangles": 3147
+    },
+    "buzzed": {
+      "model": "Hair_feminine_buzzed",
+      "texture": "Hair_short04_diffuse.png",
+      "triangles": 1610
+    },
+    "long": {
+      "model": "Hair_feminine_long",
+      "texture": "Hair_long01_diffuse.png",
+      "triangles": 3147
+    },
+    "short": {
+      "model": "Hair_feminine_short",
+      "texture": "Hair_bob02_diffuse.png",
+      "triangles": 2808
+    }
+  },
+  "head_bone": [
+    0.0,
+    -0.0027,
+    1.5075
+  ],
+  "height": 1.6505,
+  "label": "Feminine",
+  "materials": [
+    {
+      "baseMap": "Skin_feminine",
+      "emissionMap": "Eyes_Emission",
+      "kind": "skin",
+      "name": "Skin_feminine"
+    },
+    {
+      "baseMap": "Top_female_casualsuit01",
+      "kind": "top",
+      "name": "Top_feminine",
+      "normalMap": "ClothNormal_female_casualsuit01"
+    },
+    {
+      "baseMap": "Bottom_female_casualsuit01",
+      "kind": "bottom",
+      "name": "Bottom_feminine",
+      "normalMap": "ClothNormal_female_casualsuit01"
+    },
+    {
+      "baseMap": "Hair_bob02_diffuse",
+      "kind": "hair",
+      "name": "Hair_feminine_short"
+    },
+    {
+      "baseMap": "Hair_short04_diffuse",
+      "kind": "hair",
+      "name": "Hair_feminine_buzzed"
+    },
+    {
+      "baseMap": "Hair_long01_diffuse",
+      "kind": "hair",
+      "name": "Hair_feminine_long"
+    },
+    {
+      "baseMap": "Hair_ponytail01_diffuse",
+      "kind": "hair",
+      "name": "Hair_feminine_buns"
+    },
+    {
+      "baseMap": "Hair_short02_diffuse_BeardViking",
+      "kind": "hair",
+      "name": "Hair_feminine_beard"
+    },
+    {
+      "baseMap": "Hair_none",
+      "kind": "hair",
+      "name": "Hair_feminine_bald"
+    }
+  ],
+  "preset": "feminine",
+  "textures": {
+    "bottom": "Bottom_female_casualsuit01.jpg",
+    "cloth_normal": "ClothNormal_female_casualsuit01.png",
+    "eyes": "Eyes_Emission.jpg",
+    "skin": "Skin_feminine.jpg",
+    "top": "Top_female_casualsuit01.jpg"
+  },
+  "triangles": {
+    "Body": 6078,
+    "Bottom": 2692,
+    "Top": 2352
+  }
+}

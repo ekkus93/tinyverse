@@ -1,0 +1,60 @@
+{
+  "comment": "Parameters of the generated (\"modern\") avatars. MPFB phenotype values are 0..1 (gender 0 = female, 1 = male; age 0.5 = 25 years, 1 = 90 years). Asset paths are relative to MPFB's data folders. Triangle budgets are per part, after decimation.",
+  "budget": {
+    "body": 6200,
+    "top": 2400,
+    "bottom": 3000,
+    "hair": 3200
+  },
+  "atlas": {
+    "skin": 2048,
+    "cloth": 1024,
+    "hair": 1024,
+    "emission": 1024
+  },
+  "presets": {
+    "masculine": {
+      "label": "Masculine",
+      "phenotype": { "gender": 1.0, "age": 0.56, "muscle": 0.5, "weight": 0.5, "proportions": 0.6, "height": 0.6, "cupsize": 0.5, "firmness": 0.5 },
+      "skin": "young_caucasian_male/young_caucasian_male.mhmat",
+      "suit": "male_casualsuit06/male_casualsuit06.mhclo",
+      "shoes": "shoes06/shoes06.mhclo",
+      "default_hair": "short"
+    },
+    "feminine": {
+      "label": "Feminine",
+      "phenotype": { "gender": 0.0, "age": 0.54, "muscle": 0.5, "weight": 0.5, "proportions": 0.6, "height": 0.55, "cupsize": 0.5, "firmness": 0.5 },
+      "skin": "young_caucasian_female/young_caucasian_female.mhmat",
+      "suit": "female_casualsuit01/female_casualsuit01.mhclo",
+      "shoes": "shoes06/shoes06.mhclo",
+      "default_hair": "long"
+    },
+    "masculine_heavy": {
+      "label": "Masculine, heavier",
+      "phenotype": { "gender": 1.0, "age": 0.62, "muscle": 0.45, "weight": 1.0, "proportions": 0.55, "height": 0.55, "cupsize": 0.5, "firmness": 0.5 },
+      "skin": "young_caucasian_male/young_caucasian_male.mhmat",
+      "suit": "male_casualsuit06/male_casualsuit06.mhclo",
+      "shoes": "shoes06/shoes06.mhclo",
+      "default_hair": "short"
+    },
+    "feminine_slim": {
+      "label": "Feminine, slimmer",
+      "phenotype": { "gender": 0.0, "age": 0.52, "muscle": 0.45, "weight": 0.25, "proportions": 0.65, "height": 0.6, "cupsize": 0.45, "firmness": 0.5 },
+      "skin": "young_caucasian_female/young_caucasian_female.mhmat",
+      "suit": "female_casualsuit01/female_casualsuit01.mhclo",
+      "shoes": "shoes06/shoes06.mhclo",
+      "default_hair": "long"
+    }
+  },
+  "eyes": { "mesh": "low-poly/low-poly.mhclo", "texture": "materials/brown_eye.png" },
+  "eyebrows": "eyebrow001/eyebrow001.mhclo",
+  "eyelashes": "eyelashes01/eyelashes01.mhclo",
+  "hair": {
+    "short":  { "masculine": ["short02/short02.mhclo"], "feminine": ["bob02/bob02.mhclo"] },
+    "buzzed": { "masculine": ["short04/short04.mhclo"], "feminine": ["short04/short04.mhclo"] },
+    "long":   { "masculine": ["long01/long01.mhclo"], "feminine": ["long01/long01.mhclo"] },
+    "buns":   { "masculine": ["ponytail01/ponytail01.mhclo"], "feminine": ["ponytail01/ponytail01.mhclo"] },
+    "beard":  { "masculine": ["short02/short02.mhclo", "clothes:rehmanpolanski_beard_viking/rehmanpolanski_beard_viking.mhclo"], "feminine": ["short02/short02.mhclo", "clothes:rehmanpolanski_beard_viking/rehmanpolanski_beard_viking.mhclo"] },
+    "bald":   { "masculine": [], "feminine": [] }
+  }
+}
