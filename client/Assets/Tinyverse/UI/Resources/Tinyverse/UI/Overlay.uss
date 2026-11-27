@@ -19,7 +19,6 @@
 .tv-settings {
     width: 760px;
     max-width: 94%;
-    height: 560px;
     max-height: 90%;
     padding: var(--tv-space-5) var(--tv-space-6);
 }
@@ -76,7 +75,7 @@
 
 .tv-settings__keys {
     width: 260px;
-    background-color: var(--tv-raised);
+    background-color: rgba(0, 0, 0, 0.22);
     border-radius: var(--tv-radius);
     padding: var(--tv-space-4);
 }

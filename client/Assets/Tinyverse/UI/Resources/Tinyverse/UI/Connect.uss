@@ -1,7 +1,7 @@
 /* Connect screen. */
 
 .tv-connect__frame {
-    width: 820px;
+    width: 760px;
     max-width: 94%;
 }
 
@@ -12,7 +12,6 @@
 
 .tv-connect__columns {
     flex-direction: row;
-    min-height: 380px;
 }
 
 .tv-connect__form {
@@ -34,7 +33,7 @@
 .tv-connect__recent {
     width: 300px;
     padding: var(--tv-space-6) var(--tv-space-5);
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: rgba(0, 0, 0, 0.22);
     border-left-width: 1px;
     border-left-color: var(--tv-edge);
 }
@@ -128,7 +127,12 @@
     bottom: 0;
     align-items: center;
     justify-content: center;
-    background-color: rgba(12, 14, 20, 0.9);
+    background-color: rgba(12, 14, 20, 0.96);
+}
+
+.tv-root .tv-connect__busy .unity-button {
+    min-width: 120px;
+    min-height: 32px;
 }
 
 .tv-spinner {

@@ -14,7 +14,7 @@
             <ui:Label name="buildDisabledText" class="tv-subtitle" />
         </ui:VisualElement>
 
-        <ui:ScrollView name="buildTools" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-build__body">
+        <ui:ScrollView name="buildTools" mode="Vertical" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto" class="tv-build__body">
             <ui:Label text="SHAPE" class="tv-section__title tv-build__first-title" />
             <ui:VisualElement name="buildShapes" class="tv-build__shapes" />
 
@@ -50,28 +50,39 @@
             <ui:Label text="MATERIAL" class="tv-section__title tv-section" />
             <ui:VisualElement name="buildMaterials" class="tv-build__materials" />
 
-            <ui:Label text="SELECTION" class="tv-section__title tv-section" />
+            <ui:VisualElement class="tv-row tv-section tv-inspector__header">
+                <ui:Label text="SELECTION" class="tv-section__title tv-inspector__title" />
+                <ui:VisualElement class="tv-spacer" />
+                <ui:VisualElement name="inspectorMeta" class="tv-row tv-inspector__meta">
+                    <ui:Label text="by" class="tv-inspector__meta-key" />
+                    <ui:Label name="inspectorOwner" class="tv-inspector__meta-value" />
+                    <ui:Label name="inspectorId" class="tv-inspector__meta-value tv-inspector__id" />
+                </ui:VisualElement>
+            </ui:VisualElement>
             <ui:VisualElement name="buildInspector" class="tv-inspector">
                 <ui:Label name="inspectorNothing" text="Nothing selected. Use the Select tool and click an object." class="tv-hint-text tv-inspector__nothing" />
                 <ui:VisualElement name="inspectorBody">
                     <ui:Label name="inspectorReadOnly" text="You can look at this object but not change it." class="tv-inspector__readonly" />
-                    <ui:Label text="Name" class="tv-field-label tv-inspector__first-label" />
-                    <ui:TextField name="inspectorName" />
-                    <ui:Label text="Position (m)" class="tv-field-label" />
-                    <ui:VisualElement name="inspectorPosition" class="tv-vec" />
-                    <ui:Label text="Rotation (degrees)" class="tv-field-label" />
-                    <ui:VisualElement name="inspectorRotation" class="tv-vec" />
-                    <ui:Label text="Scale (m)" class="tv-field-label" />
-                    <ui:VisualElement name="inspectorScale" class="tv-vec" />
+                    <ui:VisualElement class="tv-row tv-inspector__line">
+                        <ui:Label text="Name" class="tv-inspector__key" />
+                        <ui:TextField name="inspectorName" class="tv-inspector__name" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tv-row tv-inspector__line">
+                        <ui:Label text="Position" class="tv-inspector__key" />
+                        <ui:VisualElement name="inspectorPosition" class="tv-vec" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tv-row tv-inspector__line">
+                        <ui:Label text="Rotation" class="tv-inspector__key" />
+                        <ui:VisualElement name="inspectorRotation" class="tv-vec" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tv-row tv-inspector__line">
+                        <ui:Label text="Scale" class="tv-inspector__key" />
+                        <ui:VisualElement name="inspectorScale" class="tv-vec" />
+                    </ui:VisualElement>
                     <ui:VisualElement class="tv-row tv-inspector__flags">
+                        <ui:Label class="tv-inspector__key" />
                         <ui:Toggle name="inspectorSolid" text="Solid" class="tv-inspector__flag" />
                         <ui:Toggle name="inspectorLocked" text="Locked" class="tv-inspector__flag" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="tv-row tv-inspector__meta">
-                        <ui:Label text="Owner" class="tv-inspector__meta-key" />
-                        <ui:Label name="inspectorOwner" class="tv-inspector__meta-value" />
-                        <ui:Label text="ID" class="tv-inspector__meta-key" />
-                        <ui:Label name="inspectorId" class="tv-inspector__meta-value tv-inspector__id" />
                     </ui:VisualElement>
                     <ui:VisualElement class="tv-row tv-inspector__actions">
                         <ui:Button name="inspectorDuplicate" class="tv-inspector__action">

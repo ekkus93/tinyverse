@@ -29,6 +29,7 @@ namespace Tinyverse.UI
         readonly Label _disabledText;
         readonly VisualElement _tools;
         readonly VisualElement _inspectorBody;
+        readonly VisualElement _meta;
         readonly Label _nothing;
         readonly Label _readOnlyNote;
         readonly TextField _name;
@@ -92,6 +93,8 @@ namespace Tinyverse.UI
             _disabled = Q<VisualElement>("buildDisabled");
             _disabledText = Q<Label>("buildDisabledText");
             _tools = Q<VisualElement>("buildTools");
+            // Larger wheel steps so the panel scrolls briskly when it is taller than the window.
+            ((ScrollView)_tools).mouseWheelScrollSize = 60f;
 
             var shapeRow = Q<VisualElement>("buildShapes");
             foreach (var s in Shapes)
@@ -150,6 +153,7 @@ namespace Tinyverse.UI
             }
 
             _inspectorBody = Q<VisualElement>("inspectorBody");
+            _meta = Q<VisualElement>("inspectorMeta");
             _nothing = Q<Label>("inspectorNothing");
             _readOnlyNote = Q<Label>("inspectorReadOnly");
             _name = Q<TextField>("inspectorName");
@@ -271,6 +275,7 @@ namespace Tinyverse.UI
             Selection = info;
             UIUtil.SetShown(_nothing, false);
             UIUtil.SetShown(_inspectorBody, true);
+            UIUtil.SetShown(_meta, true);
             if (_name.focusController?.focusedElement != _name) _name.SetValueWithoutNotify(info.Name ?? "");
             PositionFields.SetValue(info.Position);
             RotationFields.SetValue(info.Rotation);
@@ -305,6 +310,7 @@ namespace Tinyverse.UI
             Selection = default;
             UIUtil.SetShown(_nothing, true);
             UIUtil.SetShown(_inspectorBody, false);
+            UIUtil.SetShown(_meta, false);
             SetInspectorReadOnly(false);
         }
 

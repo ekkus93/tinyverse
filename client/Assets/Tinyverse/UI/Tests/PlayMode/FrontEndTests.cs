@@ -261,6 +261,7 @@ namespace Tinyverse.UI.Tests
             Assert.That(starts, Is.EqualTo(0));
             H.RequestBack();
             Assert.That(backs, Is.EqualTo(0), "no back while running");
+            Assert.That(Shown(H.BackButton), Is.False, "Back is hidden while running");
             Click(H.StopButton);
             Assert.That(stops, Is.EqualTo(1));
 
@@ -269,6 +270,33 @@ namespace Tinyverse.UI.Tests
             Assert.That(H.StartButton.enabledSelf, Is.True);
             Click(H.BackButton);
             Assert.That(backs, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void JoinIsTheWayOutWhileRunning()
+        {
+            int joins = 0;
+            H.JoinRequested += () => joins++;
+            Assert.That(Shown(H.JoinButton), Is.False, "no Join while stopped");
+            Assert.That(Shown(H.StartButton), Is.True);
+            H.RequestJoin();
+            Assert.That(joins, Is.EqualTo(0));
+
+            H.SetState(HostState.Starting, null);
+            Assert.That(Shown(H.JoinButton), Is.False, "no Join while starting");
+
+            H.SetState(HostState.Running, "Running at ws://127.0.0.1:7878/ws");
+            Assert.That(Shown(H.JoinButton), Is.True);
+            Assert.That(Shown(H.StartButton), Is.False);
+            Click(H.JoinButton);
+            Assert.That(joins, Is.EqualTo(1));
+            Assert.That(UI.HandleEscape(), Is.EqualTo("host-join"), "Escape also goes back into the world");
+            Assert.That(joins, Is.EqualTo(2));
+
+            H.SetState(HostState.Stopped, null);
+            Assert.That(Shown(H.JoinButton), Is.False);
+            Assert.That(Shown(H.BackButton), Is.True);
+            Assert.That(UI.HandleEscape(), Is.EqualTo("host-back"));
         }
 
         [Test]
