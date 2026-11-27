@@ -29,7 +29,12 @@ pub enum Command {
     /// receives [`crate::EventKind::AvatarCorrection`]. This is not an error.
     AvatarState(AvatarTransform),
     /// Move the avatar in a straight line to `target`, advanced by
-    /// [`crate::World::tick`]. `Walk` and `Run` stay on the ground.
+    /// [`crate::World::tick`]. `Fly` moves in three dimensions. `Walk` and
+    /// `Run` ignore `target.y` and go to ground level, the plane y = 0
+    /// clamped into the world bounds (the server knows no other floor). They
+    /// move horizontally at the mode's speed while bringing y to ground level
+    /// at up to 10 m/s, and arrive once both are reached. The bounds check
+    /// uses ground level for y.
     MoveTo {
         target: Vec3,
         mode: MoveMode,

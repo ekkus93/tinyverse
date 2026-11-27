@@ -19,6 +19,52 @@ const MAX_ELAPSED_S: f32 = 2.0;
 const SPEED_EPSILON_M: f32 = 1e-3;
 /// Closer than this to a `MoveTo` target counts as arrived.
 const ARRIVE_EPSILON_M: f32 = 1e-4;
+/// How fast a walking or running `MoveTo` brings the avatar to ground level,
+/// up or down, in metres per second.
+const GROUND_SETTLE_SPEED: f32 = 10.0;
+/// Higher than this above ground, a walking or running `MoveTo` shows "fall".
+const FALL_ANIMATION_HEIGHT_M: f32 = 0.5;
+
+/// One tick of flight in a straight 3D line: the new position and velocity,
+/// or `None` if the avatar arrives at `target` within this tick.
+fn fly_step(position: Vec3, target: Vec3, speed: f32, dt: f32) -> Option<(Vec3, Vec3)> {
+    let delta = target - position;
+    let remaining = delta.length();
+    if remaining <= speed * dt || remaining < ARRIVE_EPSILON_M {
+        return None;
+    }
+    let direction = delta / remaining;
+    Some((position + direction * (speed * dt), direction * speed))
+}
+
+/// One tick of a walking or running `MoveTo`: horizontally towards `target`
+/// at `speed` and, at the same time, vertically towards ground level
+/// (`target.y`) at [`GROUND_SETTLE_SPEED`]. Returns the new position and
+/// velocity, or `None` once both have been reached.
+fn ground_step(position: Vec3, target: Vec3, speed: f32, dt: f32) -> Option<(Vec3, Vec3)> {
+    let horizontal = Vec3::new(target.x - position.x, 0.0, target.z - position.z);
+    let remaining = horizontal.length();
+    let (mut next, mut velocity) = (position, Vec3::ZERO);
+    if remaining <= speed * dt || remaining < ARRIVE_EPSILON_M {
+        next.x = target.x;
+        next.z = target.z;
+    } else {
+        let direction = horizontal / remaining;
+        next += direction * (speed * dt);
+        velocity = direction * speed;
+    }
+
+    let rise = target.y - position.y;
+    if rise.abs() <= GROUND_SETTLE_SPEED * dt || rise.abs() < ARRIVE_EPSILON_M {
+        next.y = target.y;
+    } else {
+        next.y = position.y + rise.signum() * GROUND_SETTLE_SPEED * dt;
+        velocity.y = rise.signum() * GROUND_SETTLE_SPEED;
+    }
+
+    let arrived = next.x == target.x && next.z == target.z && next.y == target.y;
+    (!arrived).then_some((next, velocity))
+}
 
 pub(super) fn speed(limits: &Limits, mode: MoveMode) -> f32 {
     match mode {
@@ -127,9 +173,9 @@ impl World {
         mode: MoveMode,
     ) -> Result<Vec<Event>, WorldError> {
         validate::finite_vec(target, "target")?;
-        let current = self.actor(actor)?.transform.position;
+        self.actor(actor)?;
         let target = match mode {
-            MoveMode::Walk | MoveMode::Run => Vec3::new(target.x, current.y, target.z),
+            MoveMode::Walk | MoveMode::Run => Vec3::new(target.x, self.ground_y(), target.z),
             MoveMode::Fly => target,
         };
         validate::check_bounds(&self.config, target, "the target")?;
@@ -153,6 +199,13 @@ impl World {
         vec![ack(actor)]
     }
 
+    /// Ground level for server-driven walking: the plane y = 0, clamped into
+    /// the world bounds. The server has no collision, so it knows no other
+    /// floor.
+    pub(super) fn ground_y(&self) -> f32 {
+        0.0f32.clamp(self.config.bounds_min.y, self.config.bounds_max.y)
+    }
+
     /// Moves every avatar that follows a `MoveTo` by `dt` seconds.
     pub(super) fn advance_moves(&mut self, dt: f32, now_ms: i64) {
         let dt = if dt.is_finite() { dt.max(0.0) } else { 0.0 };
@@ -163,23 +216,32 @@ impl World {
             };
             let transform = &mut presence.avatar.transform;
             let before = transform.clone();
-            let speed = speed(limits, mode);
             let delta = target - transform.position;
-            let remaining = delta.length();
             if let Some(heading) = heading_of(delta) {
                 transform.yaw = heading;
             }
             transform.move_mode = mode;
-            if remaining <= speed * dt || remaining < ARRIVE_EPSILON_M {
-                transform.position = target;
-                transform.velocity = Vec3::ZERO;
-                transform.animation = "idle".to_owned();
-                presence.move_to = None;
-            } else {
-                let direction = delta / remaining;
-                transform.position += direction * (speed * dt);
-                transform.velocity = direction * speed;
-                transform.animation = moving_animation(mode).to_owned();
+            let step = match mode {
+                MoveMode::Fly => fly_step(transform.position, target, speed(limits, mode), dt),
+                MoveMode::Walk | MoveMode::Run => {
+                    ground_step(transform.position, target, speed(limits, mode), dt)
+                }
+            };
+            match step {
+                None => {
+                    transform.position = target;
+                    transform.velocity = Vec3::ZERO;
+                    transform.animation = "idle".to_owned();
+                    presence.move_to = None;
+                }
+                Some((position, velocity)) => {
+                    transform.position = position;
+                    transform.velocity = velocity;
+                    let falling =
+                        mode != MoveMode::Fly && position.y - target.y > FALL_ANIMATION_HEIGHT_M;
+                    transform.animation =
+                        if falling { "fall" } else { moving_animation(mode) }.to_owned();
+                }
             }
             presence.last_accepted_ms = now_ms;
             if *transform != before {
