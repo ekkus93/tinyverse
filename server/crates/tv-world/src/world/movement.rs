@@ -3,20 +3,13 @@
 
 use glam::Vec3;
 
+use super::allowance::Allowance;
 use super::validate::{self, MAX_TAG_CHARS};
 use super::{MoveTarget, World, ack};
 use crate::error::WorldError;
 use crate::event::{Audience, AvatarStateUpdate, Event, EventKind};
 use crate::types::{AvatarTransform, EntityId, Limits, MoveMode};
 
-/// Reports closer together than this are judged as if this far apart, so a
-/// burst of packets after a network stall is not punished.
-const MIN_ELAPSED_S: f32 = 0.05;
-/// However long an avatar stood still, it may not cover more than this many
-/// seconds' worth of travel in one report.
-const MAX_ELAPSED_S: f32 = 2.0;
-/// Absorbs float rounding at exactly the speed limit.
-const SPEED_EPSILON_M: f32 = 1e-3;
 /// Closer than this to a `MoveTo` target counts as arrived.
 const ARRIVE_EPSILON_M: f32 = 1e-4;
 /// How fast a walking or running `MoveTo` brings the avatar to ground level,
@@ -74,29 +67,6 @@ pub(super) fn speed(limits: &Limits, mode: MoveMode) -> f32 {
     }
 }
 
-/// Fastest fall accepted in Walk and Run mode, in metres per second. Fixed,
-/// with no tolerance factor: the client applies gravity.
-const MAX_FALL_SPEED: f32 = 60.0;
-/// Fastest rise accepted in Walk and Run mode (jumps, steps, being pushed up
-/// onto an object), in metres per second. Fixed, with no tolerance factor.
-const MAX_RISE_SPEED: f32 = 10.0;
-
-/// Whether moving by `delta` within `elapsed_s` (already clamped) respects the
-/// speed limits of `mode`. Flying is judged in 3D; walking and running are
-/// judged horizontally against the mode's speed, and vertically against the
-/// fixed fall and rise limits.
-fn plausible_move(limits: &Limits, mode: MoveMode, delta: Vec3, elapsed_s: f32) -> bool {
-    let allowed = speed(limits, mode) * limits.speed_tolerance * elapsed_s + SPEED_EPSILON_M;
-    match mode {
-        MoveMode::Fly => delta.length() <= allowed,
-        MoveMode::Walk | MoveMode::Run => {
-            let vertical_limit = if delta.y < 0.0 { MAX_FALL_SPEED } else { MAX_RISE_SPEED };
-            delta.x.hypot(delta.z) <= allowed
-                && delta.y.abs() <= vertical_limit * elapsed_s + SPEED_EPSILON_M
-        }
-    }
-}
-
 fn moving_animation(mode: MoveMode) -> &'static str {
     match mode {
         MoveMode::Walk => "walk",
@@ -130,20 +100,21 @@ impl World {
         let in_bounds = validate::in_bounds(&self.config, transform.position);
         let presence = self.avatars.get_mut(&actor).ok_or(WorldError::NotJoined)?;
 
+        let delta = transform.position - presence.avatar.transform.position;
         let violation = if !in_bounds {
             Some("out of bounds")
+        } else if !presence.allowance.try_spend(limits, transform.move_mode, delta, now_ms) {
+            Some("too fast")
         } else {
-            let elapsed_s = (now_ms.saturating_sub(presence.last_accepted_ms) as f32 / 1000.0)
-                .clamp(MIN_ELAPSED_S, MAX_ELAPSED_S);
-            (!plausible_move(
-                limits,
-                transform.move_mode,
-                transform.position - presence.avatar.transform.position,
-                elapsed_s,
-            ))
-            .then_some("too fast")
+            None
         };
         if let Some(reason) = violation {
+            presence.allowance.after_correction(
+                limits,
+                transform.move_mode,
+                presence.avatar.transform.move_mode,
+                now_ms,
+            );
             return Ok(vec![Event::new(
                 Audience::Only(actor),
                 EventKind::AvatarCorrection {
@@ -158,7 +129,6 @@ impl World {
             ..transform
         };
         presence.move_to = None;
-        presence.last_accepted_ms = now_ms;
         if presence.avatar.transform != transform {
             presence.avatar.transform = transform;
             presence.changed = Some(false);
@@ -184,7 +154,8 @@ impl World {
         Ok(vec![ack(actor)])
     }
 
-    pub(super) fn stop(&mut self, actor: EntityId) -> Vec<Event> {
+    pub(super) fn stop(&mut self, actor: EntityId, now_ms: i64) -> Vec<Event> {
+        let limits = &self.config.limits;
         if let Some(presence) = self.avatars.get_mut(&actor)
             && presence.move_to.take().is_some()
         {
@@ -192,6 +163,7 @@ impl World {
             let before = transform.clone();
             transform.velocity = Vec3::ZERO;
             transform.animation = "idle".to_owned();
+            presence.allowance = Allowance::fresh(limits, transform.move_mode, now_ms);
             if *transform != before {
                 presence.changed = Some(true);
             }
@@ -243,7 +215,7 @@ impl World {
                         if falling { "fall" } else { moving_animation(mode) }.to_owned();
                 }
             }
-            presence.last_accepted_ms = now_ms;
+            presence.allowance = Allowance::fresh(limits, mode, now_ms);
             if *transform != before {
                 presence.changed = Some(true);
             }
