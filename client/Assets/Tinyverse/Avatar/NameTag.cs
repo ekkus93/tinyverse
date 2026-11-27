@@ -74,8 +74,8 @@ namespace Tinyverse.Avatars
             float line = FontSize * CharacterSize / 10f;
             nameShadow = MakeText("NameShadow", new Vector3(0.012f, -0.012f, 0.01f), ShadowColor);
             nameText = MakeText("Name", Vector3.zero, NameColor);
-            badgeShadow = MakeText("BadgeShadow", new Vector3(0.012f, line * 0.8f - 0.012f, 0.01f), ShadowColor, 0.7f);
-            badgeText = MakeText("AgentBadge", new Vector3(0f, line * 0.8f, 0f), BadgeColor, 0.7f);
+            badgeShadow = MakeText("BadgeShadow", new Vector3(0.012f, line * 1.05f - 0.012f, 0.01f), ShadowColor, 0.7f);
+            badgeText = MakeText("AgentBadge", new Vector3(0f, line * 1.05f, 0f), BadgeColor, 0.7f);
             badgeText.text = badgeShadow.text = "AI agent";
             SetAgent(false);
         }
