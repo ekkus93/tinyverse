@@ -189,6 +189,25 @@ async fn req(c: &mut Client, who: &str, what: &str, body: CBody, t: Duration) ->
 
 type Check2 = Result<ServerMessage, Outcome>;
 
+/// Sends an admin command as the owner and waits for its `Ack`. Other
+/// messages with the same `reply_to` (the owner's own copy of the
+/// `AvatarUpdated` a role change causes) are skipped; an `Error` fails.
+async fn admin_ack(owner: &mut Client, what: &str, body: CBody, t: Duration) -> Check2 {
+    let seq = owner.send(body).map_err(|e| fail(format!("the owner: {e}")))?;
+    let m = expect(owner, "the owner", &format!("Ack for {what}"), t, |m| {
+        m.reply_to == seq && matches!(m.body, Some(SBody::Ack(_)) | Some(SBody::Error(_)))
+    })
+    .await?;
+    match m.body {
+        Some(SBody::Error(e)) => Err(fail(format!(
+            "the owner's {what} was refused: {} {}",
+            error_code_name(e.code),
+            e.message
+        ))),
+        _ => Ok(m),
+    }
+}
+
 fn has_state(m: &ServerMessage, id: u64, mut f: impl FnMut(&AvatarTransform) -> bool) -> bool {
     match &m.body {
         Some(SBody::AvatarStates(s)) => {
@@ -1123,10 +1142,7 @@ impl Ctx<'_> {
                 })),
             })
         };
-        let m = req(owner, "the owner", "Admin.SetRole", set_role(Role::Visitor as i32), t).await?;
-        if !matches!(m.body, Some(SBody::Ack(_)) | Some(SBody::AvatarUpdated(_))) {
-            return Err(fail(format!("SetRole was answered by {}", body_name(&m.body))));
-        }
+        admin_ack(owner, "Admin.SetRole", set_role(Role::Visitor as i32), t).await?;
         let role_is = |role: i32| {
             move |m: &ServerMessage| {
                 matches!(&m.body, Some(SBody::AvatarUpdated(u))
@@ -1149,7 +1165,7 @@ impl Ctx<'_> {
             role_is(Role::Visitor as i32),
         )
         .await?;
-        req(owner, "the owner", "Admin.SetRole (restore)", set_role(b_role), t).await?;
+        admin_ack(owner, "Admin.SetRole (restore)", set_role(b_role), t).await?;
         expect(self.b()?, "B", "AvatarUpdated restoring B's role", t, role_is(b_role)).await?;
 
         let mut k =
@@ -1163,7 +1179,7 @@ impl Ctx<'_> {
                 reason: "smoke test".into(),
             })),
         });
-        req(owner, "the owner", "Admin.Kick", kick, t).await?;
+        admin_ack(owner, "Admin.Kick", kick, t).await?;
         let m =
             expect(&mut k, "K", "Kicked", t, |m| matches!(m.body, Some(SBody::Kicked(_)))).await?;
         let Some(SBody::Kicked(kicked)) = m.body else { unreachable!() };

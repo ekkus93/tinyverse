@@ -68,22 +68,19 @@ fn mul(a: Quat, b: Quat) -> Quat {
     }
 }
 
-/// sRGB-encoded 8-bit channel to a linear 0..1 value.
-pub fn srgb_to_linear(c: u8) -> f32 {
-    let c = c as f32 / 255.0;
-    if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+/// An 8-bit channel to a 0..1 value.
+pub fn byte_to_unit(c: u8) -> f32 {
+    c as f32 / 255.0
 }
 
-/// Linear 0..1 value to an sRGB-encoded 8-bit channel.
-pub fn linear_to_srgb(v: f32) -> u8 {
-    let v = v.clamp(0.0, 1.0);
-    let s = if v <= 0.003_130_8 { v * 12.92 } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 };
-    (s * 255.0).round() as u8
+/// A 0..1 value to an 8-bit channel (clamped, rounded).
+pub fn unit_to_byte(v: f32) -> u8 {
+    (v.clamp(0.0, 1.0) * 255.0).round() as u8
 }
 
-/// A colour. `#rrggbb` and `#rrggbbaa` are sRGB hex as in any colour picker
-/// and are converted to the protocol's linear 0..1 values (alpha is not
-/// converted). `r,g,b` or `r,g,b,a` are taken as linear 0..1 values as is.
+/// A colour. The protocol's colours are sRGB 0..1 floats, the same values
+/// as a hex code, so `#rrggbb` / `#rrggbbaa` are just divided by 255 and
+/// `r,g,b` / `r,g,b,a` are taken as is.
 pub fn parse_color(s: &str) -> Result<Color, String> {
     let t = s.trim();
     if let Some(hex) = t.strip_prefix('#') {
@@ -92,11 +89,11 @@ pub fn parse_color(s: &str) -> Result<Color, String> {
             return Err(bad());
         }
         let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| bad());
-        let a = if hex.len() == 8 { byte(6)? as f32 / 255.0 } else { 1.0 };
+        let a = if hex.len() == 8 { byte_to_unit(byte(6)?) } else { 1.0 };
         return Ok(Color {
-            r: srgb_to_linear(byte(0)?),
-            g: srgb_to_linear(byte(2)?),
-            b: srgb_to_linear(byte(4)?),
+            r: byte_to_unit(byte(0)?),
+            g: byte_to_unit(byte(2)?),
+            b: byte_to_unit(byte(4)?),
             a,
         });
     }
@@ -113,19 +110,11 @@ pub fn parse_color(s: &str) -> Result<Color, String> {
     Ok(Color { r, g, b, a })
 }
 
-/// The `#rrggbb` (or `#rrggbbaa` when not opaque) form of a linear colour.
+/// The `#rrggbb` (or `#rrggbbaa` when not opaque) form of a colour.
 pub fn color_hex(c: &Color) -> String {
-    let rgb = format!(
-        "#{:02x}{:02x}{:02x}",
-        linear_to_srgb(c.r),
-        linear_to_srgb(c.g),
-        linear_to_srgb(c.b)
-    );
-    if (c.a - 1.0).abs() < 0.002 {
-        rgb
-    } else {
-        format!("{rgb}{:02x}", (c.a.clamp(0.0, 1.0) * 255.0).round() as u8)
-    }
+    let rgb =
+        format!("#{:02x}{:02x}{:02x}", unit_to_byte(c.r), unit_to_byte(c.g), unit_to_byte(c.b));
+    if (c.a - 1.0).abs() < 0.002 { rgb } else { format!("{rgb}{:02x}", unit_to_byte(c.a)) }
 }
 
 /// Lower-case short name of a protocol enum value: `SHAPE_BOX` -> `box`.
@@ -252,11 +241,15 @@ mod tests {
     }
 
     #[test]
-    fn hex_colours_are_converted_to_linear() {
+    fn hex_colours_are_plain_srgb_fractions() {
         let c = parse_color("#ff0000").unwrap();
         assert_eq!((c.r, c.g, c.b, c.a), (1.0, 0.0, 0.0, 1.0));
+        let c = parse_color("#ff8000").unwrap();
+        assert_eq!((c.r, c.b, c.a), (1.0, 0.0, 1.0));
+        assert!(close(c.g, 128.0 / 255.0), "{c:?}");
+        assert!((c.g - 0.502).abs() < 1e-3);
         let c = parse_color("#808080").unwrap();
-        assert!(close(c.r, 0.21586), "{c:?}");
+        assert!(close(c.r, 128.0 / 255.0), "{c:?}");
         let c = parse_color("#FFFFFF80").unwrap();
         assert!(close(c.a, 128.0 / 255.0));
         for bad in ["#ff00", "#gg0000", "ff0000", "#ff00000", "red"] {
@@ -265,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn float_colours_are_linear_and_bounded() {
+    fn float_colours_pass_through_and_are_bounded() {
         let c = parse_color("0.5,0.25,1").unwrap();
         assert_eq!((c.r, c.g, c.b, c.a), (0.5, 0.25, 1.0, 1.0));
         let c = parse_color("0,0,0,0.5").unwrap();
@@ -279,6 +272,8 @@ mod tests {
         for hex in ["#ff8000", "#000000", "#ffffff", "#123456", "#10203040"] {
             assert_eq!(color_hex(&parse_color(hex).unwrap()), hex);
         }
+        // Raw values are printed as is, without any transfer function.
+        assert_eq!(color_hex(&Color { r: 0.5, g: 0.25, b: 1.0, a: 1.0 }), "#8040ff");
     }
 
     #[test]

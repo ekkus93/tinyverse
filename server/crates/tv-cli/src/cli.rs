@@ -152,7 +152,7 @@ pub struct CreateArgs {
     /// Size in metres: one number or x,y,z. Default 1.
     #[arg(long, value_parser = parse_scale, allow_hyphen_values = true)]
     pub scale: Option<Vec3>,
-    /// #rrggbb[aa] (sRGB) or r,g,b[,a] (linear 0..1). Default light grey.
+    /// #rrggbb[aa] or r,g,b[,a] in 0..1 (both sRGB). Default light grey.
     #[arg(long, value_parser = parse_color)]
     pub color: Option<Color>,
     /// matte, glossy, metal, glass or emissive.
