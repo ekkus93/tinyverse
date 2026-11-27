@@ -1,0 +1,18 @@
+{
+    "name": "Tinyverse.Net",
+    "rootNamespace": "Tinyverse.Net",
+    "references": [
+        "Tinyverse.Proto"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Google.Protobuf.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

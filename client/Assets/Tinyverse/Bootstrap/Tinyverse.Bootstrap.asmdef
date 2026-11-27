@@ -1,0 +1,27 @@
+{
+    "name": "Tinyverse.Bootstrap",
+    "rootNamespace": "Tinyverse.Bootstrap",
+    "references": [
+        "Tinyverse.Proto",
+        "Tinyverse.Net",
+        "Tinyverse.World",
+        "Tinyverse.Avatar",
+        "Tinyverse.Build",
+        "Tinyverse.UI",
+        "Tinyverse.Host",
+        "Unity.InputSystem",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Google.Protobuf.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
