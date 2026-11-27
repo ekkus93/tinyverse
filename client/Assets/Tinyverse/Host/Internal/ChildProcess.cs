@@ -20,9 +20,17 @@ namespace Tinyverse.Host.Internal
             new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         private Process _process;
 
+        /// <summary>The variable <c>init</c> and <c>password --set-from-env</c> read the password from.</summary>
+        public const string PasswordVariable = "TINYVERSE_PASSWORD";
+
         private ChildProcess() { }
 
         public int Pid { get; private set; }
+
+        /// <summary>What was launched, for tests: never logged.</summary>
+        public string FileName { get; private set; }
+        public IReadOnlyList<string> Arguments { get; private set; }
+        public bool PasswordInEnvironment { get; private set; }
 
         /// <summary>Completes with the exit code once the process has exited and its output is drained.</summary>
         public Task<int> Exited => _exited.Task;
@@ -31,11 +39,17 @@ namespace Tinyverse.Host.Internal
 
         /// <summary>Starts the process. The task faults if it cannot be started.</summary>
         public static Task<ChildProcess> Launch(string fileName, IList<string> args, string workingDirectory,
-            Action<string> onLine, string threadName, IDictionary<string, string> environment = null)
+            Action<string> onLine, string threadName, IDictionary<string, string> environment = null,
+            string password = null)
         {
             var started = new TaskCompletionSource<ChildProcess>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var child = new ChildProcess();
-            var thread = new Thread(() => child.Supervise(fileName, args, workingDirectory, onLine, environment, started))
+            var child = new ChildProcess
+            {
+                FileName = fileName,
+                Arguments = new List<string>(args).AsReadOnly(),
+                PasswordInEnvironment = password != null,
+            };
+            var thread = new Thread(() => child.Supervise(fileName, args, workingDirectory, onLine, environment, password, started))
             {
                 IsBackground = true,
                 Name = threadName,
@@ -45,7 +59,7 @@ namespace Tinyverse.Host.Internal
         }
 
         private void Supervise(string fileName, IList<string> args, string workingDirectory, Action<string> onLine,
-            IDictionary<string, string> environment, TaskCompletionSource<ChildProcess> started)
+            IDictionary<string, string> environment, string password, TaskCompletionSource<ChildProcess> started)
         {
             Process p;
             try
@@ -65,6 +79,11 @@ namespace Tinyverse.Host.Internal
                 psi.Environment["NO_COLOR"] = "1";
                 if (environment != null)
                     foreach (KeyValuePair<string, string> kv in environment) psi.Environment[kv.Key] = kv.Value;
+                // The server reads the join password from this variable. Never let a value leak in from our own
+                // environment (init would silently set it as the world's password, and run would carry it around);
+                // only the one command that needs it gets it.
+                psi.Environment.Remove(PasswordVariable);
+                if (password != null) psi.Environment[PasswordVariable] = password;
                 p = Process.Start(psi);
                 if (p == null) throw new InvalidOperationException("Process.Start returned no process");
             }

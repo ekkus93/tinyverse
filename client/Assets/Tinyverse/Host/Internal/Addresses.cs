@@ -11,11 +11,12 @@ namespace Tinyverse.Host.Internal
     internal static class ReadyLine
     {
         private static readonly Regex Pattern = new Regex(
-            @"listening on ws://(?<host>\[[^\]]*\]|[^\s:/]+):(?<port>\d{1,5})/ws",
+            @"listening on (?<scheme>wss?)://(?<host>\[[^\]]*\]|[^\s:/]+):(?<port>\d{1,5})/ws",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-        public static bool TryParse(string line, out string host, out int port)
+        public static bool TryParse(string line, out bool tls, out string host, out int port)
         {
+            tls = false;
             host = null;
             port = 0;
             if (line == null) return false;
@@ -25,16 +26,17 @@ namespace Tinyverse.Host.Internal
                 || port < 1 || port > 65535)
                 return false;
             host = m.Groups["host"].Value;
+            tls = m.Groups["scheme"].Value == "wss";
             return true;
         }
     }
 
     internal static class Addresses
     {
-        public static string Url(string host, int port)
+        public static string Url(bool tls, string host, int port)
         {
             if (host.IndexOf(':') >= 0 && !host.StartsWith("[", StringComparison.Ordinal)) host = "[" + host + "]";
-            return "ws://" + host + ":" + port.ToString(CultureInfo.InvariantCulture) + "/ws";
+            return (tls ? "wss://" : "ws://") + host + ":" + port.ToString(CultureInfo.InvariantCulture) + "/ws";
         }
 
         /// <summary>True for 0.0.0.0, ::, [::] or empty.</summary>

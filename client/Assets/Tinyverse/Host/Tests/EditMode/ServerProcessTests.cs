@@ -306,6 +306,16 @@ namespace Tinyverse.Host.Tests
             Wait(server.StopAsync(TimeSpan.FromSeconds(5)));
             server.Pump();
 
+            // The password is never on a command line: only init/password get it, through the environment.
+            foreach (var launch in server.Launches)
+            {
+                Assert.That(launch.Arguments, Has.None.Contains(password), string.Join(" ", launch.Arguments));
+                Assert.That(launch.PasswordInEnvironment, Is.EqualTo(launch.Arguments[0] == "init"));
+            }
+            Assert.That(server.Launches.Select(l => l.Arguments.Contains("run") ? "run" : l.Arguments[0]),
+                Is.EqualTo(new[] { "init", "run" }));
+            Assert.That(File.ReadAllText(Path.Combine(settings.WorldDirectory, "run.env")).Trim(), Is.EqualTo("unset"));
+
             string all = rec.AllText + string.Join("\n", server.GetRecentLines()) + settings + r;
             Assert.That(all, Does.Not.Contain(password));
             Assert.That(all, Does.Not.Contain(token));
@@ -318,6 +328,10 @@ namespace Tinyverse.Host.Tests
             Track(again.ProcessId);
             again.Pump();
             Assert.That(rec2.AllText, Does.Not.Contain("another-secret-pw"));
+            var pwLaunch = again.Launches.First();
+            Assert.That(pwLaunch.Arguments, Is.EqualTo(new[] { "password", Path.GetFullPath(settings.WorldDirectory), "--set-from-env" }));
+            Assert.That(pwLaunch.PasswordInEnvironment, Is.True);
+            Assert.That(again.Launches.Last().PasswordInEnvironment, Is.False);
 
             var failing = NewServer(Options("FAKE_LEAK", "1", "FAKE_INIT_FAIL", "1"));
             var e = WaitFault(failing.StartAsync(Settings("other", password: password))) as HostException;
@@ -424,6 +438,58 @@ namespace Tinyverse.Host.Tests
             var e = WaitFault(server.StartAsync(s)) as HostException;
             Assert.That(e?.Kind, Is.EqualTo(HostErrorKind.InvalidSettings));
             Assert.That(server.State, Is.EqualTo(HostState.Failed));
+        }
+
+        [Test]
+        public void PasswordVariableOfTheClient_IsNeverInherited()
+        {
+            string before = Environment.GetEnvironmentVariable("TINYVERSE_PASSWORD");
+            Environment.SetEnvironmentVariable("TINYVERSE_PASSWORD", "inherited-from-client");
+            try
+            {
+                var server = NewServer();
+                HostSettings settings = Settings();
+                Wait(server.StartAsync(settings));
+                Track(server.ProcessId);
+                // init did not pick up a password nobody asked for, and run never saw the variable.
+                Assert.That(File.ReadAllText(Path.Combine(settings.WorldDirectory, "world.toml")), Does.Contain("password_set = false"));
+                Assert.That(File.ReadAllText(Path.Combine(settings.WorldDirectory, "run.env")).Trim(), Is.EqualTo("unset"));
+                int? watchdog = server.WatchdogProcessId;
+                Assert.That(watchdog, Is.Not.Null);
+                Track(watchdog);
+                Assert.That(File.ReadAllText("/proc/" + watchdog + "/environ"), Does.Not.Contain("TINYVERSE_PASSWORD"));
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("TINYVERSE_PASSWORD", before);
+            }
+        }
+
+        [Test]
+        public void Tls_IsReportedAndCanBeDisabled()
+        {
+            HostSettings settings = Settings("tls");
+            var a = NewServer();
+            Wait(a.StartAsync(settings));
+            Track(a.ProcessId);
+            a.Stop(TimeSpan.FromSeconds(5));
+            File.WriteAllText(Path.Combine(settings.WorldDirectory, "cert.pem"), "fake");
+            File.WriteAllText(Path.Combine(settings.WorldDirectory, "key.pem"), "fake");
+
+            HostStartResult r = Wait(a.StartAsync(settings));
+            Track(a.ProcessId);
+            Assert.That(r.Tls, Is.True);
+            Assert.That(r.LocalUrl, Is.EqualTo($"wss://127.0.0.1:{settings.Port}/ws"));
+            Assert.That(r.LanUrls, Has.All.StartWith("wss://"));
+            Assert.That(a.Launches.Last().Arguments, Has.No.Member("--no-tls"));
+            a.Stop(TimeSpan.FromSeconds(5));
+
+            settings.DisableTls = true;
+            r = Wait(a.StartAsync(settings));
+            Track(a.ProcessId);
+            Assert.That(r.Tls, Is.False);
+            Assert.That(r.LocalUrl, Is.EqualTo($"ws://127.0.0.1:{settings.Port}/ws"));
+            Assert.That(a.Launches.Last().Arguments, Has.Member("--no-tls"));
         }
 
         [Test]

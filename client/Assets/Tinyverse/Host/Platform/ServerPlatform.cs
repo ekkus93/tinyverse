@@ -169,6 +169,7 @@ namespace Tinyverse.Host.Platform
                 // Redirected so the watchdog never writes into the client's terminal or log.
                 RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true,
             };
+            psi.Environment.Remove(Internal.ChildProcess.PasswordVariable);
             psi.ArgumentList.Add("-c");
             psi.ArgumentList.Add(WatchdogScript);
             psi.ArgumentList.Add("tinyverse-host-watchdog");

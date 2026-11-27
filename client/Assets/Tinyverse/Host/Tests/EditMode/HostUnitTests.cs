@@ -288,18 +288,31 @@ namespace Tinyverse.Host.Tests
         [TestCase("listening on ws://my-host:1/ws", "my-host", 1)]
         public void ReadyLine_Parses(string line, string host, int port)
         {
-            Assert.That(ReadyLine.TryParse(line, out string h, out int p), Is.True);
+            Assert.That(ReadyLine.TryParse(line, out bool tls, out string h, out int p), Is.True);
+            Assert.That(tls, Is.False);
             Assert.That(h, Is.EqualTo(host));
             Assert.That(p, Is.EqualTo(port));
         }
 
+        [Test]
+        public void ReadyLine_RecognisesTls()
+        {
+            Assert.That(ReadyLine.TryParse("listening on wss://0.0.0.0:7878/ws", out bool tls, out string h, out int p), Is.True);
+            Assert.That(tls, Is.True);
+            Assert.That(h, Is.EqualTo("0.0.0.0"));
+            Assert.That(p, Is.EqualTo(7878));
+            Assert.That(Addresses.Url(true, "127.0.0.1", 7878), Is.EqualTo("wss://127.0.0.1:7878/ws"));
+            Assert.That(Addresses.Url(false, "::1", 7878), Is.EqualTo("ws://[::1]:7878/ws"));
+        }
+
         [TestCase("listening on ws://0.0.0.0:99999/ws")]
         [TestCase("listening on http://0.0.0.0:7878/")]
+        [TestCase("listening on wsx://0.0.0.0:7878/ws")]
         [TestCase("not listening yet")]
         [TestCase(null)]
         public void ReadyLine_RejectsOthers(string line)
         {
-            Assert.That(ReadyLine.TryParse(line, out _, out _), Is.False);
+            Assert.That(ReadyLine.TryParse(line, out _, out _, out _), Is.False);
         }
 
         [Test]
