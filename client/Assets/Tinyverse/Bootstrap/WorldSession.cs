@@ -16,6 +16,10 @@ namespace Tinyverse.Bootstrap
         public ILocalAvatarInput Input;
         /// <summary>Walk a small figure (<c>--demo-walk</c>).</summary>
         public bool DemoWalk;
+        /// <summary>Replaces mouse and keyboard for the build tools (tests); null keeps them.</summary>
+        public Tinyverse.Building.IBuildInput BuildInput;
+        /// <summary>Show off build mode (<c>--demo-build</c>).</summary>
+        public bool DemoBuild;
         /// <summary>The world is hosted by this client (only changes the wording of a few lines).</summary>
         public bool Hosted;
     }
@@ -37,9 +41,12 @@ namespace Tinyverse.Bootstrap
         readonly Dictionary<ulong, RemoteAvatar> remotes = new Dictionary<ulong, RemoteAvatar>();
         readonly Dictionary<ulong, P.AvatarInfo> people = new Dictionary<ulong, P.AvatarInfo>();
         readonly DemoWalk demo;
+        readonly DemoBuild demoBuild;
 
         GameObject root;
         Transform avatarsRoot;
+        KeyboardAvatarInput ownedKeyboard;
+        readonly Queue<string> recentSent = new Queue<string>();
         bool disposed;
         bool ended;
 
@@ -50,6 +57,7 @@ namespace Tinyverse.Bootstrap
         public event Action Ready;
 
         public TinyverseConnection Connection => conn;
+        public UIRoot UI => ui;
         public P.Welcome Welcome { get; private set; }
         public P.Role Role { get; private set; } = P.Role.Visitor;
         public string UserId => Welcome?.UserId ?? "";
@@ -78,6 +86,11 @@ namespace Tinyverse.Bootstrap
             this.camera = camera;
             this.options = options ?? new SessionOptions();
             if (this.options.DemoWalk) demo = new DemoWalk();
+            if (this.options.DemoBuild)
+            {
+                demoBuild = new DemoBuild(this);
+                this.options.BuildInput = demoBuild.Input;
+            }
 
             root = new GameObject("World");
             avatarsRoot = new GameObject("Avatars").transform;
@@ -89,6 +102,7 @@ namespace Tinyverse.Bootstrap
 
             Subscribe();
             if (ui != null) WireUI();
+            else WireBuild();
         }
 
         // ---------------------------------------------------------------- events
@@ -115,7 +129,7 @@ namespace Tinyverse.Bootstrap
             On<Action<P.ChatMessage, uint>>(h => conn.ChatMessage += h, h => conn.ChatMessage -= h, (m, _) => OnChat(m.Entry));
             On<Action<P.ChatHistory, uint>>(h => conn.ChatHistory += h, h => conn.ChatHistory -= h, (m, _) => OnChatHistory(m));
             On<Action<P.Error, uint>>(h => conn.Error += h, h => conn.Error -= h, OnError);
-            On<Action<ConnectionState>>(h => conn.StateChanged += h, h => conn.StateChanged -= h, OnStateChanged);
+            On<Action<Net.ConnectionState>>(h => conn.StateChanged += h, h => conn.StateChanged -= h, OnStateChanged);
             On<Action<int, TimeSpan>>(h => conn.ReconnectScheduled += h, h => conn.ReconnectScheduled -= h, OnReconnectScheduled);
             On<Action<string, bool>>(h => conn.Disconnected += h, h => conn.Disconnected -= h, OnDisconnected);
         }
@@ -158,8 +172,10 @@ namespace Tinyverse.Bootstrap
             {
                 LocalAvatar = LocalAvatar.Create(name, look, limits, pose);
                 LocalAvatar.transform.SetParent(avatarsRoot, true);
-                if (demo != null) LocalAvatar.InputSource = demo.Input;
-                else if (options.Input != null) LocalAvatar.InputSource = options.Input;
+                ILocalAvatarInput inner = demo != null ? demo.Input : options.Input;
+                if (inner == null) inner = ownedKeyboard = new KeyboardAvatarInput();
+                // Build chords (Ctrl+D, Ctrl+Z) must not also strafe or descend.
+                LocalAvatar.InputSource = new ChordMaskedInput(inner, () => build != null && build.IsChordModifierHeld);
                 LocalAvatar.Teleported += _ => sender.Reset();
             }
             else
@@ -258,7 +274,8 @@ namespace Tinyverse.Bootstrap
                 LocalAvatar.Teleport(ProtoConvert.ToPose(c.Transform));
                 if (Orbit != null) Orbit.SnapToTarget();
             }
-            Debug.Log($"[Session] position corrected by the server: {c.Reason}");
+            Debug.Log($"[Session] position corrected by the server: {c.Reason}; now {Time.unscaledTimeAsDouble:0.000}, " +
+                      $"server kept {ProtoConvert.ToPose(c.Transform)}; recent reports: {string.Join(" | ", recentSent)}");
             Toast($"The server moved you back ({(string.IsNullOrEmpty(c.Reason) ? "correction" : c.Reason)}).", ToastKind.Warning);
         }
 
@@ -316,7 +333,7 @@ namespace Tinyverse.Bootstrap
 
         // ---------------------------------------------------------------- per frame
 
-        /// <summary>Pumps the connection, reports the own avatar and advances smoothing. Once per frame.</summary>
+        /// <summary>Pumps the connection, gates input and advances smoothing. Once per frame, before the avatars move.</summary>
         public void Tick(float dt)
         {
             if (disposed) return;
@@ -330,15 +347,31 @@ namespace Tinyverse.Bootstrap
                 if (Orbit != null) Orbit.InputEnabled = !blocked;
                 demo?.Tick(dt, LocalAvatar.IsFlying);
 
-                if (conn.State == ConnectionState.Connected && Welcome != null &&
-                    sender.ShouldSend(LocalAvatar.CurrentPose, Time.unscaledTimeAsDouble))
-                {
-                    if (conn.SendAvatarState(ProtoConvert.ToProto(LocalAvatar.CurrentPose)) != 0) StatesSent++;
-                }
             }
             Objects.Tick(dt);
             BuildTick(dt);
             HudTick(dt);
+        }
+
+        /// <summary>
+        /// Reports the own avatar. Call after the avatars have moved this frame (LateUpdate): a report
+        /// must carry the movement of the same frame in which it is sent, or the server, which times
+        /// reports by their arrival, sees uneven frames as bursts of speed.
+        /// </summary>
+        public void LateTick()
+        {
+            if (disposed || LocalAvatar == null) return;
+            if (conn.State == Net.ConnectionState.Connected && Welcome != null &&
+                sender.ShouldSend(LocalAvatar.CurrentPose, Time.unscaledTimeAsDouble))
+            {
+                if (conn.SendAvatarState(ProtoConvert.ToProto(LocalAvatar.CurrentPose)) != 0)
+                {
+                    StatesSent++;
+                    var p = LocalAvatar.CurrentPose.Position;
+                    recentSent.Enqueue($"{Time.unscaledTimeAsDouble:0.000} ({p.x:0.00},{p.y:0.00},{p.z:0.00}) {LocalAvatar.CurrentPose.Mode}");
+                    while (recentSent.Count > 6) recentSent.Dequeue();
+                }
+            }
         }
 
         void OnDisconnected(string reason, bool kicked)
@@ -373,6 +406,8 @@ namespace Tinyverse.Bootstrap
             if (root != null) UnityEngine.Object.Destroy(root);
             root = null;
             LocalAvatar = null;
+            ownedKeyboard?.Dispose();
+            ownedKeyboard = null;
             remotes.Clear();
             people.Clear();
         }

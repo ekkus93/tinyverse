@@ -14,6 +14,7 @@ namespace Tinyverse.Bootstrap
     /// --screenshot-tour                                     also capture each screen and panel once
     /// --quit-after &lt;seconds&gt;                               quit after that long
     /// --demo-walk                                           walk a small figure in the world
+    /// --demo-build                                          place a row of prims and show the build tools
     /// --fresh-profile &lt;dir&gt;                                use this instead of persistentDataPath
     /// </code>
     /// </summary>
@@ -29,6 +30,7 @@ namespace Tinyverse.Bootstrap
         public bool ScreenshotTour;
         public float QuitAfter;
         public bool DemoWalk;
+        public bool DemoBuild;
         public string ProfileDirectory;
 
         /// <summary>Problems with the arguments, as sentences; the rest are still applied.</summary>
@@ -78,6 +80,7 @@ namespace Tinyverse.Bootstrap
                     case "--screenshot-tour": c.ScreenshotTour = true; break;
                     case "--quit-after": c.QuitAfter = Seconds(a, Next(), c); break;
                     case "--demo-walk": c.DemoWalk = true; break;
+                    case "--demo-build": c.DemoBuild = true; break;
                     case "--fresh-profile": c.ProfileDirectory = Next(); break;
                 }
             }

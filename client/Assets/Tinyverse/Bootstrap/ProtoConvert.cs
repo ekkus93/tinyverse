@@ -37,6 +37,12 @@ namespace Tinyverse.Bootstrap
         /// <summary>True for a null colour or one with every channel zero (an unset proto message).</summary>
         public static bool IsUnset(P.Color c) => c == null || (c.R == 0f && c.G == 0f && c.B == 0f && c.A == 0f);
 
+        /// <summary>
+        /// An appearance colour that was not chosen: unset, or pure opaque white, which is what the server
+        /// stores for a colour the client left out (tv-server <c>convert::color_from</c>).
+        /// </summary>
+        public static bool IsUnchosen(P.Color c) => IsUnset(c) || (c.R == 1f && c.G == 1f && c.B == 1f && c.A == 1f);
+
         // ---------------------------------------------------------------- enums
 
         public static PrimShape ToPrimShape(P.Shape s)
@@ -197,15 +203,15 @@ namespace Tinyverse.Bootstrap
         {
             var look = AvatarLook.WithBody(BodyColors.ForUser(userId));
             if (a == null) return look;
-            if (!IsUnset(a.BodyColor))
+            if (!IsUnchosen(a.BodyColor))
             {
                 look.BodyColor = Opaque(ToColor(a.BodyColor));
                 look.TopColor = look.BodyColor;
             }
-            if (!IsUnset(a.SkinColor)) look.SkinColor = Opaque(ToColor(a.SkinColor));
-            if (!IsUnset(a.HairColor)) look.HairColor = Opaque(ToColor(a.HairColor));
-            if (!IsUnset(a.TopColor)) look.TopColor = Opaque(ToColor(a.TopColor));
-            if (!IsUnset(a.BottomColor)) look.BottomColor = Opaque(ToColor(a.BottomColor));
+            if (!IsUnchosen(a.SkinColor)) look.SkinColor = Opaque(ToColor(a.SkinColor));
+            if (!IsUnchosen(a.HairColor)) look.HairColor = Opaque(ToColor(a.HairColor));
+            if (!IsUnchosen(a.TopColor)) look.TopColor = Opaque(ToColor(a.TopColor));
+            if (!IsUnchosen(a.BottomColor)) look.BottomColor = Opaque(ToColor(a.BottomColor));
             look.BodyPreset = a.BodyPreset ?? "";
             look.HairStyle = a.HairStyle ?? "";
             return look;
