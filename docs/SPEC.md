@@ -292,6 +292,12 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
 
 - Unity 6000.6 (the version installed on the dev machine), URP, Input System,
   UI Toolkit. Linux standalone build first.
+- Minimum graphics: an integrated GPU with hardware acceleration. A dedicated
+  GPU is not required, so visitors can join from ordinary laptops. Software
+  rendering (llvmpipe) is used only for automated screenshots and is not a
+  supported way to play. Content is budgeted for this: an avatar is at most
+  about 15,000 triangles, 4 materials and 1024-pixel textures, with plain URP
+  Lit materials.
 - Networking uses `System.Net.WebSockets.ClientWebSocket` for `ws://` and
   `Google.Protobuf`. No Netcode for GameObjects: the Rust server replaces it.
   Receive runs off the main thread and hands decoded messages to a main-thread
