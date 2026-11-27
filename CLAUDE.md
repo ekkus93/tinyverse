@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## State of the repo
 
-There is no code yet. `docs/SPEC.md` is the design and `docs/TODO.md` is the task plan; read both before starting any work. When milestone M0 lands, add the build, test and codegen commands (`scripts/check.sh`, `scripts/gen-proto.sh`) to this file.
+`docs/SPEC.md` is the design and `docs/TODO.md` is the task plan; read both before starting any work.
+
+- `scripts/check.sh` runs Rust fmt, clippy and tests, and checks the generated C# is current. Run it before merging anything.
+- `scripts/gen-proto.sh` regenerates the C# protocol types after a change in `proto/`. The Rust types regenerate on build.
+- `scripts/unity.sh` drives the Unity editor in batch mode.
+- The server binary is `server/target/debug/tinyverse-server`; `tv-cli smoke` is the end-to-end check against a running server.
 
 Linux is the only target for now.
 
@@ -21,7 +26,9 @@ A Rust server (`server/`, Cargo workspace) owns one world and persists it to SQL
 ## Unity
 
 - Only one Unity editor can open a project at a time. A task that needs the editor or Unity tests uses its own git worktree.
-- Parallel Unity tasks write C#, UXML and USS only. Scenes, prefabs, `.meta` files, `ProjectSettings/` and `Packages/` belong to the integration task of each milestone.
+- A parallel Unity task edits only its own module folder, and commits the `.meta` files Unity generates there. The scene, `ProjectSettings/`, `Packages/`, `Assets/Settings/` and `Bootstrap/` belong to the integration task; if the editor rewrites them (it often touches `UniversalRenderPipelineGlobalSettings.asset`), check them back out.
+- Runtime assets are loaded from a `Resources/Tinyverse/<Module>/` folder inside the module. A shader or material that no asset references is stripped from the player, so materials must be real `.mat` assets.
+- Drive the editor with `scripts/unity.sh compile | test-edit | test-play | build`.
 - There is one scene with one bootstrap object. Create everything else from code, not by editing the scene.
 - Assemblies: `Net` → `Proto`; `Build` → `World`; `World`, `Avatar`, `UI`, `Host` reference none of the others; `Bootstrap` references all and holds the glue. Reference assemblies by name, never by GUID.
 - Only `Net` and `Bootstrap` use `Tinyverse.Proto` types. Its `Color`, `Vec3`, `Quat`, `Material` and `Shape` clash with Unity's.
