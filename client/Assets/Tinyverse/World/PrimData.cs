@@ -43,7 +43,11 @@ namespace Tinyverse.World
         public Quaternion Rotation;
         /// <summary>Size per axis in metres.</summary>
         public Vector3 Scale;
-        /// <summary>Linear RGBA, each channel 0..1 (the protocol's convention, not sRGB).</summary>
+        /// <summary>
+        /// sRGB RGBA, each channel 0..1: the protocol's convention, the same as a hex code or a
+        /// Unity Color from a colour picker. Alpha is linear coverage. The registry linearises
+        /// RGB for the shader when the project renders in linear space.
+        /// </summary>
         public Color Color;
         /// <summary>Avatars collide with it. A non-solid prim still has a trigger collider for picking.</summary>
         public bool Solid;
