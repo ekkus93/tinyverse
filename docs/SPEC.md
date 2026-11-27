@@ -95,7 +95,7 @@ scripts/              codegen, checks, packaging
 - Units are metres and seconds. Coordinates are left-handed, Y up (Unity's
   convention), so the client needs no conversion. Rotations are quaternions
   `x y z w`. Avatars carry yaw only, in degrees, clockwise seen from above,
-  0 facing +Z. Colours are 0..1 floats. Timestamps are milliseconds since the
+  0 facing +Z. Colours are sRGB 0..1 floats, as in a hex code. Timestamps are milliseconds since the
   Unix epoch.
 - Entity ids are `uint64`, assigned by the server, never reused. User ids are
   UUID strings.

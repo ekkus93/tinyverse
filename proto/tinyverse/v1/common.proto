@@ -4,7 +4,7 @@
 //   * metres and seconds; left-handed, Y up (Unity's convention);
 //   * quaternions are x y z w; avatars carry yaw only, in degrees,
 //     clockwise seen from above, 0 = facing +Z;
-//   * colours are linear 0..1 floats;
+//   * colours are sRGB 0..1 floats, as in a hex code or Unity's Color;
 //   * timestamps are milliseconds since the Unix epoch;
 //   * fields are only ever added, never renumbered or reused.
 syntax = "proto3";
