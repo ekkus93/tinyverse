@@ -10,7 +10,8 @@ namespace Tinyverse.Bootstrap
     /// Glue for the appearance editor: opens it from the menu with the own avatar's look, previews every change
     /// on the own avatar, and on Done stores the choice in the settings (sent in Hello on the next join) and sends
     /// SetAppearance; Cancel restores the previous look. While it is open the avatar stands still and the camera
-    /// turns to face it. <c>--open-appearance</c> opens it once after joining (for screenshots).
+    /// turns to face it. <c>--open-appearance</c> opens it once after joining (for screenshots);
+    /// <c>--avatar-style=classic</c> picks the older figures (<see cref="HumanCatalog.Style"/>).
     /// </summary>
     public sealed class AppearanceController
     {
@@ -28,7 +29,11 @@ namespace Tinyverse.Bootstrap
         {
             this.store = store;
             this.session = session;
-            openOnJoin = Environment.GetCommandLineArgs().Contains(OpenFlag);
+            var args = Environment.GetCommandLineArgs();
+            openOnJoin = args.Contains(OpenFlag);
+            // --avatar-style=classic draws the older Quaternius figures instead of the MakeHuman people (to compare).
+            HumanCatalog.Style = HumanCatalog.ParseStyle(args);
+            if (HumanCatalog.Style != AvatarStyle.Modern) Debug.Log($"[Appearance] avatar style {HumanCatalog.Style}");
             Panel = AppearancePanel.Attach(ui);
             Panel.SetOptions(
                 HumanCatalog.Presets.Select(p => new AppearanceOption(p.Id, p.Label)).ToList(),

@@ -17,10 +17,12 @@ namespace Tinyverse.Avatars
     }
 
     /// <summary>
-    /// A rigged, animated person assembled from the CC0 Quaternius models (see THIRD_PARTY.md): the outfit model
-    /// of the body preset carries the humanoid skeleton and the clothes (top, trousers, shoes); the head, eyes and
-    /// eyebrows come from the base character, cut at the neck; hair models are bound to the same skeleton. Feet at
-    /// the origin, facing +Z. Colours come from <see cref="AvatarLook"/>; animation from <see cref="Animate"/>.
+    /// A rigged, animated person (see THIRD_PARTY.md). <see cref="AvatarStyle.Modern"/>: a MakeHuman person made by
+    /// tools/avatars, one model per body preset with the humanoid skeleton, the body, the top and the trousers with
+    /// shoes, plus one hair model per style. <see cref="AvatarStyle.Classic"/>: the CC0 Quaternius figures, whose
+    /// outfit model carries the skeleton and the clothes and whose head, eyes and eyebrows come from the base
+    /// character, cut at the neck. Hair models are bound to the same skeleton by bone name. Feet at the origin,
+    /// facing +Z. Colours come from <see cref="AvatarLook"/>; animation from <see cref="Animate"/>.
     /// </summary>
     public sealed class HumanFigure : MonoBehaviour
     {
@@ -56,18 +58,63 @@ namespace Tinyverse.Avatars
         public static HumanFigure Create(Transform parent, BodyPreset preset)
         {
             if (preset == null) return null;
-            var skeleton = Resources.Load<GameObject>(HumanCatalog.ModelsFolder + preset.SkeletonModel);
-            var head = Resources.Load<GameObject>(HumanCatalog.ModelsFolder + preset.HeadModel);
-            if (skeleton == null || head == null || !HumanAnimationPlayer.ClipsAvailable)
+            bool modern = preset.Style == AvatarStyle.Modern;
+            var skeleton = Resources.Load<GameObject>((modern ? HumanCatalog.ModernModelsFolder : HumanCatalog.ModelsFolder) + preset.SkeletonModel);
+            var head = modern ? null : Resources.Load<GameObject>(HumanCatalog.ModelsFolder + preset.HeadModel);
+            if (skeleton == null || (!modern && head == null) || !HumanAnimationPlayer.ClipsAvailable)
             {
-                Debug.LogWarning($"[Avatar] assets for body preset '{preset.Id}' are missing; drawing the placeholder");
+                Debug.LogWarning($"[Avatar] assets for body preset '{preset.Id}' ({preset.Style}) are missing; drawing the placeholder");
                 return null;
             }
             var go = Instantiate(skeleton, parent, false);
             go.name = "Human " + preset.Id;
             var figure = go.AddComponent<HumanFigure>();
-            figure.Build(preset, head);
+            if (modern) figure.BuildModern(preset);
+            else figure.Build(preset, head);
+            figure.SetUpAnimator();
             return figure;
+        }
+
+        /// <summary>
+        /// A generated MakeHuman person (tools/avatars): the model carries the skeleton and three skinned meshes,
+        /// Body (skin and eyes), Top and Bottom (trousers and shoes), each with its own material. The hair model
+        /// (hair, eyebrows, eyelashes) is added by <see cref="SetHair"/>.
+        /// </summary>
+        private void BuildModern(BodyPreset preset)
+        {
+            Preset = preset;
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+                if (!bones.ContainsKey(t.name)) bones[t.name] = t;
+            var skin = Instance(preset.SkinMaterial, HumanCatalog.ModernMaterialsFolder);
+            var top = Instance(preset.TopMaterial, HumanCatalog.ModernMaterialsFolder);
+            var bottom = Instance(preset.BottomMaterial, HumanCatalog.ModernMaterialsFolder);
+            materials[HumanPart.Skin] = skin;
+            materials[HumanPart.Hands] = skin;
+            materials[HumanPart.Top] = top;
+            materials[HumanPart.Bottom] = bottom;
+            materials[HumanPart.Shoes] = bottom;
+            headTop = 0f;
+            foreach (var smr in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (smr.name == "Body") Assign(smr, skin);
+                else if (smr.name == "Top") Assign(smr, top);
+                else if (smr.name == "Bottom") Assign(smr, bottom);
+                else continue;
+                Configure(smr);
+                bodyRenderers.Add(smr);
+                if (smr.sharedMesh != null) headTop = Mathf.Max(headTop, RestTop(transform, smr.transform, smr.sharedMesh));
+            }
+            Height = headTop;
+        }
+
+        private void SetUpAnimator()
+        {
+            animator = GetComponent<Animator>();
+            if (animator == null) animator = gameObject.AddComponent<Animator>();
+            animator.applyRootMotion = false;
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            animator.runtimeAnimatorController = null;
+            player = new HumanAnimationPlayer(animator, name);
         }
 
         private void Build(BodyPreset preset, GameObject headModel)
@@ -118,31 +165,28 @@ namespace Tinyverse.Avatars
                 if (smr != null) bodyRenderers.Add(smr);
             }
             Height = headTop;
-
-            animator = GetComponent<Animator>();
-            if (animator == null) animator = gameObject.AddComponent<Animator>();
-            animator.applyRootMotion = false;
-            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-            animator.runtimeAnimatorController = null;
-            player = new HumanAnimationPlayer(animator, name);
         }
 
-        private static string HairMaterialFor(BodyPreset preset) => preset.Id == HumanCatalog.Feminine ? "AvatarHair2" : "AvatarHair1";
+        private static string HairMaterialFor(BodyPreset preset) => preset.Gender == HumanCatalog.Feminine ? "AvatarHair2" : "AvatarHair1";
 
         /// <summary>Applies colours and hair style. A change of body preset needs a new figure.</summary>
         public void ApplyLook(AvatarLook look)
         {
             Colors = HumanCatalog.ColorsFor(look);
             SetColor(materials[HumanPart.Skin], Colors.Skin);
-            // The face texture is normalised to about 0.92 of the tint; match the untextured hands to it.
-            SetColor(materials[HumanPart.Hands], Colors.Skin * 0.92f);
-            SetColor(materials[HumanPart.Hair], Colors.Hair);
-            SetColor(materials[HumanPart.Eyebrows], Colors.Hair * 0.85f);
+            if (Preset.Style == AvatarStyle.Classic)
+            {
+                // The face texture is normalised to about 0.92 of the tint; match the untextured hands to it.
+                SetColor(materials[HumanPart.Hands], Colors.Skin * 0.92f);
+                SetColor(materials[HumanPart.Hair], Colors.Hair);
+                SetColor(materials[HumanPart.Eyebrows], Colors.Hair * 0.85f);
+            }
             SetColor(materials[HumanPart.Top], Colors.Top);
             SetColor(materials[HumanPart.Bottom], Colors.Bottom);
 
             var style = HumanCatalog.FindHairStyle(look.HairStyle, Preset);
             if (style != Hair) SetHair(style);
+            else if (Preset.Style == AvatarStyle.Modern) SetColor(materials[HumanPart.Hair], Colors.Hair);
         }
 
         private void SetHair(HairStyle style)
@@ -152,10 +196,21 @@ namespace Tinyverse.Avatars
                 if (r != null) Destroy(r.gameObject);
             hairRenderers.Clear();
             hairNames.Clear();
+            bool modern = Preset.Style == AvatarStyle.Modern;
+            if (modern)
+            {
+                // Each modern hair style has its own atlas, so its own material (hair, eyebrows and eyelashes).
+                var old = materials.TryGetValue(HumanPart.Hair, out var m) ? m : null;
+                var hairMat = Instance(HumanCatalog.ModernHairModel(Preset, style), HumanCatalog.ModernMaterialsFolder);
+                materials[HumanPart.Hair] = hairMat;
+                materials[HumanPart.Eyebrows] = hairMat;
+                SetColor(hairMat, Colors.Hair);
+                DestroyMaterial(old);
+            }
             float top = headTop;
             foreach (var model in style.ModelsFor(Preset))
             {
-                var prefab = Resources.Load<GameObject>(HumanCatalog.ModelsFolder + model);
+                var prefab = Resources.Load<GameObject>((modern ? HumanCatalog.ModernModelsFolder : HumanCatalog.ModelsFolder) + model);
                 if (prefab == null)
                 {
                     Debug.LogWarning($"[Avatar] hair model {model} missing");
@@ -167,7 +222,7 @@ namespace Tinyverse.Avatars
                     if (smr == null) continue;
                     smr.enabled = visible;
                     hairRenderers.Add(smr);
-                    top = Mathf.Max(top, source.sharedMesh.bounds.max.y);
+                    top = Mathf.Max(top, modern ? RestTop(source.transform.root, source.transform, source.sharedMesh) : source.sharedMesh.bounds.max.y);
                 }
                 hairNames.Add(model);
             }
@@ -200,13 +255,15 @@ namespace Tinyverse.Avatars
         private void OnDestroy()
         {
             player?.Dispose();
-            foreach (var m in materials.Values)
-                if (m != null)
-                {
-                    if (Application.isPlaying) Destroy(m);
-                    else DestroyImmediate(m);
-                }
+            foreach (var m in new HashSet<Material>(materials.Values)) DestroyMaterial(m);
             materials.Clear();
+        }
+
+        private static void DestroyMaterial(Material m)
+        {
+            if (m == null) return;
+            if (Application.isPlaying) Destroy(m);
+            else DestroyImmediate(m);
         }
 
         // ---------------------------------------------------------------- assembly
@@ -257,9 +314,9 @@ namespace Tinyverse.Avatars
             }
         }
 
-        private static Material Instance(string name)
+        private static Material Instance(string name, string folder = HumanCatalog.MaterialsFolder)
         {
-            var source = Resources.Load<Material>(HumanCatalog.MaterialsFolder + name);
+            var source = Resources.Load<Material>(folder + name);
             if (source == null)
             {
                 Debug.LogWarning($"[Avatar] material {name} missing; using a runtime URP Lit");
@@ -326,6 +383,20 @@ namespace Tinyverse.Avatars
             mesh.SetTriangles(kept, 0, true);
             headMeshes[source] = mesh;
             return mesh;
+        }
+
+        /// <summary>Top of a mesh's bounds in the space of <paramref name="root"/> (the model may rotate its mesh nodes).</summary>
+        internal static float RestTop(Transform root, Transform meshNode, Mesh mesh)
+        {
+            var m = root.worldToLocalMatrix * meshNode.localToWorldMatrix;
+            var b = mesh.bounds;
+            float top = float.MinValue;
+            for (int i = 0; i < 8; i++)
+            {
+                var c = b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                top = Mathf.Max(top, m.MultiplyPoint3x4(c).y);
+            }
+            return top;
         }
 
         /// <summary>Highest vertex used by a triangle, metres above the feet in the rest pose.</summary>

@@ -295,9 +295,12 @@ namespace Tinyverse.Avatars.Editor
         private static void Tex(out Texture2D tex, string name) =>
             tex = AssetDatabase.LoadAssetAtPath<Texture2D>($"{TexturesFolder}/{name}.png");
 
-        private static void Mat(Shader shader, string name, Texture2D baseMap, Texture2D normal, float smoothness)
+        private static Material Mat(Shader shader, string name, Texture2D baseMap, Texture2D normal, float smoothness) =>
+            Mat(shader, MaterialsFolder, name, baseMap, normal, smoothness);
+
+        private static Material Mat(Shader shader, string folder, string name, Texture2D baseMap, Texture2D normal, float smoothness)
         {
-            string path = $"{MaterialsFolder}/{name}.mat";
+            string path = $"{folder}/{name}.mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             bool create = m == null;
             if (create) m = new Material(shader);
@@ -320,6 +323,162 @@ namespace Tinyverse.Avatars.Editor
             }
             if (create) AssetDatabase.CreateAsset(m, path);
             else EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        // ---------------------------------------------------------------- modern (generated) avatars
+
+        public const string ModernRoot = Root + "/Modern";
+        public const string ModernModels = ModernRoot + "/Models";
+        public const string ModernTextures = ModernRoot + "/Textures";
+        public const string ModernMaterials = ModernRoot + "/Materials";
+
+        /// <summary>Where tools/avatars/generate.sh writes one manifest per body preset (relative to the project).</summary>
+        public const string ManifestFolder = "../tools/avatars/manifests";
+
+        [Serializable]
+        private class ModernMaterial
+        {
+            public string name, kind, baseMap, emissionMap, normalMap;
+        }
+
+        [Serializable]
+        private class ModernManifest
+        {
+            public string preset;
+            public ModernMaterial[] materials;
+        }
+
+        /// <summary>
+        /// Import settings and materials for the models tools/avatars/generate.sh made (see tools/avatars/README.md):
+        /// <code>Unity -batchmode -quit -projectPath client -executeMethod Tinyverse.Avatars.Editor.AvatarAssetTool.PrepareModern</code>
+        /// </summary>
+        public static void PrepareModern()
+        {
+            AssetDatabase.Refresh();
+            ConfigureModernTextures();
+            ConfigureModernModels();
+            CreateModernMaterials();
+            Inspect();
+        }
+
+        public static void ConfigureModernTextures()
+        {
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { ModernTextures }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var ti = (TextureImporter)AssetImporter.GetAtPath(path);
+                string name = Path.GetFileNameWithoutExtension(path);
+                bool normal = name.StartsWith("ClothNormal");
+                bool hair = name.StartsWith("Hair_");
+                ti.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+                ti.sRGBTexture = !normal;
+                ti.mipmapEnabled = true;
+                ti.maxTextureSize = name.StartsWith("Skin_") ? 2048 : 1024;
+                ti.alphaSource = hair ? TextureImporterAlphaSource.FromInput : TextureImporterAlphaSource.None;
+                ti.alphaIsTransparency = hair;
+                // Cut-out hair keeps its coverage in the smaller mipmaps instead of thinning away with distance.
+                ti.mipMapsPreserveCoverage = hair;
+                ti.alphaTestReferenceValue = 0.4f;
+                ti.textureCompression = TextureImporterCompression.Compressed;
+                ti.wrapMode = TextureWrapMode.Clamp;
+                ti.anisoLevel = 2;
+                ti.SaveAndReimport();
+            }
+        }
+
+        /// <summary>Bodies as humanoids (the clips retarget onto them), hair as plain skinned meshes bound by bone name.</summary>
+        public static void ConfigureModernModels()
+        {
+            foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { ModernModels }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var importer = (ModelImporter)AssetImporter.GetAtPath(path);
+                bool body = Path.GetFileNameWithoutExtension(path).StartsWith("Body_");
+                importer.bakeAxisConversion = true;
+                importer.globalScale = 1f;
+                importer.useFileScale = true;
+                importer.materialImportMode = ModelImporterMaterialImportMode.None;
+                importer.importAnimation = false;
+                importer.importBlendShapes = false;
+                importer.importCameras = false;
+                importer.importLights = false;
+                importer.importVisibility = false;
+                importer.isReadable = false;
+                importer.meshCompression = ModelImporterMeshCompression.Off;
+                importer.importNormals = ModelImporterNormals.Import;
+                importer.importTangents = ModelImporterTangents.CalculateMikk;
+                importer.skinWeights = ModelImporterSkinWeights.Standard; // four bones per vertex
+                importer.animationType = body ? ModelImporterAnimationType.Human : ModelImporterAnimationType.Generic;
+                importer.avatarSetup = body ? ModelImporterAvatarSetup.CreateFromThisModel : ModelImporterAvatarSetup.NoAvatar;
+                importer.optimizeGameObjects = false;
+                importer.SaveAndReimport();
+            }
+            AssetDatabase.Refresh();
+        }
+
+        public static void CreateModernMaterials()
+        {
+            Directory.CreateDirectory(ModernMaterials);
+            var lit = Shader.Find("Universal Render Pipeline/Lit");
+            string folder = Path.GetFullPath(ManifestFolder);
+            foreach (var file in Directory.GetFiles(folder, "manifest_*.json").OrderBy(f => f, StringComparer.Ordinal))
+            {
+                var manifest = JsonUtility.FromJson<ModernManifest>(File.ReadAllText(file));
+                foreach (var m in manifest.materials)
+                {
+                    var baseMap = ModernTexture(m.baseMap);
+                    var normal = string.IsNullOrEmpty(m.normalMap) ? null : ModernTexture(m.normalMap);
+                    var emission = string.IsNullOrEmpty(m.emissionMap) ? null : ModernTexture(m.emissionMap);
+                    float smoothness = m.kind == "skin" ? 0.38f : m.kind == "hair" ? 0.32f : m.kind == "top" ? 0.12f : 0.18f;
+                    var mat = Mat(lit, ModernMaterials, m.name, baseMap, normal, smoothness);
+                    if (emission != null)
+                    {
+                        // The eyes: drawn by emission so the skin tint does not darken them (their base map texels are black).
+                        mat.SetTexture("_EmissionMap", emission);
+                        mat.SetColor("_EmissionColor", new Color(0.62f, 0.62f, 0.62f, 1f));
+                        mat.EnableKeyword("_EMISSION");
+                        // URP turns _EMISSION on only for materials flagged as emissive.
+                        mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                    }
+                    else
+                    {
+                        mat.SetTexture("_EmissionMap", null);
+                        mat.SetColor("_EmissionColor", Color.black);
+                        mat.DisableKeyword("_EMISSION");
+                    }
+                    bool cutout = m.kind == "hair";
+                    mat.SetFloat("_AlphaClip", cutout ? 1f : 0f);
+                    mat.SetFloat("_Cutoff", 0.4f);
+                    mat.SetFloat("_Cull", cutout ? 0f : 2f); // hair cards are seen from both sides
+                    mat.SetFloat("_Surface", 0f);
+                    if (cutout)
+                    {
+                        mat.EnableKeyword("_ALPHATEST_ON");
+                        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
+                        mat.SetOverrideTag("RenderType", "TransparentCutout");
+                    }
+                    else
+                    {
+                        mat.DisableKeyword("_ALPHATEST_ON");
+                        mat.renderQueue = -1;
+                        mat.SetOverrideTag("RenderType", "Opaque");
+                    }
+                    mat.SetFloat("_EnvironmentReflections", m.kind == "skin" || m.kind == "hair" ? 1f : 0f);
+                    EditorUtility.SetDirty(mat);
+                }
+            }
+            AssetDatabase.SaveAssets();
+        }
+
+        private static Texture2D ModernTexture(string name)
+        {
+            foreach (var ext in new[] { ".png", ".jpg" })
+            {
+                var t = AssetDatabase.LoadAssetAtPath<Texture2D>($"{ModernTextures}/{name}{ext}");
+                if (t != null) return t;
+            }
+            throw new FileNotFoundException("modern avatar texture " + name);
         }
 
         // ---------------------------------------------------------------- inspection
@@ -337,6 +496,8 @@ namespace Tinyverse.Avatars.Editor
                 sb.AppendLine($"anim {importer.animationType} bakeAxis {importer.bakeAxisConversion}");
                 var avatar = AssetDatabase.LoadAllAssetsAtPath(path).OfType<UnityEngine.Avatar>().FirstOrDefault();
                 if (avatar != null) sb.AppendLine($"avatar {avatar.name} human {avatar.isHuman} valid {avatar.isValid}");
+                if (importer.animationType == ModelImporterAnimationType.Human)
+                    sb.AppendLine("  human map: " + string.Join(", ", importer.humanDescription.human.Select(h => $"{h.humanName}={h.boneName}")));
                 var inst = Object.Instantiate(go);
                 Dump(inst.transform, 0, sb);
                 foreach (var smr in inst.GetComponentsInChildren<SkinnedMeshRenderer>(true))

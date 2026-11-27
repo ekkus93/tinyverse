@@ -7,7 +7,7 @@
         </ui:VisualElement>
         <ui:ScrollView name="appearanceScroll" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-appearance__scroll">
             <ui:Label text="BODY" class="tv-section__title" />
-            <ui:VisualElement name="appearanceBody" class="tv-segments tv-appearance__choices" />
+            <ui:VisualElement name="appearanceBody" class="tv-appearance__chips" />
 
             <ui:Label text="HAIR STYLE" class="tv-section__title tv-section" />
             <ui:VisualElement name="appearanceHairStyle" class="tv-appearance__chips" />

@@ -142,7 +142,9 @@ namespace Tinyverse.UI
             foreach (var o in bodyPresets ?? new AppearanceOption[0])
             {
                 string id = o.Id;
-                var b = UIUtil.Button(o.Label, "tv-segment", () => Change(x => { x.BodyPreset = id; return x; }));
+                // Two to a row: there are more builds than fit side by side, and their labels are longer.
+                var b = UIUtil.Button(o.Label, "tv-appearance__chip", () => Change(x => { x.BodyPreset = id; return x; }));
+                b.AddToClassList("tv-appearance__chip--wide");
                 b.name = "appearanceBody-" + id;
                 _body.Add(b);
                 _bodyButtons.Add((b, id));
@@ -235,7 +237,7 @@ namespace Tinyverse.UI
 
         void Refresh()
         {
-            foreach (var (b, id) in _bodyButtons) UIUtil.SetClass(b, "tv-segment--active", Same(id, _choice.BodyPreset));
+            foreach (var (b, id) in _bodyButtons) UIUtil.SetClass(b, "tv-toggle-button--on", Same(id, _choice.BodyPreset));
             foreach (var (b, id) in _hairButtons) UIUtil.SetClass(b, "tv-toggle-button--on", Same(id, _choice.HairStyle));
             Mark(_skin, _choice.Skin);
             Mark(_hairColor, _choice.Hair);
