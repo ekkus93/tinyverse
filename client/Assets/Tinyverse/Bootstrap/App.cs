@@ -254,12 +254,14 @@ namespace Tinyverse.Bootstrap
         {
             Debug.Log($"[App] certificate refused: {e.Message}");
             ConnectFailed(null, hosted);
-            string presented = CertificatePin.Colons(e.Fingerprint);
+            // Shown as in the address (lower-case hex after #sha256=), so it can be compared with the Host screen.
+            string presented = ShowFingerprint(e.Fingerprint);
             if (e.Problem == CertificateProblem.Untrusted)
             {
                 UI.Confirm.Ask("Trust this world?",
                     $"This world's certificate is not known.\n\n{e.HostPort}\nFingerprint (SHA-256):\n{presented}\n\n" +
-                    "Trust it only if it matches the fingerprint the host sees: it is the end of the address on their Host screen (after #sha256=). Trust it?",
+                    "Trust it only if it matches the end of the address on the host's Host screen (after #sha256=), " +
+                    "or what `tinyverse-server tls fingerprint` prints. Trust it?",
                     "Trust",
                     () =>
                     {
@@ -272,13 +274,13 @@ namespace Tinyverse.Bootstrap
             }
             if (pinFromAddress)
             {
-                ConnectFailed($"The world's certificate does not match the fingerprint in the address: it is {presented}. " +
+                ConnectFailed($"The world's certificate does not match the fingerprint in the address: it is {e.Fingerprint}. " +
                               "Ask the host for the current address.", hosted);
                 return;
             }
             UI.Confirm.Ask("Certificate changed",
                 $"The certificate of {e.HostPort} has changed since you last joined.\n\n" +
-                $"Remembered:\n{CertificatePin.Colons(e.ExpectedPin)}\nNow:\n{presented}\n\n" +
+                $"Remembered:\n{ShowFingerprint(e.ExpectedPin)}\nNow:\n{presented}\n\n" +
                 "This happens when the host makes a new certificate, but it can also mean that someone is intercepting the connection. " +
                 "Forget the remembered certificate only if the host confirms the change.",
                 "Forget old certificate",
@@ -288,7 +290,14 @@ namespace Tinyverse.Bootstrap
                     settingsStore.Save();
                     retry();
                 },
-                () => ConnectFailed($"Not joined: the certificate of {e.HostPort} has changed. Its fingerprint is now {presented}.", hosted));
+                () => ConnectFailed($"Not joined: the certificate of {e.HostPort} has changed. Its fingerprint is now {e.Fingerprint}.", hosted));
+        }
+
+        /// <summary>A fingerprint as hex in two lines of 32 digits, as it appears in a pinned address.</summary>
+        public static string ShowFingerprint(string hex)
+        {
+            if (!CertificatePin.TryParse(hex, out var h)) return hex ?? "";
+            return h.Substring(0, 32) + "\n" + h.Substring(32);
         }
 
         /// <summary>The certificate fingerprint remembered for an address (lower-case hex), or null.</summary>

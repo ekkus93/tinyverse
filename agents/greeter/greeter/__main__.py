@@ -9,12 +9,14 @@ import os
 import sys
 
 from .agent import Greeter, Options
+from .connection import split_pin
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="greeter", description="An AI agent that welcomes people to a Tinyverse world.")
     p.add_argument("--url", default=os.environ.get("TINYVERSE_URL", "ws://127.0.0.1:7878/ws"),
-                   help="ws:// or wss:// URL of the world (default %(default)s, or TINYVERSE_URL)")
+                   help="ws:// or wss:// URL of the world (default %(default)s, or TINYVERSE_URL); a wss:// "
+                   "URL may end in #sha256=<hex> to accept exactly the certificate with that fingerprint")
     p.add_argument("--token", default=os.environ.get("TINYVERSE_TOKEN", ""),
                    help="agent token from `tinyverse-server token create` (or TINYVERSE_TOKEN)")
     p.add_argument("--token-file", help="file holding the token")
@@ -47,6 +49,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.ca_file and not args.url.startswith("wss://"):
         print("greeter: --ca-file needs a wss:// URL", file=sys.stderr)
+        return 2
+    try:
+        split_pin(args.url)
+    except ValueError as e:
+        print(f"greeter: --url: {e}", file=sys.stderr)
         return 2
     opts = Options(url=args.url, ca_file=args.ca_file, token=token, name=name, password=args.password, no_llm=args.no_llm,
                    model=args.model, greet_radius=args.greet_radius,

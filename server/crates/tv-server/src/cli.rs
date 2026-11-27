@@ -210,6 +210,9 @@ pub fn init_logging(verbose: u8) {
         1 => "debug",
         _ => "trace",
     };
+    // Mono's SslStream (the Unity client) sends an IP address as SNI, which
+    // rustls ignores with a warning on every connection: not worth a line.
+    let default = format!("{default},rustls::msgs::handshake=error");
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default));
     // A dead stderr (the process that launched us crashed) must never panic:
     // by default tracing-subscriber reports a failed write with `eprintln!`,
@@ -589,7 +592,7 @@ fn run(
         }
         lines.push(format!("listening on {}", server.ws_url()));
         if let Some(pin) = &pin {
-            let urls = join_urls(server.addr(), pin, &tls::lan_addresses());
+            let urls = join_urls(server.addr(), pin, &tls::guest_addresses());
             lines.extend(urls.iter().map(|u| format!("join with {u}")));
         }
         // Whoever reads stdout may already be gone; that must not stop the

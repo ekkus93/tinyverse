@@ -44,7 +44,7 @@ tv-mcp [--url ws://host:7878/ws | wss://host:7878/ws] [--ca-file PEM] [--token T
 
 | Flag | Meaning |
 |---|---|
-| `--url` | WebSocket URL of the world. Default `ws://127.0.0.1:7878/ws`. |
+| `--url` | WebSocket URL of the world. Default `ws://127.0.0.1:7878/ws`. A `wss://` URL may end in `#sha256=<fingerprint>` to pin the world's certificate (see TLS below). |
 | `--token` | Agent token. Also read from `TINYVERSE_TOKEN` when neither flag is given. |
 | `--token-file` | File holding the token (whitespace trimmed). An unreadable or empty file is a start-up error. |
 | `--name` | Display name. Optional when the token belongs to an existing user. |
@@ -64,20 +64,35 @@ every 10 s.
 ## TLS (`wss://`)
 
 A world serves `wss://` when its directory holds `cert.pem` and `key.pem`.
-With a certificate from a public CA, a `wss://` URL is all `tv-mcp` needs. For
-a self-signed one (`tinyverse-server tls self-signed <world-dir>`, valid for
-`localhost` and `127.0.0.1` unless `--host` says otherwise), give the bridge a
-copy of the world's `cert.pem`; it never needs `key.pem`:
+With a certificate from a public CA, a `wss://` URL is all `tv-mcp` needs.
+
+For a self-signed one (`tinyverse-server run --self-signed`, or `tls
+self-signed`), use the pinned address the host gives: `run` prints it as
+`join with wss://HOST:7878/ws#sha256=<fingerprint>`, and the desktop client's
+Host screen shows it. With a pin, exactly the certificate with that SHA-256 is
+accepted, whatever names it holds and whoever signed it; `--ca-file` is then
+not used:
+
+```sh
+tv-mcp --url 'wss://192.168.1.20:7878/ws#sha256=041f8e50d2f5d096c380cf7a24ad5d45ccdccd600136163cf76519837cba0db7' --token-file scout.token
+```
+
+Alternatively give the bridge a copy of the world's `cert.pem` (it never needs
+`key.pem`); then the name in the URL must be one the certificate lists:
 
 ```sh
 tv-mcp --url wss://127.0.0.1:7878/ws --ca-file /path/to/cert.pem --token-file scout.token
 ```
 
-Without `--ca-file` a self-signed world is refused, and every tool returns an
-error saying the certificate is not trusted and to pass `--ca-file`. A
-`ws://` URL for a TLS port, or a `wss://` URL for a plain one, also gives an
-error naming the fix. TLS uses rustls with the `ring` provider; reconnects go
-over TLS too.
+Without either, a self-signed world is refused, and every tool returns an
+error saying the certificate is not trusted, with its fingerprint and the
+pinned URL to use once the host confirms that fingerprint
+(`tinyverse-server tls fingerprint <world-dir>` prints it). A pin that does not
+match is refused naming both fingerprints. A malformed pin, a fragment other
+than `#sha256=`, or a pin on a `ws://` URL is a start-up error. A `ws://` URL
+for a TLS port, or a `wss://` URL for a plain one, also gives an error naming
+the fix. TLS uses rustls with the `ring` provider; reconnects go over TLS too,
+with the same pin.
 
 ## Add it to an MCP client
 
@@ -197,7 +212,8 @@ scripted mock world server (a real WebSocket on a random port), and run the
 built binary once to check that nothing but JSON-RPC reaches stdout.
 `tests/real_server.rs` also starts the real `tinyverse-server` from the
 target directory and runs the tools through the bridge: over `ws://` with a
-second participant, and over `wss://` with a self-signed certificate and
-`--ca-file` (including a server restart and the TLS mismatch errors). These
+second participant, and over `wss://` with a self-signed certificate, both
+with `--ca-file` and with a pinned URL (including server restarts, a wrong
+pin, an untrusted certificate and the other TLS mismatch errors). These
 tests are skipped with a message when that binary has not been built
 (`cargo build --workspace`).

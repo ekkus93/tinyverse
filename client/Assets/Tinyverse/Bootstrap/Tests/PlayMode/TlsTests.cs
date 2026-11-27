@@ -135,7 +135,7 @@ namespace Tinyverse.Bootstrap.Tests
             app.Connect(server.Url, "Guest", "");
             yield return Asked("Trust this world?");
             StringAssert.Contains("not known", app.UI.Confirm.Message);
-            StringAssert.Contains(CertificatePin.Colons(pin), app.UI.Confirm.Message, "the prompt shows the fingerprint");
+            StringAssert.Contains(App.ShowFingerprint(pin), app.UI.Confirm.Message, "the prompt shows the fingerprint as in the address");
             StringAssert.Contains("127.0.0.1:" + server.Port, app.UI.Confirm.Message);
             Assert.AreEqual(AppState.FrontEnd, app.State);
             app.UI.Confirm.Cancel();
@@ -200,8 +200,8 @@ namespace Tinyverse.Bootstrap.Tests
 
             app.Connect(server.Url, "Guest", "");
             yield return Asked("Certificate changed");
-            StringAssert.Contains(CertificatePin.Colons(oldPin), app.UI.Confirm.Message);
-            StringAssert.Contains(CertificatePin.Colons(newPin), app.UI.Confirm.Message);
+            StringAssert.Contains(App.ShowFingerprint(oldPin), app.UI.Confirm.Message);
+            StringAssert.Contains(App.ShowFingerprint(newPin), app.UI.Confirm.Message);
             app.UI.Confirm.Cancel();
             Assert.AreEqual(AppState.FrontEnd, app.State);
             StringAssert.Contains("has changed", app.UI.Connect.ErrorText);
@@ -212,7 +212,7 @@ namespace Tinyverse.Bootstrap.Tests
             yield return Asked("Certificate changed");
             app.UI.Confirm.Confirm();
             yield return Asked("Trust this world?");
-            StringAssert.Contains(CertificatePin.Colons(newPin), app.UI.Confirm.Message);
+            StringAssert.Contains(App.ShowFingerprint(newPin), app.UI.Confirm.Message);
             app.UI.Confirm.Confirm();
             yield return InWorld();
             Assert.AreEqual(newPin, app.RememberedPin(server.Url));

@@ -49,26 +49,37 @@ Without a model, using canned replies and a few rules (no API key needed):
 .venv/bin/python -m greeter --url ws://127.0.0.1:7878/ws --token-file greeter.token --no-llm
 ```
 
-Over `wss://`, for a world whose host serves TLS. With a self-signed
-certificate (`tinyverse-server tls self-signed <DIR>`), get the world's
-`cert.pem` from the host and trust it with `--ca-file`; a certificate from a
-public authority needs no option:
+Over `wss://`, for a world whose host serves TLS. A certificate from a
+public authority needs no option. With a self-signed certificate (what the
+desktop client's Host screen and `tinyverse-server run --self-signed` use),
+use the pinned address the host gives, which ends in `#sha256=<fingerprint>`:
+the greeter then accepts exactly that certificate, and checks it before it
+sends its token:
+
+```sh
+.venv/bin/python -m greeter --url 'wss://192.168.1.10:7878/ws#sha256=041f8e50…0db7' --token-file greeter.token
+```
+
+Or get the world's `cert.pem` from the host and trust it with `--ca-file`;
+then the address in the URL must be one the certificate lists (all of the
+host's addresses when it was made, plus any `--host`):
 
 ```sh
 .venv/bin/python -m greeter --url wss://192.168.1.10:7878/ws --ca-file cert.pem --token-file greeter.token
 ```
 
-The certificate must be valid for the address in the URL: by default it
-covers `localhost` and `127.0.0.1`, and the host adds others with
-`tls self-signed <DIR> --host 192.168.1.10`. If the certificate is not trusted, the greeter says so and exits with status 2
-instead of retrying.
+If the certificate is not trusted, or does not match the pin, the greeter
+says so and exits with status 2 instead of retrying.
+
+`first_agent.py` takes a pinned address the same way:
+`TINYVERSE_TOKEN=<token> .venv/bin/python first_agent.py 'wss://192.168.1.10:7878/ws#sha256=…'`.
 
 Stop it with Ctrl-C (SIGINT) or SIGTERM; it closes the connection cleanly and
 exits with status 0.
 
 | Option | Meaning |
 |---|---|
-| `--url` | WebSocket URL of the world. Default `ws://127.0.0.1:7878/ws`, or `TINYVERSE_URL`. |
+| `--url` | WebSocket URL of the world. Default `ws://127.0.0.1:7878/ws`, or `TINYVERSE_URL`. A `wss://` URL may end in `#sha256=<fingerprint>` to pin the world's certificate. |
 | `--ca-file` | PEM certificate(s) to trust for a `wss://` URL, such as the world's self-signed `cert.pem`. Without it the system's trusted authorities are used. Only valid with `wss://`. |
 | `--token`, `--token-file` | The agent token (also `TINYVERSE_TOKEN`). Without a token it joins as a new user called `--name`, with `--password` if the world has one, and reuses the session token it is given when it reconnects. |
 | `--name` | Display name. Default: the token's name. It is the name people use to address it. |
@@ -153,6 +164,8 @@ temporary world and runs the greeter in `--no-llm` mode against it, with a
 scripted person and a scripted agent: greeting, "come here", building a box,
 the agent-loop limit and a clean SIGINT shutdown. A second test serves the
 world over `wss://` with a self-signed certificate and checks that the
-greeter refuses it without `--ca-file` (exit 2) and joins and greets with it. It looks for the server at
+greeter refuses it without `--ca-file` or a pin (exit 2), refuses a wrong pin
+(exit 2), and joins and greets both with `--ca-file` and with the pinned
+address. It looks for the server at
 `TINYVERSE_SERVER` or `server/target/{debug,release}/tinyverse-server`, and is
 skipped with a message if none is built (`cargo build` in `server/`).

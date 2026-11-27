@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import itertools
 import json
 import logging
@@ -33,15 +34,66 @@ FATAL_CODES = {
 PING_INTERVAL_S = 10.0
 
 
+PIN_PREFIX = "sha256="
+
+
+def split_pin(url: str) -> tuple[str, str | None]:
+    """Splits `wss://host:port/ws#sha256=<hex>` into the URL to connect to and
+    the pin: the SHA-256 of the server's certificate, 64 hex digits in lower
+    case (colons and upper case are accepted). Raises ValueError for any other
+    fragment, a malformed pin, or a pin on a ws:// URL."""
+    base, sep, fragment = url.partition("#")
+    if not sep:
+        return url, None
+    if not fragment.lower().startswith(PIN_PREFIX):
+        raise ValueError(f"the only URL fragment understood is #sha256=<certificate fingerprint>, not #{fragment}")
+    digits = fragment[len(PIN_PREFIX):].replace(":", "").lower()
+    if len(digits) != 64 or any(c not in "0123456789abcdef" for c in digits):
+        raise ValueError("a #sha256= certificate pin must be 64 hex digits")
+    if not base.startswith("wss://"):
+        raise ValueError("a #sha256= certificate pin only applies to wss:// URLs")
+    return base, digits
+
+
+class CertificateMismatch(Exception):
+    """The server's certificate is not the one pinned in the URL."""
+
+    def __init__(self, expected: str, presented: str) -> None:
+        super().__init__(f"the server's certificate has SHA-256 {presented}, not the pinned {expected}")
+        self.expected = expected
+        self.presented = presented
+
+
 def tls_context(url: str, ca_file: str | None = None) -> ssl.SSLContext | None:
     """The TLS settings for `url`: None for ws://; for wss://, the system's
     trusted certificates, or only `ca_file` (a PEM file such as the world's
-    self-signed cert.pem) when given. Hostnames are always checked."""
-    if not url.startswith("wss://"):
+    self-signed cert.pem) when given; hostnames are then checked. With a pin
+    in the URL (`#sha256=<hex>`) no certificate is trusted by the TLS layer:
+    the caller checks the pin (see `check_pin`) before sending anything."""
+    base, pin = split_pin(url)
+    if not base.startswith("wss://"):
         if ca_file:
             raise ValueError("--ca-file needs a wss:// URL")
         return None
+    if pin is not None:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
     return ssl.create_default_context(cafile=ca_file)
+
+
+def check_pin(ws: Any, pin: str | None) -> None:
+    """Raises CertificateMismatch unless the certificate the server of the open
+    connection `ws` presented has SHA-256 `pin`. Call it before sending the
+    Hello: nothing secret has gone to the server until then."""
+    if pin is None:
+        return
+    ssl_object = ws.transport.get_extra_info("ssl_object")
+    der = ssl_object.getpeercert(binary_form=True) if ssl_object is not None else None
+    presented = hashlib.sha256(der).hexdigest() if der else ""
+    if presented != pin:
+        raise CertificateMismatch(pin, presented)
 
 
 class ServerError(Exception):
@@ -79,8 +131,14 @@ class Connection:
         history. Returns the Welcome body. Raises ServerError on refusal."""
         # The websockets library sends WebSocket ping frames by itself, which
         # also keep the connection from idling out; we send protocol Pings too.
-        self._ws = await websockets.connect(self.url, open_timeout=timeout, max_size=2**20,
+        base, pin = split_pin(self.url)
+        self._ws = await websockets.connect(base, open_timeout=timeout, max_size=2**20,
                                             ssl=tls_context(self.url, self.ca_file))
+        try:
+            check_pin(self._ws, pin)
+        except CertificateMismatch:
+            await self._ws.close()
+            raise
         await self._ws.send(json.dumps(protocol.message(1, "hello", hello)))
         welcome = None
         async with asyncio.timeout(timeout):

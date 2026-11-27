@@ -129,16 +129,62 @@ pub struct SelfSigned {
 
 /// This machine's current non-loopback addresses that others on the network
 /// could use: IPv4 and IPv6, without link-local IPv6 (which needs a zone).
+///
+/// Best first: the address of the default route, then other physical
+/// interfaces, then bridges, VPNs and container networks; IPv4 before IPv6.
 pub fn lan_addresses() -> Vec<IpAddr> {
-    let mut found: Vec<IpAddr> = if_addrs::get_if_addrs()
+    order_lan(interfaces(), default_route_source())
+}
+
+/// [`lan_addresses`] without those of container and virtual-machine
+/// bridges (Docker, libvirt, VirtualBox, VMware), which guests on the
+/// network cannot reach: the addresses worth printing for them.
+pub fn guest_addresses() -> Vec<IpAddr> {
+    let found = interfaces().into_iter().filter(|(name, _)| !is_bridge(name)).collect();
+    order_lan(found, default_route_source())
+}
+
+fn interfaces() -> Vec<(String, IpAddr)> {
+    if_addrs::get_if_addrs()
         .unwrap_or_default()
         .into_iter()
-        .map(|i| i.ip())
-        .filter(|ip| usable_lan_address(*ip))
+        .map(|i| (i.name.clone(), i.ip()))
+        .collect()
+}
+
+fn is_bridge(interface: &str) -> bool {
+    ["docker", "br-", "veth", "virbr", "vmnet", "vbox"].iter().any(|p| interface.starts_with(p))
+}
+
+/// The local address the default route would use. Connecting a UDP socket
+/// sends nothing; it only picks the route.
+fn default_route_source() -> Option<IpAddr> {
+    let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("192.0.2.1:9").ok()?;
+    socket.local_addr().ok().map(|a| a.ip())
+}
+
+/// Orders `(interface, address)` pairs as [`lan_addresses`] describes,
+/// dropping unusable addresses and repeats.
+fn order_lan(found: Vec<(String, IpAddr)>, default_route: Option<IpAddr>) -> Vec<IpAddr> {
+    const VIRTUAL: [&str; 11] =
+        ["docker", "br-", "veth", "virbr", "vmnet", "vbox", "tun", "tap", "wg", "tailscale", "zt"];
+    let mut usable: Vec<(bool, bool, bool, IpAddr)> = found
+        .into_iter()
+        .filter(|(_, ip)| usable_lan_address(*ip))
+        .map(|(name, ip)| {
+            let is_virtual = VIRTUAL.iter().any(|v| name.starts_with(v));
+            (Some(ip) != default_route, is_virtual, ip.is_ipv6(), ip)
+        })
         .collect();
-    found.sort();
-    found.dedup();
-    found
+    usable.sort();
+    let mut ordered: Vec<IpAddr> = Vec::new();
+    for (_, _, _, ip) in usable {
+        if !ordered.contains(&ip) {
+            ordered.push(ip);
+        }
+    }
+    ordered
 }
 
 fn usable_lan_address(ip: IpAddr) -> bool {
@@ -359,6 +405,28 @@ mod tests {
         assert!(!valid_for(&leaf, "other.example"));
         assert!(!valid_for(&leaf, "10.9.8.6"));
         assert_eq!(made.hosts.len(), 5 + lan.len(), "{:?}", made.hosts);
+    }
+
+    #[test]
+    fn lan_addresses_put_the_default_route_first_and_containers_last() {
+        let ip = |s: &str| s.parse::<IpAddr>().unwrap();
+        let found = vec![
+            ("docker0".to_owned(), ip("172.17.0.1")),
+            ("br-1234".to_owned(), ip("172.18.0.1")),
+            ("lo".to_owned(), ip("127.0.0.1")),
+            ("eth0".to_owned(), ip("10.77.77.1")),
+            ("wlan0".to_owned(), ip("fe80::1")),
+            ("wlan0".to_owned(), ip("fd00::7")),
+            ("wlan0".to_owned(), ip("192.168.87.210")),
+            ("wg0".to_owned(), ip("10.8.0.2")),
+        ];
+        let ordered = order_lan(found.clone(), Some(ip("192.168.87.210")));
+        assert_eq!(
+            ordered,
+            ["192.168.87.210", "10.77.77.1", "fd00::7", "10.8.0.2", "172.17.0.1", "172.18.0.1"]
+                .map(ip)
+        );
+        assert_eq!(order_lan(found, None)[0], ip("10.77.77.1"));
     }
 
     #[test]

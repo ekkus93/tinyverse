@@ -241,7 +241,36 @@ async def tls_scenario(url, token, cert, tmp_path):
                                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     out, _ = await asyncio.wait_for(untrusted.communicate(), 15)
     assert untrusted.returncode == 2, out
-    assert b"--ca-file" in out
+    assert b"--ca-file" in out and b"#sha256=" in out
+
+    # Another certificate's pin: refused before the token is sent, exit 2.
+    wrong = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "greeter", "--url", f"{url}#sha256={'0' * 64}", "--token", token, "--no-llm",
+        cwd=GREETER_DIR, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    out, _ = await asyncio.wait_for(wrong.communicate(), 15)
+    assert wrong.returncode == 2, out
+    assert b"not the pinned" in out
+
+    # The right pin, no --ca-file: joins and greets.
+    fingerprint = subprocess.run([SERVER, "tls", "fingerprint", Path(cert).parent], check=True,
+                                 capture_output=True, text=True).stdout
+    pin = fingerprint.split()[2].removeprefix("sha256=")
+    log = open(tmp_path / "greeter-pinned.log", "w")
+    pinned = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "greeter", "--url", f"{url}#sha256={pin}", "--token", token, "--no-llm",
+        cwd=GREETER_DIR, env=env, stdout=log, stderr=subprocess.STDOUT)
+    try:
+        await asyncio.sleep(2.0)
+        pia = await Client.join(url, "Pia", ca_file=cert)
+        await pia.wait_for(lambda m: any("Hi Pia" in t for t in pia.chats_from("Greeter")))
+        pinned.send_signal(signal.SIGINT)
+        assert await asyncio.wait_for(pinned.wait(), 10) == 0
+        await pia.close()
+    finally:
+        if pinned.returncode is None:
+            pinned.kill()
+            await pinned.wait()
+        log.close()
 
     log = open(tmp_path / "greeter-tls.log", "w")
     greeter = await asyncio.create_subprocess_exec(*base, "--ca-file", str(cert), cwd=GREETER_DIR, env=env,

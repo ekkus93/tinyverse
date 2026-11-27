@@ -291,8 +291,11 @@ namespace Tinyverse.Host
                 if (exited)
                     throw Fail(HostErrorKind.UnexpectedExit,
                         $"The server stopped right after starting (exit code {child.Exited.Result}).", child.Exited.Result);
+                // The best two network addresses; the rest are usually VPN and container networks.
+                string network = string.Join(", ", System.Linq.Enumerable.Take(result.LanJoinUrls, 2)) +
+                                 (result.LanJoinUrls.Count > 2 ? $" and {result.LanJoinUrls.Count - 2} more" : "");
                 HostLog("The world is open at " + result.LocalUrl +
-                        (result.LanJoinUrls.Count > 0 ? " (on the network: " + string.Join(", ", result.LanJoinUrls) + ")" : ""));
+                        (result.LanJoinUrls.Count > 0 ? " (on the network: " + network + ")" : ""));
                 return result;
             }
 

@@ -61,8 +61,16 @@ From the client: on the start screen choose **Host a world**, pick a name and a 
 address your friends should type. Stopping hosting (or quitting the client) saves the world.
 From the command line: `./tinyverse.x86_64 --host <world-folder> [--port <port>]`.
 
-Without the client: `tinyverse-server init <dir>` then `tinyverse-server run <dir>`. `init` writes an
-`owner.token` into the world folder; joining with it makes you the owner.
+Connections are encrypted (TLS, `wss://`) unless you untick **Encrypt connections**. The world gets
+a self-signed certificate on its first start, and the address under "Friends join with" carries its
+fingerprint, for example `wss://192.168.1.20:7878/ws#sha256=041f8e50…0db7`: a guest who pastes that
+address trusts exactly this certificate, with nothing to install. Give it to them over a channel you
+trust.
+
+Without the client: `tinyverse-server init <dir>` then `tinyverse-server run <dir> --self-signed`
+(or without `--self-signed` for plain `ws://`). `run` prints the pinned addresses as
+`join with wss://…#sha256=…`; `tinyverse-server tls fingerprint <dir>` shows the fingerprint again.
+`init` writes an `owner.token` into the world folder; joining with it makes you the owner.
 
 Visitors on your local network can join directly. Over the internet you have to forward the port
 (7878 by default) on your router yourself.
@@ -73,6 +81,12 @@ Start the client, type the host's address (for example `192.168.1.20` or `myhost
 name and the password if the world has one, and press **Connect**. The client remembers the worlds you
 visited and your login token for each, so you come back as the same person.
 From the command line: `./tinyverse.x86_64 --connect <address> --name <name> [--password <password>]`.
+
+For an encrypted world, paste the whole `wss://…#sha256=…` address the host gives you. If you type
+only `wss://host:port` and the world's certificate is not one your system trusts, the client shows
+its fingerprint and asks whether to trust it; compare it with the end of the host's address first.
+The client remembers the certificate for that address, and refuses to connect if it ever changes,
+offering to forget the old one (do that only if the host says they made a new certificate).
 
 ## Add an AI agent
 

@@ -276,3 +276,39 @@ def test_tls_context_only_for_wss():
         tls_context("ws://127.0.0.1:7878/ws", ca_file="cert.pem")
     ctx = tls_context("wss://example.org/ws")
     assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
+
+
+PIN = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"  # sha256("abc")
+
+
+def test_pins_split_from_the_url():
+    from greeter.connection import split_pin
+
+    assert split_pin("wss://h:1/ws") == ("wss://h:1/ws", None)
+    assert split_pin(f"wss://10.0.0.2:7878/ws#sha256={PIN}") == ("wss://10.0.0.2:7878/ws", PIN)
+    colons = ":".join(PIN[i:i + 2] for i in range(0, 64, 2)).upper()
+    assert split_pin(f"wss://h/ws#SHA256={colons}") == ("wss://h/ws", PIN)
+    for bad, needle in [(f"ws://h/ws#sha256={PIN}", "wss://"), ("wss://h/ws#top", "#sha256="),
+                        ("wss://h/ws#sha256=1234", "64 hex digits")]:
+        with pytest.raises(ValueError, match=needle):
+            split_pin(bad)
+
+
+def test_a_pinned_url_leaves_the_check_to_the_pin():
+    import ssl
+    from types import SimpleNamespace
+
+    from greeter.connection import CertificateMismatch, check_pin, tls_context
+
+    ctx = tls_context(f"wss://192.168.1.20:7878/ws#sha256={PIN}", ca_file="ignored.pem")
+    assert ctx.verify_mode == ssl.CERT_NONE and not ctx.check_hostname
+
+    def ws_presenting(der):
+        ssl_object = SimpleNamespace(getpeercert=lambda binary_form: der)
+        return SimpleNamespace(transport=SimpleNamespace(get_extra_info=lambda key: ssl_object))
+
+    check_pin(ws_presenting(b"abc"), PIN)
+    check_pin(ws_presenting(b"anything"), None)
+    with pytest.raises(CertificateMismatch) as e:
+        check_pin(ws_presenting(b"abd"), PIN)
+    assert e.value.expected == PIN and e.value.presented != PIN
