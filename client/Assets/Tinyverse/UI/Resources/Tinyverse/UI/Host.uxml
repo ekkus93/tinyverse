@@ -1,0 +1,61 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="Host.uss" />
+    <ui:VisualElement name="hostScreen" class="tv-screen">
+        <ui:VisualElement class="tv-screen__glow tv-screen__glow--a" picking-mode="Ignore" />
+        <ui:VisualElement class="tv-screen__glow tv-screen__glow--b" picking-mode="Ignore" />
+        <ui:VisualElement class="tv-host__frame">
+            <ui:VisualElement class="tv-row tv-host__header">
+                <ui:VisualElement class="tv-host__heading">
+                    <ui:Label text="Host a world" class="tv-title" />
+                    <ui:Label text="Runs a world on this computer. Friends on your network join with the address shown here." class="tv-subtitle" />
+                </ui:VisualElement>
+                <ui:Button name="hostBack" text="Back" class="tv-button--ghost" />
+            </ui:VisualElement>
+            <ui:VisualElement class="tv-host__columns">
+                <ui:VisualElement class="tv-card tv-host__form-card">
+                    <ui:VisualElement name="hostForm">
+                        <ui:Label text="World name" class="tv-field-label tv-host__first-label" />
+                        <ui:TextField name="hostWorldName" />
+                        <ui:Label text="Description" class="tv-field-label" />
+                        <ui:TextField name="hostDescription" class="tv-field--multiline" />
+                        <ui:Label text="World folder" class="tv-field-label" />
+                        <ui:TextField name="hostFolder" />
+                        <ui:Label text="The world and everything built in it is saved here. An empty folder creates a new world." class="tv-hint-text" />
+                        <ui:VisualElement class="tv-row tv-host__pair">
+                            <ui:VisualElement class="tv-host__port">
+                                <ui:Label text="Port" class="tv-field-label" />
+                                <ui:TextField name="hostPort" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="tv-host__password">
+                                <ui:Label text="Join password (optional)" class="tv-field-label" />
+                                <ui:TextField name="hostPassword" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:Label text="Your display name" class="tv-field-label" />
+                        <ui:TextField name="hostDisplayName" />
+                    </ui:VisualElement>
+                    <ui:Label name="hostError" class="tv-error-text" />
+                    <ui:VisualElement class="tv-row tv-host__actions">
+                        <ui:Button name="hostStart" text="Start world" class="tv-button--primary tv-host__start" />
+                        <ui:Button name="hostStop" text="Stop" class="tv-button--danger tv-host__stop" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="tv-card tv-host__side">
+                    <ui:VisualElement class="tv-row tv-host__status">
+                        <ui:VisualElement name="hostStatusDot" class="tv-dot" />
+                        <ui:Label name="hostStatus" text="Not running" class="tv-host__status-text" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="hostShare" class="tv-host__share">
+                        <ui:Label text="FRIENDS JOIN WITH" class="tv-section__title" />
+                        <ui:VisualElement class="tv-row">
+                            <ui:Label name="hostShareAddress" class="tv-host__address" />
+                            <ui:Button name="hostCopy" text="Copy" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="SERVER LOG" class="tv-section__title tv-host__log-title" />
+                    <ui:ScrollView name="hostLog" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-log" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

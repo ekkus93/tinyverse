@@ -1,0 +1,83 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="Overlay.uss" />
+    <ui:VisualElement name="overlay" class="tv-layer tv-overlay" picking-mode="Ignore">
+        <ui:VisualElement name="menuPanel" class="tv-scrim">
+            <ui:VisualElement class="tv-card tv-menu">
+                <ui:Label name="menuWorld" text="Tinyverse" class="tv-title tv-menu__title" />
+                <ui:Button name="menuResume" text="Resume" class="tv-button--primary tv-menu__button" />
+                <ui:Button name="menuSettings" text="Settings" class="tv-menu__button" />
+                <ui:Button name="menuDisconnect" text="Leave world" class="tv-menu__button" />
+                <ui:Button name="menuQuit" text="Quit Tinyverse" class="tv-button--danger tv-menu__button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="settingsPanel" class="tv-scrim">
+            <ui:VisualElement class="tv-card tv-settings">
+                <ui:VisualElement class="tv-row tv-settings__header">
+                    <ui:Label text="Settings" class="tv-title" />
+                    <ui:VisualElement class="tv-spacer" />
+                    <ui:Button name="settingsDone" text="Done" class="tv-button--primary" />
+                </ui:VisualElement>
+                <ui:VisualElement class="tv-settings__columns">
+                    <ui:ScrollView mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-settings__main">
+                        <ui:Label text="CONTROLS" class="tv-section__title" />
+                        <ui:VisualElement class="tv-setting">
+                            <ui:Label text="Mouse sensitivity" class="tv-setting__label" />
+                            <ui:Slider name="settingsSensitivity" class="tv-setting__slider" />
+                            <ui:Label name="settingsSensitivityValue" class="tv-setting__value" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="tv-setting">
+                            <ui:Label text="Invert look up / down" class="tv-setting__label" />
+                            <ui:Toggle name="settingsInvertY" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="tv-setting">
+                            <ui:Label text="Field of view" class="tv-setting__label" />
+                            <ui:Slider name="settingsFov" class="tv-setting__slider" />
+                            <ui:Label name="settingsFovValue" class="tv-setting__value" />
+                        </ui:VisualElement>
+
+                        <ui:Label text="DISPLAY" class="tv-section__title tv-section" />
+                        <ui:VisualElement class="tv-setting">
+                            <ui:Label text="Graphics quality" class="tv-setting__label" />
+                            <ui:DropdownField name="settingsQuality" class="tv-setting__dropdown" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="tv-setting">
+                            <ui:Label text="Fullscreen" class="tv-setting__label" />
+                            <ui:Toggle name="settingsFullscreen" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="tv-setting">
+                            <ui:Label text="Interface size" class="tv-setting__label" />
+                            <ui:Slider name="settingsUIScale" class="tv-setting__slider" />
+                            <ui:Label name="settingsUIScaleValue" class="tv-setting__value" />
+                        </ui:VisualElement>
+
+                        <ui:Label text="SOUND" class="tv-section__title tv-section" />
+                        <ui:VisualElement class="tv-setting">
+                            <ui:Label text="Master volume" class="tv-setting__label" />
+                            <ui:Slider name="settingsVolume" class="tv-setting__slider" />
+                            <ui:Label name="settingsVolumeValue" class="tv-setting__value" />
+                        </ui:VisualElement>
+                    </ui:ScrollView>
+                    <ui:VisualElement class="tv-settings__keys">
+                        <ui:Label text="KEYS" class="tv-section__title" />
+                        <ui:ScrollView name="settingsBindings" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-settings__bindings" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="confirmDialog" class="tv-scrim">
+            <ui:VisualElement class="tv-card tv-confirm">
+                <ui:Label name="confirmTitle" class="tv-title tv-confirm__title" />
+                <ui:Label name="confirmMessage" class="tv-subtitle tv-confirm__message" />
+                <ui:VisualElement class="tv-row tv-confirm__actions">
+                    <ui:VisualElement class="tv-spacer" />
+                    <ui:Button name="confirmCancel" text="Cancel" class="tv-confirm__button" />
+                    <ui:Button name="confirmOk" text="OK" class="tv-button--danger tv-confirm__button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="toasts" class="tv-toasts" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

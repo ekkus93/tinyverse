@@ -1,0 +1,721 @@
+/*
+ * Tinyverse theme: every colour, space, radius and font size the UI uses is a variable here.
+ * Panels are dark and slightly translucent so the world shows through, with a thin light edge
+ * and text shadow so they stay readable over bright sky and dark scenes alike.
+ */
+:root {
+    --tv-surface: rgba(14, 17, 24, 0.84);
+    --tv-surface-strong: rgba(12, 14, 20, 0.95);
+    --tv-surface-soft: rgba(14, 17, 24, 0.55);
+    --tv-raised: rgba(255, 255, 255, 0.06);
+    --tv-hover: rgba(255, 255, 255, 0.11);
+    --tv-pressed: rgba(255, 255, 255, 0.16);
+    --tv-input: rgba(0, 0, 0, 0.32);
+    --tv-edge: rgba(255, 255, 255, 0.10);
+    --tv-edge-strong: rgba(255, 255, 255, 0.20);
+    --tv-scrim: rgba(6, 8, 12, 0.55);
+
+    --tv-text: rgb(234, 238, 244);
+    --tv-text-dim: rgb(160, 170, 186);
+    --tv-text-faint: rgb(110, 120, 136);
+
+    --tv-accent: rgb(102, 170, 255);
+    --tv-accent-strong: rgb(64, 140, 240);
+    --tv-accent-soft: rgba(102, 170, 255, 0.18);
+    --tv-on-accent: rgb(8, 16, 30);
+
+    --tv-world: rgb(244, 190, 92);
+    --tv-world-soft: rgba(244, 190, 92, 0.16);
+    --tv-system: rgb(130, 214, 182);
+    --tv-ai: rgb(186, 154, 255);
+    --tv-ai-soft: rgba(186, 154, 255, 0.18);
+    --tv-ok: rgb(96, 214, 152);
+    --tv-warn: rgb(244, 190, 92);
+    --tv-error: rgb(244, 110, 110);
+    --tv-error-soft: rgba(244, 110, 110, 0.16);
+
+    --tv-axis-x: rgb(240, 110, 110);
+    --tv-axis-y: rgb(120, 210, 120);
+    --tv-axis-z: rgb(110, 160, 250);
+
+    --tv-space-1: 2px;
+    --tv-space-2: 4px;
+    --tv-space-3: 8px;
+    --tv-space-4: 12px;
+    --tv-space-5: 16px;
+    --tv-space-6: 24px;
+    --tv-space-7: 36px;
+
+    --tv-radius-s: 4px;
+    --tv-radius: 7px;
+    --tv-radius-l: 12px;
+    --tv-radius-pill: 999px;
+
+    --tv-font-xs: 11px;
+    --tv-font-s: 12px;
+    --tv-font-m: 14px;
+    --tv-font-l: 17px;
+    --tv-font-xl: 22px;
+    --tv-font-xxl: 40px;
+
+    --tv-control-height: 28px;
+    --tv-icon-size: 16px;
+}
+
+/* ---------- Root and layers ---------- */
+
+.tv-root {
+    color: var(--tv-text);
+    font-size: var(--tv-font-m);
+}
+
+.tv-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.tv-hidden {
+    display: none;
+}
+
+.tv-spacer {
+    flex-grow: 1;
+}
+
+/* ---------- Surfaces ---------- */
+
+.tv-panel {
+    background-color: var(--tv-surface);
+    border-width: 1px;
+    border-color: var(--tv-edge);
+    border-radius: var(--tv-radius-l);
+    padding: var(--tv-space-4);
+}
+
+.tv-card {
+    background-color: var(--tv-surface-strong);
+    border-width: 1px;
+    border-color: var(--tv-edge-strong);
+    border-radius: var(--tv-radius-l);
+    padding: var(--tv-space-6);
+}
+
+.tv-scrim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--tv-scrim);
+    align-items: center;
+    justify-content: center;
+}
+
+.tv-section {
+    margin-top: var(--tv-space-4);
+}
+
+.tv-section__title {
+    font-size: var(--tv-font-xs);
+    -unity-font-style: bold;
+    color: var(--tv-text-dim);
+    letter-spacing: 1px;
+    margin-bottom: var(--tv-space-2);
+    padding: 0;
+}
+
+.tv-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.tv-divider {
+    height: 1px;
+    background-color: var(--tv-edge);
+    margin: var(--tv-space-3) 0;
+}
+
+/* ---------- Text ---------- */
+
+.tv-title {
+    font-size: var(--tv-font-xl);
+    -unity-font-style: bold;
+    padding: 0;
+    margin: 0;
+}
+
+.tv-subtitle {
+    font-size: var(--tv-font-s);
+    color: var(--tv-text-dim);
+    padding: 0;
+    margin: 0;
+    white-space: normal;
+}
+
+.tv-field-label {
+    font-size: var(--tv-font-s);
+    color: var(--tv-text-dim);
+    margin-top: var(--tv-space-3);
+    margin-bottom: var(--tv-space-2);
+    padding: 0;
+}
+
+.tv-hint-text {
+    font-size: var(--tv-font-xs);
+    color: var(--tv-text-faint);
+    padding: 0;
+    margin-top: var(--tv-space-1);
+    white-space: normal;
+}
+
+.tv-error-text {
+    color: var(--tv-error);
+    background-color: var(--tv-error-soft);
+    border-radius: var(--tv-radius);
+    padding: var(--tv-space-3) var(--tv-space-4);
+    margin-top: var(--tv-space-4);
+    white-space: normal;
+    font-size: var(--tv-font-s);
+}
+
+.tv-mono {
+    font-size: var(--tv-font-s);
+    color: var(--tv-text);
+}
+
+/* ---------- Buttons ---------- */
+
+.tv-root .unity-button {
+    margin: 0;
+    padding: 0 var(--tv-space-4);
+    min-height: var(--tv-control-height);
+    border-width: 1px;
+    border-color: var(--tv-edge);
+    border-radius: var(--tv-radius);
+    background-color: var(--tv-raised);
+    color: var(--tv-text);
+    font-size: var(--tv-font-m);
+    -unity-text-align: middle-center;
+    transition-duration: 0.12s;
+}
+
+.tv-root .unity-button:hover {
+    background-color: var(--tv-hover);
+    border-color: var(--tv-edge-strong);
+}
+
+.tv-root .unity-button:active {
+    background-color: var(--tv-pressed);
+}
+
+.tv-root .unity-button:focus {
+    border-color: var(--tv-accent);
+}
+
+.tv-root .unity-button:disabled {
+    opacity: 0.4;
+}
+
+.tv-root .tv-button--primary {
+    background-color: var(--tv-accent);
+    border-color: var(--tv-accent);
+    color: var(--tv-on-accent);
+    -unity-font-style: bold;
+}
+
+.tv-root .tv-button--primary:hover {
+    background-color: var(--tv-accent-strong);
+    border-color: var(--tv-accent-strong);
+}
+
+.tv-root .tv-button--primary:focus {
+    border-color: var(--tv-text);
+}
+
+.tv-root .tv-button--danger {
+    color: var(--tv-error);
+    border-color: rgba(244, 110, 110, 0.35);
+}
+
+.tv-root .tv-button--danger:hover {
+    background-color: var(--tv-error-soft);
+}
+
+.tv-root .tv-button--ghost {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgba(0, 0, 0, 0);
+    color: var(--tv-text-dim);
+}
+
+.tv-root .tv-button--ghost:hover {
+    background-color: var(--tv-hover);
+    color: var(--tv-text);
+}
+
+.tv-root .tv-button--ghost:focus {
+    border-color: var(--tv-accent);
+}
+
+.tv-root .tv-button--wide {
+    min-height: 34px;
+    margin-top: var(--tv-space-3);
+}
+
+.tv-root .tv-icon-button {
+    padding: 0;
+    width: var(--tv-control-height);
+    min-width: var(--tv-control-height);
+    height: var(--tv-control-height);
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgba(0, 0, 0, 0);
+    color: var(--tv-text-dim);
+}
+
+.tv-root .tv-icon-button:hover {
+    background-color: var(--tv-hover);
+    color: var(--tv-text);
+}
+
+.tv-root .tv-icon-button:focus {
+    border-color: var(--tv-accent);
+}
+
+.tv-icon {
+    width: var(--tv-icon-size);
+    height: var(--tv-icon-size);
+    flex-shrink: 0;
+}
+
+.tv-root .tv-toggle-button--on {
+    background-color: var(--tv-accent-soft);
+    border-color: var(--tv-accent);
+    color: var(--tv-accent);
+}
+
+/* Segmented and tile buttons (tools, shapes, roles) */
+
+.tv-segments {
+    flex-direction: row;
+    background-color: var(--tv-input);
+    border-radius: var(--tv-radius);
+    padding: var(--tv-space-1);
+}
+
+.tv-root .tv-segment {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    padding: var(--tv-space-2) 0;
+    height: auto;
+    border-color: rgba(0, 0, 0, 0);
+    background-color: rgba(0, 0, 0, 0);
+    color: var(--tv-text-dim);
+    align-items: center;
+    justify-content: center;
+    font-size: var(--tv-font-s);
+}
+
+.tv-root .tv-segment:hover {
+    color: var(--tv-text);
+    background-color: var(--tv-hover);
+}
+
+.tv-root .tv-segment--active {
+    background-color: var(--tv-accent-soft);
+    border-color: var(--tv-accent);
+    color: var(--tv-accent);
+}
+
+.tv-segment__label {
+    font-size: var(--tv-font-xs);
+    margin-top: var(--tv-space-1);
+    padding: 0;
+}
+
+/* ---------- Text fields ---------- */
+
+.tv-root .unity-base-field {
+    margin: 0;
+}
+
+.tv-root .unity-base-text-field__input {
+    min-height: var(--tv-control-height);
+    padding: 0 var(--tv-space-3);
+    border-width: 1px;
+    border-color: var(--tv-edge);
+    border-radius: var(--tv-radius);
+    background-color: var(--tv-input);
+    color: var(--tv-text);
+    font-size: var(--tv-font-m);
+    transition-duration: 0.12s;
+}
+
+.tv-root .unity-base-text-field:hover .unity-base-text-field__input {
+    border-color: var(--tv-edge-strong);
+}
+
+.tv-root .unity-base-text-field:focus .unity-base-text-field__input {
+    border-color: var(--tv-accent);
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+.tv-root .unity-base-text-field__input--placeholder {
+    color: var(--tv-text-faint);
+}
+
+.tv-root .unity-base-text-field:disabled {
+    opacity: 0.5;
+}
+
+.tv-root .tv-field--invalid .unity-base-text-field__input {
+    border-color: var(--tv-error);
+}
+
+.tv-root .tv-field--readonly .unity-base-text-field__input {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgba(0, 0, 0, 0);
+    color: var(--tv-text-dim);
+}
+
+.tv-root .tv-field--multiline .unity-base-text-field__input {
+    min-height: 54px;
+    padding-top: var(--tv-space-2);
+    -unity-text-align: upper-left;
+    white-space: normal;
+}
+
+/* ---------- Toggles ---------- */
+
+.tv-root .unity-toggle {
+    margin: var(--tv-space-2) 0;
+}
+
+.tv-root .unity-toggle__checkmark {
+    width: 16px;
+    height: 16px;
+    border-width: 1px;
+    border-color: var(--tv-edge-strong);
+    border-radius: var(--tv-radius-s);
+    background-color: var(--tv-input);
+    -unity-background-image-tint-color: var(--tv-on-accent);
+}
+
+.tv-root .unity-toggle:hover .unity-toggle__checkmark {
+    border-color: var(--tv-accent);
+}
+
+.tv-root .unity-toggle:focus .unity-toggle__checkmark {
+    border-color: var(--tv-accent);
+}
+
+.tv-root .unity-toggle__input:checked .unity-toggle__checkmark {
+    background-color: var(--tv-accent);
+    border-color: var(--tv-accent);
+}
+
+.tv-root .unity-toggle__text,
+.tv-root .unity-toggle .unity-label {
+    color: var(--tv-text);
+    font-size: var(--tv-font-m);
+    margin-left: var(--tv-space-3);
+}
+
+.tv-root .unity-toggle:disabled {
+    opacity: 0.45;
+}
+
+/* ---------- Sliders ---------- */
+
+.tv-root .unity-base-slider {
+    margin: 0;
+    flex-grow: 1;
+}
+
+.tv-root .unity-base-slider--horizontal .unity-base-slider__tracker {
+    height: 4px;
+    margin-top: -2px;
+    border-width: 0;
+    border-radius: 2px;
+    background-color: var(--tv-pressed);
+}
+
+.tv-root .unity-base-slider--horizontal .unity-base-slider__dragger {
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    border-width: 2px;
+    border-color: var(--tv-surface-strong);
+    border-radius: 7px;
+    background-color: var(--tv-accent);
+}
+
+.tv-root .unity-base-slider:hover .unity-base-slider__dragger,
+.tv-root .unity-base-slider:focus .unity-base-slider__dragger {
+    border-color: var(--tv-text);
+}
+
+.tv-root .unity-base-slider__dragger-border {
+    display: none;
+}
+
+/* ---------- Dropdowns ---------- */
+
+.tv-root .unity-base-popup-field__input {
+    min-height: var(--tv-control-height);
+    padding: 0 var(--tv-space-3);
+    border-width: 1px;
+    border-color: var(--tv-edge);
+    border-radius: var(--tv-radius);
+    background-color: var(--tv-input);
+    color: var(--tv-text);
+}
+
+.tv-root .unity-base-popup-field:focus .unity-base-popup-field__input,
+.tv-root .unity-base-popup-field:hover .unity-base-popup-field__input {
+    border-color: var(--tv-accent);
+}
+
+.tv-root .unity-base-popup-field__text {
+    color: var(--tv-text);
+    font-size: var(--tv-font-m);
+}
+
+.tv-root .unity-base-popup-field__arrow {
+    -unity-background-image-tint-color: var(--tv-text-dim);
+}
+
+.tv-root .unity-base-dropdown__container-inner {
+    background-color: var(--tv-surface-strong);
+    border-color: var(--tv-edge-strong);
+    border-radius: var(--tv-radius);
+}
+
+.tv-root .unity-base-dropdown__item {
+    color: var(--tv-text);
+    min-height: 26px;
+}
+
+.tv-root .unity-base-dropdown__item:hover {
+    background-color: var(--tv-accent-soft);
+}
+
+.tv-root .unity-base-dropdown__label {
+    color: var(--tv-text);
+    font-size: var(--tv-font-m);
+}
+
+.tv-root .unity-base-dropdown__checkmark {
+    -unity-background-image-tint-color: var(--tv-accent);
+}
+
+/* ---------- Scrollers ---------- */
+
+.tv-root .unity-scroller--vertical {
+    width: 8px;
+    border-width: 0;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.tv-root .unity-scroller--vertical .unity-base-slider__tracker {
+    width: 4px;
+    left: 2px;
+    border-width: 0;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.tv-root .unity-scroller--vertical .unity-base-slider__dragger {
+    width: 4px;
+    left: 2px;
+    border-width: 0;
+    border-radius: 2px;
+    background-color: var(--tv-edge-strong);
+}
+
+.tv-root .unity-scroller--vertical .unity-base-slider__dragger:hover {
+    background-color: var(--tv-text-faint);
+}
+
+.tv-root .unity-scroller__low-button,
+.tv-root .unity-scroller__high-button {
+    display: none;
+}
+
+.tv-root .unity-scroller--vertical .unity-base-slider--vertical {
+    margin: 0;
+}
+
+/* ---------- Badges, chips, dots ---------- */
+
+.tv-badge--ai {
+    font-size: 9px;
+    -unity-font-style: bold;
+    color: var(--tv-ai);
+    background-color: var(--tv-ai-soft);
+    border-radius: var(--tv-radius-s);
+    padding: 1px var(--tv-space-2);
+    margin: 0 var(--tv-space-2) 0 0;
+    -unity-text-align: middle-center;
+    flex-shrink: 0;
+}
+
+.tv-role {
+    font-size: var(--tv-font-xs);
+    color: var(--tv-text-dim);
+    border-width: 1px;
+    border-color: var(--tv-edge);
+    border-radius: var(--tv-radius-pill);
+    padding: 0 var(--tv-space-3);
+    margin-left: var(--tv-space-2);
+}
+
+.tv-role--owner {
+    color: var(--tv-world);
+    border-color: rgba(244, 190, 92, 0.4);
+}
+
+.tv-role--builder {
+    color: var(--tv-accent);
+    border-color: rgba(102, 170, 255, 0.4);
+}
+
+.tv-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: var(--tv-text-faint);
+    flex-shrink: 0;
+}
+
+.tv-dot--connected,
+.tv-dot--running {
+    background-color: var(--tv-ok);
+}
+
+.tv-dot--connecting,
+.tv-dot--reconnecting,
+.tv-dot--starting,
+.tv-dot--stopping {
+    background-color: var(--tv-warn);
+}
+
+.tv-dot--disconnected,
+.tv-dot--failed {
+    background-color: var(--tv-error);
+}
+
+.tv-dot--stopped {
+    background-color: var(--tv-text-faint);
+}
+
+/* ---------- Front-end screens (Connect, Host) ---------- */
+
+.tv-screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(9, 12, 19);
+    overflow: hidden;
+}
+
+.tv-screen__glow {
+    position: absolute;
+    border-radius: 9999px;
+}
+
+.tv-screen__glow--a {
+    width: 900px;
+    height: 900px;
+    left: -280px;
+    top: -420px;
+    background-color: rgba(102, 170, 255, 0.07);
+}
+
+.tv-screen__glow--b {
+    width: 700px;
+    height: 700px;
+    right: -240px;
+    bottom: -380px;
+    background-color: rgba(244, 190, 92, 0.05);
+}
+
+.tv-brand {
+    margin-bottom: var(--tv-space-5);
+    padding-left: var(--tv-space-2);
+}
+
+.tv-wordmark {
+    font-size: var(--tv-font-xxl);
+    -unity-font-style: bold;
+    color: var(--tv-text);
+    letter-spacing: -1px;
+    padding: 0;
+    margin: 0;
+}
+
+.tv-brand__tagline {
+    font-size: var(--tv-font-m);
+    margin-top: var(--tv-space-1);
+}
+
+/* ---------- Toasts ---------- */
+
+.tv-toasts {
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    align-items: center;
+}
+
+.tv-toast {
+    flex-direction: row;
+    align-items: stretch;
+    max-width: 520px;
+    margin-bottom: var(--tv-space-3);
+    background-color: var(--tv-surface-strong);
+    border-width: 1px;
+    border-color: var(--tv-edge-strong);
+    border-radius: var(--tv-radius);
+    overflow: hidden;
+    opacity: 1;
+    translate: 0 0;
+    transition-duration: 0.3s;
+}
+
+.tv-toast--leaving {
+    opacity: 0;
+    translate: 0 -6px;
+}
+
+.tv-toast__bar {
+    width: 4px;
+    background-color: var(--tv-accent);
+}
+
+.tv-toast--warning .tv-toast__bar {
+    background-color: var(--tv-warn);
+}
+
+.tv-toast--error .tv-toast__bar {
+    background-color: var(--tv-error);
+}
+
+.tv-toast__text {
+    padding: var(--tv-space-3) var(--tv-space-4);
+    white-space: normal;
+    flex-shrink: 1;
+    font-size: var(--tv-font-m);
+}
+
+.tv-toast--error .tv-toast__text {
+    color: rgb(255, 200, 200);
+}

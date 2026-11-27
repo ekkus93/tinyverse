@@ -1,0 +1,88 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="Build.uss" />
+    <ui:VisualElement name="buildPanel" class="tv-panel tv-build">
+        <ui:VisualElement class="tv-row tv-build__header">
+            <ui:Label text="Build" class="tv-build__title" />
+            <ui:VisualElement class="tv-spacer" />
+            <ui:Button name="buildUndo" class="tv-icon-button" />
+            <ui:Button name="buildRedo" class="tv-icon-button" />
+            <ui:Button name="buildClose" class="tv-icon-button" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="buildDisabled" class="tv-build__disabled">
+            <ui:Label text="Building is off" class="tv-build__disabled-title" />
+            <ui:Label name="buildDisabledText" class="tv-subtitle" />
+        </ui:VisualElement>
+
+        <ui:ScrollView name="buildTools" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-build__body">
+            <ui:Label text="SHAPE" class="tv-section__title tv-build__first-title" />
+            <ui:VisualElement name="buildShapes" class="tv-build__shapes" />
+
+            <ui:Label text="TOOL" class="tv-section__title tv-section" />
+            <ui:VisualElement name="buildToolRow" class="tv-segments" />
+
+            <ui:VisualElement class="tv-row tv-build__snap">
+                <ui:Toggle name="buildSnap" text="Snap to grid" />
+                <ui:VisualElement class="tv-spacer" />
+                <ui:TextField name="buildSnapStep" class="tv-build__snap-step" />
+                <ui:Label text="m" class="tv-build__unit" />
+            </ui:VisualElement>
+
+            <ui:Label text="COLOUR" class="tv-section__title tv-section" />
+            <ui:VisualElement name="colorPicker" class="tv-color">
+                <ui:VisualElement name="colorSv" class="tv-color__sv">
+                    <ui:VisualElement name="colorSvWhite" class="tv-color__fill" picking-mode="Ignore" />
+                    <ui:VisualElement name="colorSvBlack" class="tv-color__fill" picking-mode="Ignore" />
+                    <ui:VisualElement name="colorSvCursor" class="tv-color__sv-cursor" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="colorHue" class="tv-color__hue">
+                    <ui:VisualElement name="colorHueCursor" class="tv-color__hue-cursor" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="tv-row tv-color__values">
+                    <ui:VisualElement name="colorPreview" class="tv-color__preview" />
+                    <ui:TextField name="colorHex" class="tv-color__hex" />
+                    <ui:Label text="Opacity" class="tv-color__alpha-label" />
+                    <ui:Slider name="colorAlpha" class="tv-color__alpha" />
+                </ui:VisualElement>
+                <ui:VisualElement name="colorRecent" class="tv-color__recent" />
+            </ui:VisualElement>
+
+            <ui:Label text="MATERIAL" class="tv-section__title tv-section" />
+            <ui:VisualElement name="buildMaterials" class="tv-build__materials" />
+
+            <ui:Label text="SELECTION" class="tv-section__title tv-section" />
+            <ui:VisualElement name="buildInspector" class="tv-inspector">
+                <ui:Label name="inspectorNothing" text="Nothing selected. Use the Select tool and click an object." class="tv-hint-text tv-inspector__nothing" />
+                <ui:VisualElement name="inspectorBody">
+                    <ui:Label name="inspectorReadOnly" text="You can look at this object but not change it." class="tv-inspector__readonly" />
+                    <ui:Label text="Name" class="tv-field-label tv-inspector__first-label" />
+                    <ui:TextField name="inspectorName" />
+                    <ui:Label text="Position (m)" class="tv-field-label" />
+                    <ui:VisualElement name="inspectorPosition" class="tv-vec" />
+                    <ui:Label text="Rotation (degrees)" class="tv-field-label" />
+                    <ui:VisualElement name="inspectorRotation" class="tv-vec" />
+                    <ui:Label text="Scale (m)" class="tv-field-label" />
+                    <ui:VisualElement name="inspectorScale" class="tv-vec" />
+                    <ui:VisualElement class="tv-row tv-inspector__flags">
+                        <ui:Toggle name="inspectorSolid" text="Solid" class="tv-inspector__flag" />
+                        <ui:Toggle name="inspectorLocked" text="Locked" class="tv-inspector__flag" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tv-row tv-inspector__meta">
+                        <ui:Label text="Owner" class="tv-inspector__meta-key" />
+                        <ui:Label name="inspectorOwner" class="tv-inspector__meta-value" />
+                        <ui:Label text="ID" class="tv-inspector__meta-key" />
+                        <ui:Label name="inspectorId" class="tv-inspector__meta-value tv-inspector__id" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tv-row tv-inspector__actions">
+                        <ui:Button name="inspectorDuplicate" class="tv-inspector__action">
+                            <ui:Label text="Duplicate" class="tv-inspector__action-label" />
+                        </ui:Button>
+                        <ui:Button name="inspectorDelete" class="tv-button--danger tv-inspector__action">
+                            <ui:Label text="Delete" class="tv-inspector__action-label" />
+                        </ui:Button>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>
