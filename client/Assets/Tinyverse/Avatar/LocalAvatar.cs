@@ -166,7 +166,14 @@ namespace Tinyverse.Avatars
             if (clamped != p) PlaceAt(clamped);
         }
 
-        public void SetLook(AvatarLook look) => Visual.SetLook(look);
+        /// <summary>The look last given to <see cref="SetLook"/>.</summary>
+        public AvatarLook Look { get; private set; } = AvatarLook.Default;
+
+        public void SetLook(AvatarLook look)
+        {
+            Look = look;
+            Visual.SetLook(look);
+        }
 
         public void SetName(string displayName)
         {

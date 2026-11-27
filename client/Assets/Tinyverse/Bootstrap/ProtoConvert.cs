@@ -197,6 +197,7 @@ namespace Tinyverse.Bootstrap
         public static AvatarLook ToLook(P.Appearance a, string userId)
         {
             var look = AvatarLook.WithBody(BodyColors.ForUser(userId));
+            look.BodyPreset = BodyColors.PresetForUser(userId);
             if (a == null) return look;
             if (!IsUnset(a.BodyColor))
             {
@@ -207,7 +208,7 @@ namespace Tinyverse.Bootstrap
             if (!IsUnset(a.HairColor)) look.HairColor = Opaque(ToColor(a.HairColor));
             if (!IsUnset(a.TopColor)) look.TopColor = Opaque(ToColor(a.TopColor));
             if (!IsUnset(a.BottomColor)) look.BottomColor = Opaque(ToColor(a.BottomColor));
-            look.BodyPreset = a.BodyPreset ?? "";
+            if (!string.IsNullOrEmpty(a.BodyPreset)) look.BodyPreset = a.BodyPreset;
             look.HairStyle = a.HairStyle ?? "";
             return look;
         }
@@ -224,6 +225,29 @@ namespace Tinyverse.Bootstrap
             var a = new P.Appearance();
             if (bodyColor.HasValue) a.BodyColor = ToProto(Opaque(bodyColor.Value));
             return a;
+        }
+
+        /// <summary>
+        /// The appearance sent in Hello: what the appearance editor stored, with the older body colour setting as
+        /// the top colour when no top was chosen. Unchosen fields stay unset.
+        /// </summary>
+        public static P.Appearance ToAppearance(StoredAppearance stored, Color? bodyColor)
+        {
+            var a = ToAppearance(bodyColor);
+            if (stored == null) return a;
+            a.BodyPreset = stored.bodyPreset ?? "";
+            a.HairStyle = stored.hairStyle ?? "";
+            SetIfParsed(stored.skin, c => a.SkinColor = c);
+            SetIfParsed(stored.hair, c => a.HairColor = c);
+            SetIfParsed(stored.top, c => { a.TopColor = c; if (!bodyColor.HasValue) a.BodyColor = c; });
+            SetIfParsed(stored.bottom, c => a.BottomColor = c);
+            return a;
+        }
+
+        static void SetIfParsed(string hex, Action<P.Color> set)
+        {
+            var c = SettingsStore.ParseBodyColor(hex);
+            if (c.HasValue) set(ToProto(Opaque(c.Value)));
         }
 
         public static UI.PersonInfo ToPerson(P.AvatarInfo a, ulong localAvatarId) =>
@@ -363,6 +387,19 @@ namespace Tinyverse.Bootstrap
             float sat = 0.45f + ((h >> 9) % 20u) / 100f;   // 0.45 .. 0.64
             float val = 0.72f + ((h >> 17) % 16u) / 100f;  // 0.72 .. 0.87
             return Color.HSVToRGB(hue, sat, val);
+        }
+
+        /// <summary>The body preset for a user who has not chosen one: stable per user id, half and half.</summary>
+        public static string PresetForUser(string userId)
+        {
+            if (string.IsNullOrEmpty(userId)) return Tinyverse.Avatars.HumanCatalog.DefaultPreset;
+            uint h = 2166136261;
+            foreach (char c in userId)
+            {
+                h ^= c;
+                h *= 16777619;
+            }
+            return (h >> 5) % 2 == 0 ? Tinyverse.Avatars.HumanCatalog.Masculine : Tinyverse.Avatars.HumanCatalog.Feminine;
         }
     }
 }

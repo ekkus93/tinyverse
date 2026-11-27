@@ -232,7 +232,7 @@ namespace Tinyverse.Avatars.Tests
                 yield return null;
                 Assert.That(local.ShowNameTag, Is.False);
                 Assert.That(local.Visual.NameTag.IsShown, Is.False, "own tag hidden in third person by default");
-                Assert.That(((PlaceholderAvatarVisual)local.Visual).Visible, Is.True, "body still drawn");
+                Assert.That(((HumanAvatarVisual)local.Visual).Visible, Is.True, "body still drawn");
 
                 local.ShowNameTag = true;
                 yield return null;
@@ -279,12 +279,18 @@ namespace Tinyverse.Avatars.Tests
         public IEnumerator PlaceholderLooksAndAnimates()
         {
             var remote = scene.Remote(10, "Look");
-            var visual = (PlaceholderAvatarVisual)remote.Visual;
-            Assert.That(visual.Height, Is.EqualTo(1.8f).Within(0.05f));
-            remote.SetLook(AvatarLook.WithBody(new Color(1f, 0.5f, 0f)));
+            // An unknown body preset draws the placeholder.
+            var orange = AvatarLook.WithBody(new Color(1f, 0.5f, 0f));
+            orange.BodyPreset = "robot";
+            remote.SetLook(orange);
+            var human = (HumanAvatarVisual)remote.Visual;
+            Assert.That(human.Figure, Is.Null);
+            var visual = human.Placeholder;
+            Assert.That(visual, Is.Not.Null);
+            Assert.That(human.Height, Is.EqualTo(1.8f).Within(0.05f));
             Assert.That(visual.BodyColor.r, Is.EqualTo(1f).Within(1e-3f));
             Assert.That(visual.BodyColor.g, Is.EqualTo(0.5f).Within(1e-3f));
-            remote.SetLook(default);
+            remote.SetLook(new AvatarLook { BodyPreset = "robot" });
             var c = visual.BodyColor;
             var d = AvatarLook.Default.BodyColor;
             Assert.That(new Vector4(c.r - d.r, c.g - d.g, c.b - d.b, c.a - d.a).magnitude, Is.LessThan(1e-3f), "unset look falls back to the default");

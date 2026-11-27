@@ -1,0 +1,42 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="Appearance.uss" />
+    <ui:VisualElement name="appearancePanel" class="tv-panel tv-appearance">
+        <ui:VisualElement class="tv-row tv-appearance__header">
+            <ui:Label text="Appearance" class="tv-title" />
+            <ui:VisualElement class="tv-spacer" />
+        </ui:VisualElement>
+        <ui:ScrollView name="appearanceScroll" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-appearance__scroll">
+            <ui:Label text="BODY" class="tv-section__title" />
+            <ui:VisualElement name="appearanceBody" class="tv-segments tv-appearance__choices" />
+
+            <ui:Label text="HAIR STYLE" class="tv-section__title tv-section" />
+            <ui:VisualElement name="appearanceHairStyle" class="tv-appearance__chips" />
+
+            <ui:Label text="SKIN TONE" class="tv-section__title tv-section" />
+            <ui:VisualElement name="appearanceSkin" class="tv-appearance__swatches" />
+
+            <ui:Label text="HAIR COLOUR" class="tv-section__title tv-section" />
+            <ui:VisualElement name="appearanceHairColor" class="tv-appearance__swatches" />
+
+            <ui:VisualElement class="tv-row tv-section">
+                <ui:Label text="TOP" class="tv-section__title" />
+                <ui:VisualElement class="tv-spacer" />
+                <ui:TextField name="appearanceTopHex" max-length="7" class="tv-appearance__hex tv-mono" />
+            </ui:VisualElement>
+            <ui:VisualElement name="appearanceTop" class="tv-appearance__swatches" />
+
+            <ui:VisualElement class="tv-row tv-section">
+                <ui:Label text="TROUSERS" class="tv-section__title" />
+                <ui:VisualElement class="tv-spacer" />
+                <ui:TextField name="appearanceBottomHex" max-length="7" class="tv-appearance__hex tv-mono" />
+            </ui:VisualElement>
+            <ui:VisualElement name="appearanceBottom" class="tv-appearance__swatches" />
+        </ui:ScrollView>
+        <ui:VisualElement class="tv-row tv-appearance__footer">
+            <ui:Label text="Others see the change when you press Done." class="tv-hint-text tv-appearance__hint" />
+            <ui:VisualElement class="tv-spacer" />
+            <ui:Button name="appearanceCancel" text="Cancel" />
+            <ui:Button name="appearanceDone" text="Done" class="tv-button--primary tv-appearance__done" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

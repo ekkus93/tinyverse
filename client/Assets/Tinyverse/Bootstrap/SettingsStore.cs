@@ -18,6 +18,8 @@ namespace Tinyverse.Bootstrap
         public string lastAddress = "";
         /// <summary>Optional chosen body colour as <c>#rrggbb</c>; empty means "derived from my user id".</summary>
         public string bodyColor = "";
+        /// <summary>The look chosen in the appearance editor; sent in Hello on every join.</summary>
+        public StoredAppearance appearance = new StoredAppearance();
         /// <summary>The name each visited world gave in its Welcome, for the recent-worlds list.</summary>
         public System.Collections.Generic.List<KnownWorld> worlds = new System.Collections.Generic.List<KnownWorld>();
 
@@ -30,6 +32,20 @@ namespace Tinyverse.Bootstrap
             if (w == null) worlds.Add(new KnownWorld { url = url, name = name ?? "" });
             else w.name = name ?? "";
         }
+    }
+
+    /// <summary>A chosen appearance. Empty strings mean "not chosen" (the server or the client picks).</summary>
+    [Serializable]
+    public sealed class StoredAppearance
+    {
+        public string bodyPreset = "";
+        public string hairStyle = "";
+        /// <summary>Colours as <c>#rrggbb</c>.</summary>
+        public string skin = "", hair = "", top = "", bottom = "";
+
+        public bool IsEmpty =>
+            string.IsNullOrEmpty(bodyPreset) && string.IsNullOrEmpty(hairStyle) && string.IsNullOrEmpty(skin) &&
+            string.IsNullOrEmpty(hair) && string.IsNullOrEmpty(top) && string.IsNullOrEmpty(bottom);
     }
 
     [Serializable]
@@ -79,6 +95,13 @@ namespace Tinyverse.Bootstrap
             s.lastName ??= "";
             s.lastAddress ??= "";
             s.bodyColor ??= "";
+            s.appearance ??= new StoredAppearance();
+            s.appearance.bodyPreset ??= "";
+            s.appearance.hairStyle ??= "";
+            s.appearance.skin ??= "";
+            s.appearance.hair ??= "";
+            s.appearance.top ??= "";
+            s.appearance.bottom ??= "";
             s.worlds ??= new System.Collections.Generic.List<KnownWorld>();
             Current = s;
             return s;

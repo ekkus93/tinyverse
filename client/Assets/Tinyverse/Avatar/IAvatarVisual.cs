@@ -5,8 +5,8 @@ namespace Tinyverse.Avatars
 {
     /// <summary>
     /// What an avatar looks like on screen. The avatar root (feet at its origin, facing its +Z) owns movement;
-    /// the visual is a child of it and only draws. Today <see cref="PlaceholderAvatarVisual"/>; later a rigged,
-    /// animated human model that reads the same calls.
+    /// the visual is a child of it and only draws: <see cref="HumanAvatarVisual"/> (a rigged, animated person, or
+    /// the <see cref="PlaceholderAvatarVisual"/> figure for an unknown body preset).
     /// </summary>
     public interface IAvatarVisual
     {
@@ -42,12 +42,12 @@ namespace Tinyverse.Avatars
     /// <summary>Creates the visual for every avatar. Replace <see cref="Factory"/> to swap in real models.</summary>
     public static class AvatarVisuals
     {
-        /// <summary>Builds a visual under the given avatar root. Defaults to <see cref="PlaceholderAvatarVisual.Create"/>.</summary>
-        public static Func<Transform, IAvatarVisual> Factory { get; set; } = PlaceholderAvatarVisual.Create;
+        /// <summary>Builds a visual under the given avatar root. Defaults to <see cref="HumanAvatarVisual.Create"/>.</summary>
+        public static Func<Transform, IAvatarVisual> Factory { get; set; } = HumanAvatarVisual.Create;
 
         internal static IAvatarVisual CreateFor(Transform avatarRoot)
         {
-            var factory = Factory ?? PlaceholderAvatarVisual.Create;
+            var factory = Factory ?? HumanAvatarVisual.Create;
             return factory(avatarRoot) ?? PlaceholderAvatarVisual.Create(avatarRoot);
         }
     }

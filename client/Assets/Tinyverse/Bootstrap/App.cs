@@ -47,6 +47,7 @@ namespace Tinyverse.Bootstrap
         public Camera Camera { get; }
         public WorldSession Session { get; private set; }
         public HostingController Hosting => hosting;
+        public AppearanceController Appearance { get; }
         public CommandLine Args => args;
         public string ProfileDirectory => profile;
 
@@ -68,6 +69,7 @@ namespace Tinyverse.Bootstrap
             UI = UIRoot.Create(parent);
             WireFrontEnd();
             WireHosting();
+            Appearance = new AppearanceController(UI, settingsStore, () => Session);
             ApplySettings(settingsStore.Current.client);
             ShowConnectScreen(null);
         }
@@ -243,7 +245,7 @@ namespace Tinyverse.Bootstrap
                 Password = password ?? "",
                 Token = token ?? "",
                 Kind = P.ClientKind.Human,
-                Appearance = ProtoConvert.ToAppearance(SettingsStore.ParseBodyColor(settingsStore.Current.bodyColor)),
+                Appearance = ProtoConvert.ToAppearance(settingsStore.Current.appearance, SettingsStore.ParseBodyColor(settingsStore.Current.bodyColor)),
                 ClientName = "tinyverse-unity/" + Application.version,
             };
             try
@@ -459,6 +461,7 @@ namespace Tinyverse.Bootstrap
                 Session.Tick(dt);
                 if (Session != null && Session.Orbit != null && Session.Orbit != appliedOrbit)
                     ApplySettings(settingsStore.Current.client);
+                Appearance.Tick();
             }
         }
 

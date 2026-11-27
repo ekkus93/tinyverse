@@ -35,16 +35,21 @@ namespace Tinyverse.Avatars
         public NameTag NameTag => nameTag;
 
         /// <summary>Builds the placeholder as a child of the avatar root.</summary>
-        public static IAvatarVisual Create(Transform avatarRoot)
+        public static IAvatarVisual Create(Transform avatarRoot) => Build(avatarRoot, "Visual", withNameTag: true);
+
+        /// <summary>The figure alone, without a name tag (for a visual that owns its tag).</summary>
+        internal static PlaceholderAvatarVisual CreateBody(Transform parent) => Build(parent, "Placeholder", withNameTag: false);
+
+        private static PlaceholderAvatarVisual Build(Transform parent, string objectName, bool withNameTag)
         {
-            var go = new GameObject("Visual");
-            go.transform.SetParent(avatarRoot, false);
+            var go = new GameObject(objectName);
+            go.transform.SetParent(parent, false);
             var visual = go.AddComponent<PlaceholderAvatarVisual>();
-            visual.Build();
+            visual.Build(withNameTag);
             return visual;
         }
 
-        private void Build()
+        private void Build(bool withNameTag)
         {
             var mat = BaseMaterial;
             bodyMaterial = new Material(mat) { name = "AvatarBody (instance)" };
@@ -77,7 +82,7 @@ namespace Tinyverse.Avatars
             Part("RightEye", Sphere, eyeMaterial, head, new Vector3(0.05f, 0.0f, 0.112f), new Vector3(0.045f, 0.055f, 0.03f));
 
             renderers = GetComponentsInChildren<Renderer>(true);
-            nameTag = NameTag.Create(transform, TotalHeight + 0.2f);
+            if (withNameTag) nameTag = NameTag.Create(transform, TotalHeight + 0.2f);
             SetLook(AvatarLook.Default);
             UpdatePose(new AvatarPose(Vector3.zero, 0f), 0f);
         }
@@ -127,16 +132,16 @@ namespace Tinyverse.Avatars
         /// <summary>The body colour currently drawn.</summary>
         public Color BodyColor => bodyMaterial != null && bodyMaterial.HasProperty("_BaseColor") ? bodyMaterial.GetColor("_BaseColor") : Color.clear;
 
-        public void SetName(string displayName) => nameTag.SetText(displayName);
+        public void SetName(string displayName) => nameTag?.SetText(displayName);
 
-        public void SetAgent(bool isAgent) => nameTag.SetAgent(isAgent);
+        public void SetAgent(bool isAgent) => nameTag?.SetAgent(isAgent);
 
         public void SetVisible(bool show)
         {
             visible = show;
             foreach (var r in renderers)
                 if (r != null) r.enabled = show;
-            nameTag.SetVisible(show);
+            nameTag?.SetVisible(show);
         }
 
         public bool Visible => visible;

@@ -8,7 +8,8 @@ namespace Tinyverse.Avatars
     /// never taller than <see cref="MaxScreenFraction"/> of the screen when near (so it cannot cover the UI), and
     /// kept at least <see cref="MinScreenFraction"/> when far until it reaches <see cref="MaxWorldScale"/>. It fades
     /// out within about a metre of the camera and far away. A dark outline keeps it readable against sky and
-    /// ground. An optional "AI" badge sits above the name.
+    /// ground. An optional "AI" badge sits above the name. Tags that would overlap on screen are nudged apart by
+    /// <see cref="NameTagLayout"/>, the nearest staying in place.
     /// </summary>
     [DefaultExecutionOrder(200)]
     public sealed class NameTag : MonoBehaviour
@@ -58,6 +59,9 @@ namespace Tinyverse.Avatars
         private bool visible = true;
         private bool suppressed;
         private bool isAgent;
+        private float anchorHeight;
+        private float layoutPixels, layoutTargetPixels;
+        private bool layoutShownLastFrame;
 
         public string Text => nameText != null ? nameText.text : "";
         public bool ShowsAgentBadge => isAgent;
@@ -73,6 +77,20 @@ namespace Tinyverse.Avatars
 
         /// <summary>The text mesh of the agent badge; inactive unless the avatar is an agent.</summary>
         public TextMesh BadgeText => badgeText;
+
+        /// <summary>Height of the tag's anchor above its parent's origin, metres (before any layout nudge).</summary>
+        public float AnchorHeight
+        {
+            get => anchorHeight;
+            set
+            {
+                anchorHeight = value;
+                transform.localPosition = new Vector3(0f, value, 0f);
+            }
+        }
+
+        /// <summary>How far the layout currently lifts the tag to keep it clear of nearer tags, pixels.</summary>
+        public float LayoutShiftPixels => layoutPixels;
 
         /// <summary>The on-screen height of the name line last frame, pixels.</summary>
         public float ScreenHeightPixels { get; private set; }
@@ -105,8 +123,8 @@ namespace Tinyverse.Avatars
         {
             var go = new GameObject("NameTag");
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(0f, height, 0f);
             var tag = go.AddComponent<NameTag>();
+            tag.AnchorHeight = height;
             tag.Build();
             return tag;
         }
@@ -199,10 +217,15 @@ namespace Tinyverse.Avatars
             return Mathf.Clamp01(Mathf.Min(near, far));
         }
 
+        private void OnEnable() => NameTagLayout.Register(this);
+
+        private void OnDisable() => NameTagLayout.Unregister(this);
+
         private void LateUpdate()
         {
             var cam = ViewCamera != null ? ViewCamera : Camera.main;
             if (cam == null) return;
+            transform.localPosition = new Vector3(0f, anchorHeight, 0f);
             var camTransform = cam.transform;
             transform.rotation = camTransform.rotation;
             var toTag = transform.position - camTransform.position;
@@ -226,6 +249,71 @@ namespace Tinyverse.Avatars
 
             float a = depth <= 0f ? 0f : AlphaFor(distance, NearHide, NearFull, FadeStart, FadeEnd);
             ApplyAlpha(a, force: false);
+        }
+
+        /// <summary>
+        /// The tag's on-screen rectangle (pixels, y up) at its anchor, and its depth along the view. False when it
+        /// is behind the camera.
+        /// </summary>
+        public bool TryGetScreenRect(Camera cam, out Rect rect, out float depth)
+        {
+            rect = default;
+            depth = Vector3.Dot(transform.position - cam.transform.position, cam.transform.forward);
+            if (depth <= 0.01f || nameText == null) return false;
+            float xMin = float.MaxValue, yMin = float.MaxValue, xMax = float.MinValue, yMax = float.MinValue;
+            bool ok = Accumulate(cam, nameText, ref xMin, ref yMin, ref xMax, ref yMax);
+            if (isAgent && badgeText != null) ok &= Accumulate(cam, badgeText, ref xMin, ref yMin, ref xMax, ref yMax);
+            if (!ok) return false;
+            rect = Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+            return true;
+        }
+
+        private static bool Accumulate(Camera cam, TextMesh text, ref float xMin, ref float yMin, ref float xMax, ref float yMax)
+        {
+            var r = text.GetComponent<MeshRenderer>();
+            var b = r.localBounds;
+            if (b.size.x <= 1e-5f)
+            {
+                // No mesh yet: estimate from the text length (about half an em per character).
+                float line = text.fontSize * text.characterSize / 10f;
+                b = new Bounds(new Vector3(0f, line * 0.5f, 0f), new Vector3(line * 0.55f * Mathf.Max(1, text.text.Length), line, 0f));
+            }
+            var m = text.transform.localToWorldMatrix;
+            for (int i = 0; i < 4; i++)
+            {
+                var local = new Vector3((i & 1) == 0 ? b.min.x : b.max.x, (i & 2) == 0 ? b.min.y : b.max.y, b.center.z);
+                var sp = cam.WorldToScreenPoint(m.MultiplyPoint3x4(local));
+                if (sp.z <= 0f) return false;
+                xMin = Mathf.Min(xMin, sp.x); xMax = Mathf.Max(xMax, sp.x);
+                yMin = Mathf.Min(yMin, sp.y); yMax = Mathf.Max(yMax, sp.y);
+            }
+            return true;
+        }
+
+        /// <summary>Sets how far (pixels) the layout wants the tag lifted this frame.</summary>
+        internal void SetLayoutTarget(float pixels, Camera cam)
+        {
+            layoutTargetPixels = Mathf.Max(0f, pixels);
+            if (!IsShown)
+            {
+                layoutPixels = 0f;
+                layoutShownLastFrame = false;
+            }
+        }
+
+        /// <summary>Eases toward the layout target and lifts the tag along the camera's up direction.</summary>
+        internal void ApplyLayout(Camera cam, float dt)
+        {
+            // A tag that just appeared takes its place at once; one already shown glides.
+            float k = layoutShownLastFrame ? 1f - Mathf.Exp(-12f * Mathf.Max(0f, dt)) : 1f;
+            layoutShownLastFrame = true;
+            layoutPixels = Mathf.Lerp(layoutPixels, layoutTargetPixels, k);
+            if (layoutPixels < 0.01f) return;
+            float depth = Mathf.Max(0.01f, Vector3.Dot(transform.position - cam.transform.position, cam.transform.forward));
+            float worldPerPixel = cam.orthographic
+                ? 2f * cam.orthographicSize / Mathf.Max(1, cam.pixelHeight)
+                : 2f * depth * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Max(1, cam.pixelHeight);
+            transform.position += cam.transform.up * (layoutPixels * worldPerPixel);
         }
 
         private void ApplyAlpha(float a, bool force)

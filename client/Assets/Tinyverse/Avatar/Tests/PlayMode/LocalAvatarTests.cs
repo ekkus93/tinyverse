@@ -441,7 +441,7 @@ namespace Tinyverse.Avatars.Tests
             Assert.That(cam.Distance, Is.EqualTo(0f));
             yield return Frames(60);
             Assert.That(cam.IsFirstPerson, Is.True);
-            Assert.That(((PlaceholderAvatarVisual)avatar.Visual).Visible, Is.False);
+            Assert.That(((HumanAvatarVisual)avatar.Visual).Visible, Is.False);
             for (int i = 0; i < 30; i++) cam.Zoom(-1f);
             Assert.That(cam.Distance, Is.EqualTo(cam.MaxDistance));
         }
