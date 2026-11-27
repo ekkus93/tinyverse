@@ -23,6 +23,7 @@ namespace Tinyverse.UI
         readonly Button _start;
         readonly Button _stop;
         readonly Button _back;
+        readonly Button _join;
         readonly Button _copy;
         readonly Label _status;
         readonly VisualElement _statusDot;
@@ -37,6 +38,11 @@ namespace Tinyverse.UI
         public event Action<HostSettings> StartRequested;
         public event Action StopRequested;
         public event Action BackRequested;
+        /// <summary>
+        /// "Join world" while the server runs: the way back into the hosted world (Back only works
+        /// when stopped). The glue connects to its own server with the form's name and password.
+        /// </summary>
+        public event Action JoinRequested;
         /// <summary>The share address was copied to the clipboard.</summary>
         public event Action<string> AddressCopied;
 
@@ -57,6 +63,7 @@ namespace Tinyverse.UI
             _start = Q<Button>("hostStart");
             _stop = Q<Button>("hostStop");
             _back = Q<Button>("hostBack");
+            _join = Q<Button>("hostJoin");
             _copy = Q<Button>("hostCopy");
             _status = Q<Label>("hostStatus");
             _statusDot = Q<VisualElement>("hostStatusDot");
@@ -83,6 +90,7 @@ namespace Tinyverse.UI
             _start.clicked += Submit;
             _stop.clicked += () => { if (State == HostState.Running || State == HostState.Starting) StopRequested?.Invoke(); };
             _back.clicked += RequestBack;
+            _join.clicked += RequestJoin;
             _copy.clicked += CopyAddress;
             Root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
 
@@ -145,6 +153,11 @@ namespace Tinyverse.UI
             _start.SetEnabled(editable);
             _stop.SetEnabled(state == HostState.Running || state == HostState.Starting);
             _back.SetEnabled(editable);
+            // While the server runs, Start becomes "Join world" and Back is hidden.
+            bool running = state == HostState.Running;
+            UIUtil.SetShown(_start, !running);
+            UIUtil.SetShown(_join, running);
+            UIUtil.SetShown(_back, editable);
         }
 
         public void ShowError(string message)
@@ -165,6 +178,12 @@ namespace Tinyverse.UI
         public void RequestBack()
         {
             if (State == HostState.Stopped || State == HostState.Failed) BackRequested?.Invoke();
+        }
+
+        /// <summary>Raises <see cref="JoinRequested"/> if the server is running, as "Join world" does.</summary>
+        public void RequestJoin()
+        {
+            if (State == HostState.Running) JoinRequested?.Invoke();
         }
 
         public void CopyAddress()
@@ -206,6 +225,7 @@ namespace Tinyverse.UI
         internal Button StartButton => _start;
         internal Button StopButton => _stop;
         internal Button BackButton => _back;
+        internal Button JoinButton => _join;
         internal Button CopyButton => _copy;
 
         protected override void OnShown() => Root.schedule.Execute(() => { if (IsVisible) _worldName.Focus(); });

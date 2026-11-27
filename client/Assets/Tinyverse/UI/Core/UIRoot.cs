@@ -261,6 +261,7 @@ namespace Tinyverse.UI
                     OpenMenu();
                     return "open-menu";
                 case UIScreen.Host:
+                    if (Host.State == HostState.Running) { Host.RequestJoin(); return "host-join"; }
                     Host.RequestBack();
                     return "host-back";
                 case UIScreen.Connect:

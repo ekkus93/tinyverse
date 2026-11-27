@@ -6,9 +6,9 @@
     background-color: var(--tv-surface);
     border-width: 1px;
     border-color: var(--tv-edge);
-    border-radius: var(--tv-radius-pill);
-    padding: var(--tv-space-2) var(--tv-space-4);
-    min-height: 34px;
+    border-radius: var(--tv-radius-pill-l);
+    padding: 0 var(--tv-space-4);
+    height: 34px;
 }
 
 /* ---------- Status bar ---------- */
@@ -75,9 +75,11 @@
     -unity-font-style: bold;
     color: var(--tv-text-dim);
     background-color: var(--tv-raised);
-    border-radius: var(--tv-radius-pill);
-    padding: 1px var(--tv-space-3);
+    height: 18px;
+    border-radius: var(--tv-radius-pill-s);
+    padding: 0 var(--tv-space-3);
     margin-left: var(--tv-space-3);
+    -unity-text-align: middle-center;
 }
 
 .tv-mode--run {
@@ -91,7 +93,7 @@
 }
 
 .tv-status__buttons {
-    padding: var(--tv-space-1);
+    padding: 0 var(--tv-space-1);
 }
 
 .tv-root .tv-hud-button {
@@ -285,9 +287,10 @@
     border-color: var(--tv-edge);
 }
 
+/* Idle: the frame fades but a light scrim stays behind the text, so it reads over sky and ground. */
 .tv-chat--idle {
-    opacity: 0.45;
-    background-color: rgba(14, 17, 24, 0);
+    opacity: 0.85;
+    background-color: rgba(14, 17, 24, 0.32);
     border-color: rgba(255, 255, 255, 0);
 }
 
@@ -308,14 +311,14 @@
 
 .tv-chat-line__time {
     font-size: var(--tv-font-xs);
-    color: var(--tv-text-faint);
+    color: var(--tv-text-dim);
     padding: 0;
     margin: 2px var(--tv-space-3) 0 0;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .tv-chat-line__channel {
-    font-size: 9px;
+    font-size: 10px;
     -unity-font-style: bold;
     color: var(--tv-world);
     background-color: var(--tv-world-soft);
@@ -367,7 +370,7 @@
     min-height: 24px;
     height: 24px;
     font-size: var(--tv-font-s);
-    border-radius: var(--tv-radius-pill);
+    border-radius: 12px;
     background-color: var(--tv-accent);
     border-color: var(--tv-accent);
     color: var(--tv-on-accent);
@@ -446,11 +449,11 @@
 
 .tv-hint__text {
     font-size: var(--tv-font-s);
-    color: var(--tv-text-dim);
-    background-color: var(--tv-surface-soft);
-    border-radius: var(--tv-radius-pill);
-    padding: var(--tv-space-1) var(--tv-space-4);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    color: var(--tv-text);
+    background-color: rgba(14, 17, 24, 0.72);
+    height: 22px;
+    border-radius: var(--tv-radius-pill-m);
+    padding: 0 var(--tv-space-4);
     -unity-text-align: middle-center;
 }
 
@@ -460,6 +463,9 @@
     height: 22px;
     min-height: 22px;
     margin-left: var(--tv-space-2);
+    border-radius: 11px;
+    background-color: rgba(14, 17, 24, 0.72);
+    color: var(--tv-text);
 }
 
 .tv-root .tv-hint__close .tv-icon {

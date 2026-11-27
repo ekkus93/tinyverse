@@ -37,6 +37,7 @@
                     <ui:Label name="hostError" class="tv-error-text" />
                     <ui:VisualElement class="tv-row tv-host__actions">
                         <ui:Button name="hostStart" text="Start world" class="tv-button--primary tv-host__start" />
+                        <ui:Button name="hostJoin" text="Join world" class="tv-button--primary tv-host__join" />
                         <ui:Button name="hostStop" text="Stop" class="tv-button--danger tv-host__stop" />
                     </ui:VisualElement>
                 </ui:VisualElement>

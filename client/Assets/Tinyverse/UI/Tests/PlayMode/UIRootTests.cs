@@ -45,6 +45,34 @@ namespace Tinyverse.UI.Tests
                 Is.True, "default runtime theme is applied");
         }
 
+        [UnityTest]
+        public IEnumerator PillsAndChipsAreRoundedNotElliptical()
+        {
+            // UI Toolkit clamps a too-large radius per axis, which turns wide bars into ellipses.
+            UI.ShowScreen(UIScreen.Hud);
+            UI.People.SetPeople(new[] { new PersonInfo(1, "u1", "Ada", false, Role.Builder, true) });
+            UI.People.Show();
+            yield return null;
+            yield return null;
+            var checks = new List<VisualElement>
+            {
+                UI.StatusBar.Root.Q(className: "tv-status__info"),
+                UI.StatusBar.Root.Q(className: "tv-status__buttons"),
+                UI.StatusBar.Root.Q("statusMode"),
+                UI.StatusBar.PeopleButton,
+                UI.Hint.Root.Q("hintText"),
+                UI.Hint.Root.Q("hintClose"),
+                UI.People.Root.Q(className: "tv-role"),
+            };
+            foreach (var e in checks)
+            {
+                Assert.That(e, Is.Not.Null);
+                float h = e.resolvedStyle.height;
+                Assert.That(h, Is.GreaterThan(0f), e.name + " has a height");
+                Assert.That(e.resolvedStyle.borderTopLeftRadius, Is.LessThanOrEqualTo(h / 2f + 0.5f), $"{e.name}{string.Join(".", e.GetClasses())} radius vs height {h}");
+            }
+        }
+
         [Test]
         public void StartsOnConnectScreen()
         {

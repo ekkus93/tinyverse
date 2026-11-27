@@ -5,7 +5,7 @@
  */
 :root {
     --tv-surface: rgba(14, 17, 24, 0.84);
-    --tv-surface-strong: rgba(12, 14, 20, 0.95);
+    --tv-surface-strong: rgba(12, 14, 20, 0.98);
     --tv-surface-soft: rgba(14, 17, 24, 0.55);
     --tv-raised: rgba(255, 255, 255, 0.06);
     --tv-hover: rgba(255, 255, 255, 0.11);
@@ -49,7 +49,12 @@
     --tv-radius-s: 4px;
     --tv-radius: 7px;
     --tv-radius-l: 12px;
-    --tv-radius-pill: 999px;
+    /* Pills: UI Toolkit clamps a radius per axis, so a huge radius turns a wide bar into an
+       ellipse. Each pill size gets a radius of exactly half its height. */
+    --tv-radius-pill-l: 17px;   /* 34px bars (status bar, HUD buttons group) */
+    --tv-radius-pill: 15px;     /* 30px buttons */
+    --tv-radius-pill-m: 11px;   /* 22px hint line */
+    --tv-radius-pill-s: 9px;    /* 18px chips (role, move mode) */
 
     --tv-font-xs: 11px;
     --tv-font-s: 12px;
@@ -525,7 +530,8 @@
     width: 4px;
     left: 2px;
     border-width: 0;
-    background-color: rgba(0, 0, 0, 0);
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.06);
 }
 
 .tv-root .unity-scroller--vertical .unity-base-slider__dragger {
@@ -533,7 +539,7 @@
     left: 2px;
     border-width: 0;
     border-radius: 2px;
-    background-color: var(--tv-edge-strong);
+    background-color: rgba(255, 255, 255, 0.32);
 }
 
 .tv-root .unity-scroller--vertical .unity-base-slider__dragger:hover {
@@ -552,7 +558,7 @@
 /* ---------- Badges, chips, dots ---------- */
 
 .tv-badge--ai {
-    font-size: 9px;
+    font-size: 10px;
     -unity-font-style: bold;
     color: var(--tv-ai);
     background-color: var(--tv-ai-soft);
@@ -566,11 +572,13 @@
 .tv-role {
     font-size: var(--tv-font-xs);
     color: var(--tv-text-dim);
+    height: 18px;
     border-width: 1px;
     border-color: var(--tv-edge);
-    border-radius: var(--tv-radius-pill);
+    border-radius: var(--tv-radius-pill-s);
     padding: 0 var(--tv-space-3);
     margin-left: var(--tv-space-2);
+    -unity-text-align: middle-center;
 }
 
 .tv-role--owner {
@@ -628,23 +636,24 @@
 
 .tv-screen__glow {
     position: absolute;
-    border-radius: 9999px;
 }
 
 .tv-screen__glow--a {
     width: 900px;
     height: 900px;
-    left: -280px;
-    top: -420px;
-    background-color: rgba(102, 170, 255, 0.07);
+    border-radius: 450px;
+    left: -340px;
+    top: -560px;
+    background-color: rgba(102, 170, 255, 0.012);
 }
 
 .tv-screen__glow--b {
     width: 700px;
     height: 700px;
-    right: -240px;
-    bottom: -380px;
-    background-color: rgba(244, 190, 92, 0.05);
+    border-radius: 350px;
+    right: -300px;
+    bottom: -500px;
+    background-color: rgba(244, 190, 92, 0.01);
 }
 
 .tv-brand {
