@@ -119,7 +119,7 @@ namespace Tinyverse.Bootstrap
         public void ShowConnectScreen(string error)
         {
             var recent = tokens.GetRecentWorlds();
-            UI.Connect.SetRecentWorlds(recent.Select(w => new RecentWorld(w.DisplayName, w.Url, w.LastConnected.LocalDateTime)).ToList());
+            UI.Connect.SetRecentWorlds(recent.Select(w => new RecentWorld(settingsStore.Current.WorldName(w.Url), w.Url, w.LastConnected.LocalDateTime)).ToList());
             var stored = settingsStore.Current;
             string address = !string.IsNullOrEmpty(stored.lastAddress) ? stored.lastAddress : recent.FirstOrDefault()?.Url ?? "";
             string name = !string.IsNullOrEmpty(stored.lastName) ? stored.lastName : recent.FirstOrDefault()?.DisplayName ?? "";
@@ -221,6 +221,8 @@ namespace Tinyverse.Bootstrap
             }
             var w = conn.Welcome;
             tokens.Remember(url, w.SessionToken, displayName, DateTimeOffset.Now);
+            settingsStore.Current.SetWorldName(url, w.World?.Name);
+            settingsStore.Save();
             StartSession(conn, hosted);
         }
 

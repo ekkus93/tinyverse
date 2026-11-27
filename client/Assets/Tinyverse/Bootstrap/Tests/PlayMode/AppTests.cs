@@ -97,6 +97,7 @@ namespace Tinyverse.Bootstrap.Tests
 
             app.Leave();
             Assert.AreEqual(AppState.FrontEnd, app.State);
+            Assert.AreEqual("Test World", app.UI.Connect.RecentWorlds[0].Name, "recent worlds show the world's name");
             app.Connect(server.Url, "Returner", "");
             yield return InWorld();
             Assert.AreEqual(userId, app.Session.UserId, "the stored token brings back the same user");

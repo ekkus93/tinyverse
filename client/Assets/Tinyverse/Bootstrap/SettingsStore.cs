@@ -18,6 +18,25 @@ namespace Tinyverse.Bootstrap
         public string lastAddress = "";
         /// <summary>Optional chosen body colour as <c>#rrggbb</c>; empty means "derived from my user id".</summary>
         public string bodyColor = "";
+        /// <summary>The name each visited world gave in its Welcome, for the recent-worlds list.</summary>
+        public System.Collections.Generic.List<KnownWorld> worlds = new System.Collections.Generic.List<KnownWorld>();
+
+        public string WorldName(string url) => worlds?.Find(w => w.url == url)?.name ?? "";
+
+        public void SetWorldName(string url, string name)
+        {
+            worlds ??= new System.Collections.Generic.List<KnownWorld>();
+            var w = worlds.Find(x => x.url == url);
+            if (w == null) worlds.Add(new KnownWorld { url = url, name = name ?? "" });
+            else w.name = name ?? "";
+        }
+    }
+
+    [Serializable]
+    public sealed class KnownWorld
+    {
+        public string url = "";
+        public string name = "";
     }
 
     /// <summary>
@@ -60,6 +79,7 @@ namespace Tinyverse.Bootstrap
             s.lastName ??= "";
             s.lastAddress ??= "";
             s.bodyColor ??= "";
+            s.worlds ??= new System.Collections.Generic.List<KnownWorld>();
             Current = s;
             return s;
         }

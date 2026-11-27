@@ -57,6 +57,8 @@ namespace Tinyverse.Bootstrap
                 if (panel != null) panel.ChooseTool(UIBuildTool.Place); else build.Tool = BuildTool.Place;
                 build.CurrentShape = PrimShape.Box;
                 build.CurrentColor = Hex("#ff8000");
+                panel?.SetShape(Tinyverse.UI.ShapeKind.Box);
+                panel?.SetColor(Hex("#ff8000"));
             }
             else if (Due(5f))
             {
