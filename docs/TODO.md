@@ -10,7 +10,7 @@ boxes record what is finished.
 
 Verified on master: `scripts/check.sh` (Rust fmt, clippy, all tests, including
 tv-cli's 17-check smoke run and tv-mcp against the real server binary, both
-also over `wss://`); the Unity suites (401 EditMode, 144 PlayMode), including
+also over `wss://`); the Unity suites (474 EditMode, 160 PlayMode), including
 Bootstrap's tests against the real server; the built Linux player on screen
 through screenshots at 1280x720 and 1920x1080; two players in one world at
 once; a 150 s walk with no speed corrections; the packaged archive hosting a
@@ -23,11 +23,11 @@ API key was set).
 
 Open:
 
-- [ ] M4.D realistic human avatars (a simple placeholder figure stands in)
+- [x] M4.D human avatars: rigged CC0 figures with animation and an appearance editor. They are stylised, not lifelike; own models (MakeHuman) are a possible next step
 - [ ] M4.I on a fresh machine: download, host, and a second machine joins; tag `v0.1.0`
 - [ ] Play-test with real input on a machine with a GPU
-- [ ] TLS for LAN guests: the self-signed certificate covers only localhost unless made with `--host <lan-ip>`, and the Unity client has no way to trust it yet
-- [ ] Name tags of avatars standing close together overlap
+- [x] TLS for LAN guests: self-signed certificates cover the LAN addresses; clients join by an address with a certificate fingerprint (`wss://…/ws#sha256=…`) or a trust prompt
+- [x] Name tags of avatars standing close together overlap
 
 ## How to read this
 
@@ -195,7 +195,7 @@ Everything else depends on this. Do not parallelise.
 - [x] **M4.A Moderation** — Rust: `Admin` messages, kick, ban, role changes, `user` CLI. Owns `tv-world`, then `tv-server` after M4.B merges.
 - [x] **M4.B TLS** — Rust: `--tls-cert`, `--tls-key`, `wss://`; self-signed helper. Owns `tv-server`.
 - [x] **M4.C Host from the client** — C#: bundle the server binary, "Host a world" screen (create or pick a world directory, port, password), start and stop the child process, show its log. Owns `client/Assets/Tinyverse/Host/`.
-- [ ] **M4.D Avatars** — C# and assets: realistic human models (SPEC 5.2) with idle, walk, run and fly animation; appearance editor for body preset, skin tone, hair and clothing colours. Confirm the model and animation licences allow redistribution before importing anything. Owns `Avatar/`.
+- [x] **M4.D Avatars** — C# and assets: realistic human models (SPEC 5.2) with idle, walk, run and fly animation; appearance editor for body preset, skin tone, hair and clothing colours. Confirm the model and animation licences allow redistribution before importing anything. Owns `Avatar/`.
 - [x] **M4.E Settings and moderation UI** — C#: graphics, mouse sensitivity, key bindings; people list actions for owners. Owns `UI/Settings/`, `UI/Admin/`.
 
 ### Wave 8 (serial)
