@@ -13,6 +13,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Linux is the only target for now.
 
+Use the repo's `tmp/` directory (git-ignored) for temporary files, screenshots, downloads and logs, not the system `/tmp`, which is small. The scripts set `TMPDIR` to it; when running other commands, pass `TMPDIR="$PWD/tmp"` or write there directly. Delete what you put there when you are done.
+
 ## Architecture in one paragraph
 
 A Rust server (`server/`, Cargo workspace) owns one world and persists it to SQLite. A Unity client (`client/`) and AI agents all speak the same protobuf protocol over one WebSocket: binary frames for Unity, proto3 JSON text frames for agents. The schema in `proto/tinyverse/v1/` is the single source of truth; Rust and C# types are generated from it. Unity's Netcode for GameObjects is not used.

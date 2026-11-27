@@ -5,6 +5,9 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Temporary files go in the repo's own tmp/ (git-ignored), not the system /tmp.
+export TMPDIR="$root/tmp"
+mkdir -p "$TMPDIR"
 
 echo "== cargo fmt"
 cargo fmt --manifest-path "$root/server/Cargo.toml" --all -- --check

@@ -7,6 +7,9 @@
 /.claude/worktrees/
 /.claude/settings.local.json
 
+# Scratch space for scripts, tests and agents (used instead of /tmp)
+/tmp/
+
 # OS and editor noise
 .DS_Store
 *.swp

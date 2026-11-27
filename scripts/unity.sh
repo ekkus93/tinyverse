@@ -9,6 +9,9 @@
 set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Temporary files go in the repo's own tmp/ (git-ignored), not the system /tmp.
+export TMPDIR="$root/tmp"
+mkdir -p "$TMPDIR"
 cmd="${1:-}"
 project="$(cd "${2:-$root/client}" && pwd)"
 version="$(sed -n 's/^m_EditorVersion: //p' "$project/ProjectSettings/ProjectVersion.txt")"

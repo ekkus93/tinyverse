@@ -9,6 +9,9 @@
 set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Temporary files go in the repo's own tmp/ (git-ignored), not the system /tmp.
+export TMPDIR="$root/tmp"
+mkdir -p "$TMPDIR"
 out="$(mkdir -p "${1:?out dir}" && cd "$1" && pwd)"
 secs="${2:-40}"
 width="${3:-1280}"

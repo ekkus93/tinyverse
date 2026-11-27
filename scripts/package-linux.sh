@@ -8,6 +8,9 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Temporary files go in the repo's own tmp/ (git-ignored), not the system /tmp.
+export TMPDIR="$root/tmp"
+mkdir -p "$TMPDIR"
 dist="$root/dist"
 stage="$dist/stage"
 name="tinyverse-linux-x86_64"

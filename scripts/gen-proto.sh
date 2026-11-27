@@ -7,6 +7,9 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Temporary files go in the repo's own tmp/ (git-ignored), not the system /tmp.
+export TMPDIR="$root/tmp"
+mkdir -p "$TMPDIR"
 out="${1:-$root/client/Assets/Tinyverse/Proto/Generated}"
 
 command -v protoc >/dev/null || { echo "protoc not found (apt install protobuf-compiler)" >&2; exit 1; }

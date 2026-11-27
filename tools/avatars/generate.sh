@@ -11,6 +11,9 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
+# Temporary files go in the repo's own tmp/ (git-ignored), not the system /tmp.
+export TMPDIR="$root/tmp"
+mkdir -p "$TMPDIR"
 tools="${TINYVERSE_TOOLS:-$HOME/.local/share/tinyverse-tools}"
 blender="${BLENDER:-blender}"
 export BLENDER_USER_RESOURCES="${BLENDER_USER_RESOURCES:-$tools/blender-user}"
