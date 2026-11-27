@@ -10,7 +10,7 @@ namespace Tinyverse.Host.Tests
         [UnityTest]
         public IEnumerator FramesAdvance()
         {
-            Assert.That(typeof(HostAssembly).Assembly.GetName().Name, Is.EqualTo("Tinyverse.Host"));
+            Assert.That(typeof(ServerProcess).Assembly.GetName().Name, Is.EqualTo("Tinyverse.Host"));
             int start = Time.frameCount;
             yield return null;
             Assert.That(Time.frameCount, Is.GreaterThan(start));

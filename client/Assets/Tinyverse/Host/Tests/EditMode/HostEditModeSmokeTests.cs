@@ -7,7 +7,7 @@ namespace Tinyverse.Host.Tests
         [Test]
         public void ModuleAssemblyIsReferenced()
         {
-            Assert.That(typeof(HostAssembly).Assembly.GetName().Name, Is.EqualTo("Tinyverse.Host"));
+            Assert.That(typeof(ServerProcess).Assembly.GetName().Name, Is.EqualTo("Tinyverse.Host"));
         }
     }
 }
