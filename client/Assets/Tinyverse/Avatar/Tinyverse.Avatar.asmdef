@@ -1,9 +1,8 @@
 {
     "name": "Tinyverse.Avatar",
-    "rootNamespace": "Tinyverse.Avatar",
+    "rootNamespace": "Tinyverse.Avatars",
     "references": [
         "Unity.InputSystem",
-        "Unity.TextMeshPro",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Core.Runtime"
     ],

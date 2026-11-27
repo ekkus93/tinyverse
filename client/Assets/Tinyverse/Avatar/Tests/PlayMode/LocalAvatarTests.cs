@@ -31,12 +31,30 @@ namespace Tinyverse.Avatars.Tests
                 yield return null;
                 var delta = avatar.transform.position - before;
                 if (horizontalOnly) delta.y = 0f;
-                float speed = delta.magnitude / Time.deltaTime;
-                Assert.That(speed, Is.LessThanOrEqualTo(limit + SpeedTolerance), $"frame {i}: moved at {speed} m/s");
-                var pose = avatar.CurrentPose;
-                Assert.That(pose.Velocity.magnitude, Is.LessThanOrEqualTo(limits.SpeedFor(pose.Mode) + 1e-3f),
-                    $"frame {i}: reported {pose.Velocity.magnitude} m/s in {pose.Mode}");
+                Assert.That(delta.magnitude, Is.LessThanOrEqualTo(limit * Time.deltaTime + 1e-4f),
+                    $"frame {i}: moved at {delta.magnitude / Time.deltaTime} m/s");
+                AssertPoseWithinServerRules(avatar, $"frame {i}");
             }
+        }
+
+        /// <summary>
+        /// The server's rule: on foot, horizontal speed within the mode's limit and vertical within +10 / −55 here
+        /// (the server allows −60); flying, 3D speed within fly speed. Checks the reported pose.
+        /// </summary>
+        private static void AssertPoseWithinServerRules(LocalAvatar avatar, string where)
+        {
+            var pose = avatar.CurrentPose;
+            var v = pose.Velocity;
+            var limits = avatar.Limits;
+            Assert.That(pose.Mode == MoveKind.Fly, Is.EqualTo(avatar.IsFlying), $"{where}: Fly reported only while flying");
+            if (pose.Mode == MoveKind.Fly)
+            {
+                Assert.That(v.magnitude, Is.LessThanOrEqualTo(limits.FlySpeed + 1e-3f), $"{where}: {v.magnitude} m/s flying");
+                return;
+            }
+            float h = new Vector2(v.x, v.z).magnitude;
+            Assert.That(h, Is.LessThanOrEqualTo(limits.SpeedFor(pose.Mode) + 1e-3f), $"{where}: {h} m/s horizontal in {pose.Mode}");
+            Assert.That(v.y, Is.InRange(-55f - 1e-3f, 10f), $"{where}: vertical {v.y} m/s");
         }
 
         private static IEnumerator Settle(LocalAvatar avatar)
@@ -170,8 +188,7 @@ namespace Tinyverse.Avatars.Tests
             for (int i = 0; i < 240 && !avatar.IsGrounded; i++)
             {
                 yield return null;
-                var pose = avatar.CurrentPose;
-                Assert.That(pose.Velocity.magnitude, Is.LessThanOrEqualTo(avatar.Limits.SpeedFor(pose.Mode) + 1e-3f));
+                AssertPoseWithinServerRules(avatar, $"frame {i}");
             }
             Assert.That(avatar.IsGrounded, Is.True);
             Assert.That(avatar.transform.position.y, Is.EqualTo(0f).Within(0.06f));
@@ -196,11 +213,79 @@ namespace Tinyverse.Avatars.Tests
             {
                 yield return null;
                 peak = Mathf.Max(peak, avatar.transform.position.y);
-                var pose = avatar.CurrentPose;
-                Assert.That(pose.Velocity.magnitude, Is.LessThanOrEqualTo(avatar.Limits.SpeedFor(pose.Mode) + 1e-3f));
+                AssertPoseWithinServerRules(avatar, $"frame {i}");
             }
             Assert.That(peak, Is.InRange(0.6f, 1.2f));
             Assert.That(avatar.IsGrounded, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator WalkingJumpReportsWalkWithTrueVelocity()
+        {
+            scene.Ground();
+            var (avatar, input) = scene.Local(new Vector3(0f, 0.05f, 0f));
+            yield return Settle(avatar);
+            input.Move = Vector2.up;
+            yield return Frames(30);
+            input.Jump();
+            yield return null;
+            var pose = avatar.CurrentPose;
+            Assert.That(avatar.IsGrounded, Is.False);
+            Assert.That(pose.Mode, Is.EqualTo(MoveKind.Walk), "a walking jump is still Walk");
+            Assert.That(pose.Animation, Is.EqualTo("fall"));
+            Assert.That(pose.Velocity.y, Is.EqualTo(avatar.JumpSpeed).Within(0.5f), "true vertical velocity");
+            Assert.That(pose.Velocity.magnitude, Is.GreaterThan(avatar.Limits.WalkSpeed), "3D speed is not clamped to the walk limit");
+            for (int i = 0; i < 90; i++)
+            {
+                var before = avatar.transform.position;
+                yield return null;
+                AssertPoseWithinServerRules(avatar, $"frame {i}");
+                var d = avatar.transform.position - before;
+                Assert.That(new Vector2(d.x, d.z).magnitude, Is.LessThanOrEqualTo(avatar.Limits.WalkSpeed * Time.deltaTime + 1e-4f));
+                Assert.That(d.y / Time.deltaTime, Is.InRange(-55.01f, 10f));
+                if (!avatar.IsGrounded) Assert.That(avatar.CurrentPose.Mode, Is.EqualTo(MoveKind.Walk));
+            }
+            Assert.That(avatar.IsGrounded, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator RunningJumpReportsRun()
+        {
+            scene.Ground();
+            var (avatar, input) = scene.Local(new Vector3(0f, 0.05f, 0f));
+            yield return Settle(avatar);
+            input.Move = Vector2.up;
+            input.Run = true;
+            yield return Frames(30);
+            input.Jump();
+            yield return null;
+            input.Run = false; // released mid-air: still moving at run speed, so still Run
+            yield return Frames(5);
+            Assert.That(avatar.IsGrounded, Is.False);
+            Assert.That(avatar.CurrentPose.Mode, Is.EqualTo(MoveKind.Run));
+            AssertPoseWithinServerRules(avatar, "mid-air");
+        }
+
+        [UnityTest]
+        public IEnumerator LongFallReportsWalkAndCapsAt55()
+        {
+            scene.Ground();
+            var (avatar, _) = scene.Local(new Vector3(0f, 300f, 0f));
+            float minVy = 0f;
+            for (int i = 0; i < 1200 && !avatar.IsGrounded; i++)
+            {
+                var before = avatar.transform.position;
+                yield return null;
+                var pose = avatar.CurrentPose;
+                minVy = Mathf.Min(minVy, pose.Velocity.y);
+                Assert.That(pose.Mode, Is.EqualTo(MoveKind.Walk), $"frame {i}: a fall is Walk");
+                if (!avatar.IsGrounded) Assert.That(pose.Animation, Is.EqualTo("fall"));
+                AssertPoseWithinServerRules(avatar, $"frame {i}");
+                Assert.That((avatar.transform.position.y - before.y) / Time.deltaTime, Is.GreaterThanOrEqualTo(-55.01f));
+            }
+            Assert.That(minVy, Is.EqualTo(-LocalAvatar.MaxFallSpeed).Within(0.01f), "reached the terminal speed, not clamped lower");
+            Assert.That(avatar.IsGrounded, Is.True);
+            Assert.That(avatar.transform.position.y, Is.EqualTo(0f).Within(0.06f));
         }
 
         [UnityTest]
