@@ -4,7 +4,7 @@
 # Usage: scripts/screenshot-run.sh <out-dir> [seconds] [width height] [extra player args...]
 #   Starts tinyverse-server on a free port in a temporary world, two tv-cli bots (wander, circle),
 #   creates one object of every shape and material (including a #ff8000 box), says something in
-#   chat, then runs client/Builds/Linux/tinyverse.x86_64 with --connect, --demo-walk,
+#   chat, then runs client/Builds/Linux/tinyverse.x86_64 with --connect, --demo-walk (DEMO_WALK= to drop it),
 #   --screenshot-dir, --screenshot-tour and --quit-after. Everything it started is stopped on exit.
 set -uo pipefail
 
@@ -51,7 +51,7 @@ cli --name Builder create --shape box --pos 0,1.5,14 --scale 6,3,0.3 --color '#f
 cli --name Builder say "Hello from tv-cli, the world chat works" >/dev/null
 
 "$player" -logFile "$out/player.log" -screen-width "$width" -screen-height "$height" -screen-fullscreen 0 \
-  --fresh-profile "$work/profile" --connect "$url" --name "Camera" --demo-walk \
+  --fresh-profile "$work/profile" --connect "$url" --name "Camera" ${DEMO_WALK---demo-walk} \
   --screenshot-dir "$out" --screenshot-every 5 --screenshot-tour --quit-after "$secs" "$@"
 status=$?
 echo "player exited with $status; screenshots in $out"

@@ -97,7 +97,11 @@ namespace Tinyverse.Bootstrap
 
         void Report(UIHostState s, string text) => StateChanged?.Invoke(s, text);
 
-        void Emit(string line) => LogLine?.Invoke("[host] " + line);
+        void Emit(string line)
+        {
+            Debug.Log("[Hosting] " + line);
+            LogLine?.Invoke("[host] " + line);
+        }
 
         public void Tick() => process?.Pump();
 

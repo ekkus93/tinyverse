@@ -103,7 +103,7 @@ namespace Tinyverse.Bootstrap
             UI.Connect.HostRequested += ShowHostScreen;
             UI.Connect.RecentWorldRemoved += w => tokens.Remove(w.Address);
             UI.Menu.ResumeRequested += () => UI.CloseMenu();
-            UI.Menu.DisconnectRequested += OnDisconnectRequested;
+            UI.Menu.DisconnectRequested += RequestDisconnect;
             UI.Menu.QuitRequested += Quit;
             UI.Settings.SetQualityLevels(QualitySettings.names);
             UI.Settings.SetSettings(settingsStore.Current.client);
@@ -319,7 +319,8 @@ namespace Tinyverse.Bootstrap
             appliedOrbit = null;
         }
 
-        void OnDisconnectRequested()
+        /// <summary>The menu's Leave: asks whether to keep hosting when this client hosts the world.</summary>
+        public void RequestDisconnect()
         {
             if (!hostedSession || !hosting.IsActive)
             {

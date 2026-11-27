@@ -155,6 +155,31 @@ namespace Tinyverse.Bootstrap.Tests
             int? pid = app.Hosting.Process.ProcessId;
             Assert.IsNotNull(pid);
 
+            // Settings apply live and persist.
+            var s = app.UI.Settings.Settings;
+            s.FieldOfView = 95f;
+            s.InvertY = true;
+            s.MouseSensitivity = 2f;
+            s.UIScale = 1.25f;
+            s.MasterVolume = 0.4f;
+            app.ApplySettings(s);
+            Assert.AreEqual(95f, app.Camera.fieldOfView);
+            Assert.IsTrue(app.Session.Orbit.InvertY);
+            Assert.AreEqual(0.4f, app.Session.Orbit.OrbitSensitivity, 1e-5f);
+            Assert.AreEqual(1.25f, app.UI.UIScale);
+            Assert.AreEqual(0.4f, AudioListener.volume, 1e-5f);
+
+            // Leaving a hosted world asks; "keep hosting" (cancel) leaves the server running.
+            app.RequestDisconnect();
+            Assert.IsTrue(app.UI.Confirm.IsVisible, "asked whether to stop hosting");
+            app.UI.Confirm.Cancel();
+            Assert.AreEqual(AppState.FrontEnd, app.State);
+            Assert.IsTrue(app.Hosting.IsRunning, "still hosting");
+            StringAssert.Contains(port.ToString(), app.UI.Connect.Address, "the local address is pre-filled to rejoin");
+            app.UI.Connect.Submit();
+            yield return InWorld();
+            Assert.AreEqual(P.Role.Owner, app.Session.Role, "rejoined as owner from the Connect screen");
+
             app.Shutdown(); // what Application.quitting does
             Assert.AreEqual(Tinyverse.Host.HostState.Stopped, app.Hosting.Process == null ? Tinyverse.Host.HostState.Stopped : app.Hosting.Process.State);
             Assert.IsFalse(ProcessAlive(pid.Value), "the server process is gone");

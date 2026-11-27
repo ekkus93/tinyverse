@@ -10,3 +10,6 @@
 # OS and editor noise
 .DS_Store
 *.swp
+
+# Packages built by scripts/package-linux.sh
+/dist/
