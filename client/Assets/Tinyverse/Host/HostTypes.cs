@@ -48,16 +48,23 @@ namespace Tinyverse.Host
         /// </summary>
         public bool DisableTls { get; set; }
 
+        /// <summary>
+        /// Serve <c>wss://</c>, creating a self-signed <c>cert.pem</c> and <c>key.pem</c> in the world folder
+        /// first if there are none (passes <c>--self-signed</c>). Ignored when <see cref="DisableTls"/> is set.
+        /// Guests then join with the pinned address (<see cref="HostStartResult.LanJoinUrls"/>).
+        /// </summary>
+        public bool CreateCertificate { get; set; }
+
         /// <summary>Never includes the password.</summary>
         public override string ToString() =>
-            $"HostSettings(dir={WorldDirectory}, name={WorldName}, port={Port}, bind={BindAddress}, tls={(DisableTls ? "off" : "auto")}, password={(Password == null ? "unchanged" : Password.Length == 0 ? "none" : "set")})";
+            $"HostSettings(dir={WorldDirectory}, name={WorldName}, port={Port}, bind={BindAddress}, tls={(DisableTls ? "off" : CreateCertificate ? "self-signed" : "auto")}, password={(Password == null ? "unchanged" : Password.Length == 0 ? "none" : "set")})";
     }
 
     /// <summary>Returned by <see cref="ServerProcess.StartAsync"/> once the server is listening.</summary>
     public sealed class HostStartResult
     {
         internal HostStartResult(string localUrl, bool tls, int port, IReadOnlyList<string> lanAddresses,
-            IReadOnlyList<string> lanUrls, string ownerToken, string worldDirectory)
+            IReadOnlyList<string> lanUrls, string ownerToken, string worldDirectory, string certificateSha256 = null)
         {
             LocalUrl = localUrl;
             Tls = tls;
@@ -66,6 +73,12 @@ namespace Tinyverse.Host
             LanUrls = lanUrls;
             OwnerToken = ownerToken;
             WorldDirectory = worldDirectory;
+            CertificateSha256 = tls ? certificateSha256 : null;
+            string Pin(string url) => CertificateSha256 == null ? url : url + "#sha256=" + CertificateSha256;
+            LocalJoinUrl = Pin(localUrl);
+            var pinned = new List<string>(lanUrls.Count);
+            foreach (string u in lanUrls) pinned.Add(Pin(u));
+            LanJoinUrls = pinned.AsReadOnly();
         }
 
         /// <summary>
@@ -73,6 +86,21 @@ namespace Tinyverse.Host
         /// with TLS (127.0.0.1 is covered by the server's self-signed certificate by default).
         /// </summary>
         public string LocalUrl { get; }
+
+        /// <summary>
+        /// SHA-256 of the server's certificate (lower-case hex) from its <c>tls certificate sha256=…</c> line,
+        /// or null without TLS (or from a server too old to print it).
+        /// </summary>
+        public string CertificateSha256 { get; }
+
+        /// <summary><see cref="LocalUrl"/> with the certificate pinned (<c>#sha256=…</c>) when there is one.</summary>
+        public string LocalJoinUrl { get; }
+
+        /// <summary>
+        /// <see cref="LanUrls"/> with the certificate pinned: what guests paste. A pinned address needs no CA
+        /// and no matching name in the certificate.
+        /// </summary>
+        public IReadOnlyList<string> LanJoinUrls { get; }
 
         /// <summary>True if the server serves TLS (its ready line said <c>wss://</c>). All URLs then use <c>wss://</c>.</summary>
         public bool Tls { get; }
@@ -88,8 +116,8 @@ namespace Tinyverse.Host
         public IReadOnlyList<string> LanAddresses { get; }
 
         /// <summary>
-        /// <see cref="LanAddresses"/> as <c>ws://addr:port/ws</c> (or <c>wss://</c>) URLs. With the default self-signed
-        /// certificate, which covers only localhost and 127.0.0.1, other machines will see a name mismatch.
+        /// <see cref="LanAddresses"/> as <c>ws://addr:port/ws</c> (or <c>wss://</c>) URLs, without a pin. For a
+        /// self-signed certificate give guests <see cref="LanJoinUrls"/> instead.
         /// </summary>
         public IReadOnlyList<string> LanUrls { get; }
 

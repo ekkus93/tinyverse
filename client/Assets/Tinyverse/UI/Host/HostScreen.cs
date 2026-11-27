@@ -20,6 +20,7 @@ namespace Tinyverse.UI
         readonly TextField _port;
         readonly TextField _password;
         readonly TextField _displayName;
+        readonly Toggle _tls;
         readonly Button _start;
         readonly Button _stop;
         readonly Button _back;
@@ -60,6 +61,7 @@ namespace Tinyverse.UI
             _port = Q<TextField>("hostPort");
             _password = Q<TextField>("hostPassword");
             _displayName = Q<TextField>("hostDisplayName");
+            _tls = Q<Toggle>("hostTls");
             _start = Q<Button>("hostStart");
             _stop = Q<Button>("hostStop");
             _back = Q<Button>("hostBack");
@@ -109,6 +111,7 @@ namespace Tinyverse.UI
             _port.SetValueWithoutNotify((s.Port > 0 ? s.Port : HostSettings.DefaultPort).ToString(CultureInfo.InvariantCulture));
             _password.SetValueWithoutNotify(s.Password ?? "");
             _displayName.SetValueWithoutNotify(s.DisplayName ?? "");
+            _tls.SetValueWithoutNotify(!s.Unencrypted);
         }
 
         /// <summary>The form as typed. An unparsable port is reported as 0.</summary>
@@ -120,6 +123,7 @@ namespace Tinyverse.UI
             Port = Validation.TryParsePort(_port.value, out int p) ? p : 0,
             Password = _password.value ?? "",
             DisplayName = (_displayName.value ?? "").Trim(),
+            Unencrypted = !_tls.value,
         };
 
         /// <summary>Validates the form and raises <see cref="StartRequested"/>, or shows the problem.</summary>
@@ -170,8 +174,29 @@ namespace Tinyverse.UI
         public void SetShareAddress(string address)
         {
             ShareAddress = address ?? "";
-            _shareAddress.text = ShareAddress;
+            bool longAddress = ShareAddress.Length > 32;
+            // A pinned address has no spaces; zero-width spaces let it wrap at its natural breaks.
+            // Copy and selection-free uses go through ShareAddress, which has none.
+            _shareAddress.text = longAddress ? BreakableAddress(ShareAddress) : ShareAddress;
+            UIUtil.SetClass(_shareAddress, "tv-host__address--long", longAddress);
             UIUtil.SetShown(_share, ShareAddress.Length > 0);
+        }
+
+        static string BreakableAddress(string address)
+        {
+            var sb = new System.Text.StringBuilder(address.Length + 16);
+            int sinceBreak = 0;
+            foreach (char c in address)
+            {
+                sb.Append(c);
+                sinceBreak++;
+                if (c == '/' || c == '#' || c == '=' || sinceBreak >= 16)
+                {
+                    sb.Append('​');
+                    sinceBreak = 0;
+                }
+            }
+            return sb.ToString();
         }
 
         /// <summary>Raises <see cref="BackRequested"/> unless the server is running, as Back (or Escape) does.</summary>

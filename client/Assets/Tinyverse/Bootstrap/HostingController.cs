@@ -39,13 +39,17 @@ namespace Tinyverse.Bootstrap
         public HostStartResult Current => process?.Current;
         public ServerProcess Process => process;
 
-        /// <summary>The address friends should type: the first LAN URL, or the local URL when there is none.</summary>
+        /// <summary>
+        /// The address friends should type: the first LAN URL, or the local URL when there is none. With TLS it is
+        /// the full <c>wss://…/ws#sha256=…</c> address, so a guest trusts this certificate without a prompt.
+        /// </summary>
         public string ShareAddress
         {
             get
             {
                 var r = Current;
                 if (r == null) return "";
+                if (r.CertificateSha256 != null) return r.LanJoinUrls.FirstOrDefault() ?? r.LocalJoinUrl;
                 var lan = r.LanAddresses.FirstOrDefault();
                 return lan != null ? (r.Port == 7878 ? lan : lan + ":" + r.Port) : r.LocalUrl;
             }
@@ -173,6 +177,9 @@ namespace Tinyverse.Bootstrap
                 WorldName = s.WorldName,
                 Description = s.Description,
                 Port = s.Port > 0 ? s.Port : HostSettings.DefaultPort,
+                // TLS unless asked not to: a self-signed certificate is made on first start.
+                DisableTls = s.Unencrypted,
+                CreateCertificate = !s.Unencrypted,
                 // For an existing world an empty field keeps its password rather than silently clearing it.
                 Password = exists && string.IsNullOrEmpty(s.Password) ? null : s.Password,
             };

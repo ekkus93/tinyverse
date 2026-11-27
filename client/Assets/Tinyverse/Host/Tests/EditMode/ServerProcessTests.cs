@@ -493,6 +493,31 @@ namespace Tinyverse.Host.Tests
         }
 
         [Test]
+        public void CreateCertificate_PassesSelfSigned_AndThePinComesBack()
+        {
+            HostSettings settings = Settings("self-signed");
+            settings.CreateCertificate = true;
+            var a = NewServer();
+            HostStartResult r = Wait(a.StartAsync(settings));
+            Track(a.ProcessId);
+            Assert.That(a.Launches.Last().Arguments, Has.Member("--self-signed"));
+            Assert.That(r.Tls, Is.True);
+            Assert.That(r.CertificateSha256, Does.Match("^[0-9a-f]{64}$"));
+            Assert.That(r.LocalJoinUrl, Is.EqualTo($"wss://127.0.0.1:{settings.Port}/ws#sha256={r.CertificateSha256}"));
+            Assert.That(r.LanJoinUrls, Has.All.Contain("#sha256=" + r.CertificateSha256));
+            a.Stop(TimeSpan.FromSeconds(5));
+
+            // --no-tls wins over the certificate, and nothing is pinned.
+            settings.DisableTls = true;
+            r = Wait(a.StartAsync(settings));
+            Track(a.ProcessId);
+            Assert.That(a.Launches.Last().Arguments, Has.No.Member("--self-signed"));
+            Assert.That(r.Tls, Is.False);
+            Assert.That(r.CertificateSha256, Is.Null);
+            Assert.That(r.LocalJoinUrl, Is.EqualTo(r.LocalUrl));
+        }
+
+        [Test]
         public void BindToLoopback_HasNoLanAddresses()
         {
             var server = NewServer();

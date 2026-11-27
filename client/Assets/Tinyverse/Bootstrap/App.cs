@@ -155,19 +155,29 @@ namespace Tinyverse.Bootstrap
 
         // ---------------------------------------------------------------- connecting
 
-        /// <summary>Joins a world. <paramref name="token"/> overrides the stored session token (the owner token when hosting).</summary>
+        /// <summary>
+        /// Joins a world. <paramref name="token"/> overrides the stored session token (the owner token when hosting).
+        /// A <c>wss://</c> address may pin the certificate (<c>#sha256=…</c>); otherwise a fingerprint remembered for
+        /// its host and port is pinned. An unknown certificate asks the player whether to trust it; a changed one is
+        /// refused, with the choice to forget the old fingerprint.
+        /// </summary>
         public async void Connect(string address, string displayName, string password, string token = null, bool hosted = false)
         {
             if (State == AppState.Connecting || State == AppState.InWorld) return;
-            if (!WorldAddress.TryNormalize(address, out var url, out var error))
+            if (!WorldAddress.TryNormalize(address, out var normalized, out var error))
             {
                 ConnectFailed(error, hosted);
                 return;
             }
+            // The world is known by its address without the pin: tokens, names and recent worlds.
+            string url = CertificatePin.Strip(normalized);
+            string givenPin = CertificatePin.PinOf(normalized);
             var stored = settingsStore.Current;
             stored.lastName = displayName ?? "";
             if (!hosted) stored.lastAddress = address ?? "";
             settingsStore.Save();
+            string pin = givenPin ?? (url.StartsWith("wss://", StringComparison.Ordinal) ? stored.PinFor(url) : null);
+            string connectUrl = pin != null ? CertificatePin.WithPin(url, pin) : url;
 
             if (token == null && IsHostedUrl(url)) token = hosting.Current.OwnerToken;
             hosted |= IsHostedUrl(url);
@@ -183,19 +193,26 @@ namespace Tinyverse.Bootstrap
             TinyverseConnection conn = null;
             try
             {
-                conn = await ConnectOnce(url, displayName, password, storedToken, ct);
+                conn = await ConnectOnce(connectUrl, displayName, password, storedToken, ct);
                 if (conn == null && !string.IsNullOrEmpty(storedToken) && token == null)
                 {
                     // INVALID_TOKEN: forget it and join as a new user, once.
                     Debug.Log("[App] stored token refused; retrying without it");
                     tokens.ForgetToken(url);
-                    conn = await ConnectOnce(url, displayName, password, "", ct);
+                    conn = await ConnectOnce(connectUrl, displayName, password, "", ct);
                 }
                 if (conn == null) throw new TinyverseServerException(P.ErrorCode.InvalidToken, "");
             }
             catch (OperationCanceledException)
             {
                 if (!shutDown) ConnectFailed(null, hosted);
+                return;
+            }
+            catch (TinyverseCertificateException e)
+            {
+                if (!shutDown)
+                    CertificateRefused(e, url, givenPin != null, hosted,
+                        () => Connect(address, displayName, password, token, hosted));
                 return;
             }
             catch (TinyverseServerException e)
@@ -222,13 +239,66 @@ namespace Tinyverse.Bootstrap
             var w = conn.Welcome;
             tokens.Remember(url, w.SessionToken, displayName, DateTimeOffset.Now);
             settingsStore.Current.SetWorldName(url, w.World?.Name);
+            // Joined with a pin (pasted, or accepted earlier): this certificate is the one for this address now.
+            if (pin != null) settingsStore.Current.RememberPin(url, pin);
             settingsStore.Save();
             StartSession(conn, hosted);
         }
 
+        /// <summary>
+        /// A <c>wss://</c> world's certificate was refused. Unknown: ask whether to trust it, and remember it if so.
+        /// Changed from the remembered one: refuse, offering to forget the old one. Not the one pinned in the address
+        /// the player gave: refuse.
+        /// </summary>
+        void CertificateRefused(TinyverseCertificateException e, string url, bool pinFromAddress, bool hosted, Action retry)
+        {
+            Debug.Log($"[App] certificate refused: {e.Message}");
+            ConnectFailed(null, hosted);
+            string presented = CertificatePin.Colons(e.Fingerprint);
+            if (e.Problem == CertificateProblem.Untrusted)
+            {
+                UI.Confirm.Ask("Trust this world?",
+                    $"This world's certificate is not known.\n\n{e.HostPort}\nFingerprint (SHA-256):\n{presented}\n\n" +
+                    "Trust it only if it matches the fingerprint the host sees: it is the end of the address on their Host screen (after #sha256=). Trust it?",
+                    "Trust",
+                    () =>
+                    {
+                        settingsStore.Current.RememberPin(url, e.Fingerprint);
+                        settingsStore.Save();
+                        retry();
+                    },
+                    () => ConnectFailed("Not joined: you did not trust the world's certificate.", hosted));
+                return;
+            }
+            if (pinFromAddress)
+            {
+                ConnectFailed($"The world's certificate does not match the fingerprint in the address: it is {presented}. " +
+                              "Ask the host for the current address.", hosted);
+                return;
+            }
+            UI.Confirm.Ask("Certificate changed",
+                $"The certificate of {e.HostPort} has changed since you last joined.\n\n" +
+                $"Remembered:\n{CertificatePin.Colons(e.ExpectedPin)}\nNow:\n{presented}\n\n" +
+                "This happens when the host makes a new certificate, but it can also mean that someone is intercepting the connection. " +
+                "Forget the remembered certificate only if the host confirms the change.",
+                "Forget old certificate",
+                () =>
+                {
+                    settingsStore.Current.ForgetPin(url);
+                    settingsStore.Save();
+                    retry();
+                },
+                () => ConnectFailed($"Not joined: the certificate of {e.HostPort} has changed. Its fingerprint is now {presented}.", hosted));
+        }
+
+        /// <summary>The certificate fingerprint remembered for an address (lower-case hex), or null.</summary>
+        public string RememberedPin(string address) =>
+            WorldAddress.TryNormalize(address, out var url, out _) ? settingsStore.Current.PinFor(url) : null;
+
         static string Unwrap(Exception e)
         {
-            while (e.InnerException != null) e = e.InnerException;
+            // Our own connection errors are already worded for the player; below them is library detail.
+            while (e.InnerException != null && !(e is TinyverseConnectionException)) e = e.InnerException;
             return e.Message;
         }
 
@@ -342,7 +412,7 @@ namespace Tinyverse.Bootstrap
         public void Leave()
         {
             EndSession();
-            if (hosting.IsActive) UI.Connect.SetAddress(hosting.Current?.LocalUrl ?? UI.Connect.Address);
+            if (hosting.IsActive) UI.Connect.SetAddress(hosting.Current?.LocalJoinUrl ?? UI.Connect.Address);
             ShowConnectScreen(null);
         }
 
@@ -357,7 +427,7 @@ namespace Tinyverse.Bootstrap
             {
                 if (!hosting.IsActive || hosting.Current == null) return;
                 var name = UI.Host.Settings.DisplayName;
-                Connect(hosting.Current.LocalUrl, string.IsNullOrEmpty(name) ? "Host" : name,
+                Connect(hosting.Current.LocalJoinUrl, string.IsNullOrEmpty(name) ? "Host" : name,
                     UI.Host.Settings.Password, hosted: true);
             };
             UI.Host.AddressCopied += a => UI.Toasts.Info("Copied " + a);
@@ -403,7 +473,8 @@ namespace Tinyverse.Bootstrap
             UI.Host.SetShareAddress(hosting.ShareAddress);
             if (result.OwnerToken == null) UI.Toasts.Warning("owner.token is missing: you join without owner rights.");
             SetState(AppState.FrontEnd);
-            Connect(result.LocalUrl, string.IsNullOrEmpty(s.DisplayName) ? "Host" : s.DisplayName, s.Password, result.OwnerToken ?? "", hosted: true);
+            // With TLS the local address carries the certificate's pin: the host never sees a trust prompt.
+            Connect(result.LocalJoinUrl, string.IsNullOrEmpty(s.DisplayName) ? "Host" : s.DisplayName, s.Password, result.OwnerToken ?? "", hosted: true);
         }
 
         /// <summary>Hosts the world in a directory (the <c>--host</c> option).</summary>

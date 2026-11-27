@@ -305,6 +305,36 @@ namespace Tinyverse.Host.Tests
             Assert.That(Addresses.Url(false, "::1", 7878), Is.EqualTo("ws://[::1]:7878/ws"));
         }
 
+        [Test]
+        public void CertificateLine_ParsesThePin()
+        {
+            string hex = new string('a', 32) + new string('B', 32);
+            Assert.That(CertificateLine.TryParse("tls certificate sha256=" + hex, out string sha), Is.True);
+            Assert.That(sha, Is.EqualTo(hex.ToLowerInvariant()));
+            Assert.That(CertificateLine.TryParse("  tls certificate sha256=" + hex + "  ", out _), Is.True);
+            Assert.That(CertificateLine.TryParse("tls certificate sha256=" + hex.Substring(1), out _), Is.False);
+            Assert.That(CertificateLine.TryParse("INFO serving TLS fingerprint=AB:CD", out _), Is.False);
+            Assert.That(CertificateLine.TryParse(null, out _), Is.False);
+        }
+
+        [Test]
+        public void StartResult_PinsTheJoinUrlsWithTls()
+        {
+            string hex = new string('c', 64);
+            var lan = new System.Collections.Generic.List<string> { "192.168.1.20" }.AsReadOnly();
+            var urls = new System.Collections.Generic.List<string> { "wss://192.168.1.20:7878/ws" }.AsReadOnly();
+            var r = new HostStartResult("wss://127.0.0.1:7878/ws", true, 7878, lan, urls, null, "/w", hex);
+            Assert.That(r.CertificateSha256, Is.EqualTo(hex));
+            Assert.That(r.LocalJoinUrl, Is.EqualTo("wss://127.0.0.1:7878/ws#sha256=" + hex));
+            Assert.That(r.LanJoinUrls, Is.EqualTo(new[] { "wss://192.168.1.20:7878/ws#sha256=" + hex }));
+            Assert.That(r.LanUrls, Is.EqualTo(urls), "the unpinned URLs are unchanged");
+
+            var plain = new HostStartResult("ws://127.0.0.1:7878/ws", false, 7878, lan,
+                new System.Collections.Generic.List<string> { "ws://192.168.1.20:7878/ws" }.AsReadOnly(), null, "/w", hex);
+            Assert.That(plain.CertificateSha256, Is.Null);
+            Assert.That(plain.LocalJoinUrl, Is.EqualTo("ws://127.0.0.1:7878/ws"));
+        }
+
         [TestCase("listening on ws://0.0.0.0:99999/ws")]
         [TestCase("listening on http://0.0.0.0:7878/")]
         [TestCase("listening on wsx://0.0.0.0:7878/ws")]

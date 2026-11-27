@@ -8,7 +8,9 @@ namespace Tinyverse.Net
     /// <c>192.168.1.5</c> → <c>ws://192.168.1.5:7878/ws</c>, <c>myhost:9000</c> → <c>ws://myhost:9000/ws</c>,
     /// <c>ws://host/ws</c> → <c>ws://host:7878/ws</c>. The scheme <c>wss</c> is kept;
     /// <c>http</c>/<c>https</c> are read as <c>ws</c>/<c>wss</c>. Default port 7878 for both.
-    /// An empty path becomes <c>/ws</c>; any other path is kept.
+    /// An empty path becomes <c>/ws</c>; any other path is kept. A certificate pin
+    /// <c>#sha256=&lt;hex&gt;</c> (see <see cref="CertificatePin"/>) is kept, in lower case without colons,
+    /// and implies <c>wss</c> when no scheme is given.
     /// </summary>
     public static class WorldAddress
     {
@@ -20,13 +22,27 @@ namespace Tinyverse.Net
         {
             url = null;
             error = null;
-            string s = input?.Trim() ?? "";
+            // Zero-width spaces come along when an address shown with line-break hints is copied.
+            string s = input?.Replace("​", "").Trim() ?? "";
             if (s.Length == 0) return Fail("Enter a world address, such as 192.168.1.5 or myhost:7878.", out error);
             foreach (char c in s)
                 if (char.IsWhiteSpace(c) || char.IsControl(c))
                     return Fail("A world address cannot contain spaces.", out error);
 
-            string scheme = "ws";
+            // A certificate pin: "#sha256=<hex>" (see CertificatePin). It implies wss://.
+            string pin = null;
+            int hash = s.IndexOf('#');
+            if (hash >= 0)
+            {
+                string fragment = s.Substring(hash + 1);
+                if (!fragment.StartsWith(CertificatePin.FragmentPrefix, StringComparison.OrdinalIgnoreCase))
+                    return Fail("The only thing that may follow '#' in a world address is a certificate fingerprint, #sha256=….", out error);
+                if (!CertificatePin.TryParse(fragment, out pin))
+                    return Fail("The #sha256= fingerprint in the address must be 64 hex digits.", out error);
+                s = s.Substring(0, hash);
+            }
+
+            string scheme = pin != null ? "wss" : "ws";
             int sep = s.IndexOf("://", StringComparison.Ordinal);
             if (sep >= 0)
             {
@@ -35,6 +51,8 @@ namespace Tinyverse.Net
                 {
                     case "ws":
                     case "http":
+                        if (pin != null)
+                            return Fail("A #sha256= certificate fingerprint only applies to wss:// addresses.", out error);
                         scheme = "ws";
                         break;
                     case "wss":
@@ -94,6 +112,7 @@ namespace Tinyverse.Net
 
             if (path.Length == 0 || path == "/") path = DefaultPath;
             url = $"{scheme}://{host.ToLowerInvariant()}:{port.ToString(CultureInfo.InvariantCulture)}{path}";
+            if (pin != null) url += "#" + CertificatePin.FragmentPrefix + pin;
             return true;
         }
 

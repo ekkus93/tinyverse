@@ -33,6 +33,8 @@
                         </ui:VisualElement>
                         <ui:Label text="Your display name" class="tv-field-label" />
                         <ui:TextField name="hostDisplayName" />
+                        <ui:Toggle name="hostTls" text="Encrypt connections (TLS)" value="true" class="tv-host__tls" />
+                        <ui:Label text="Guests trust this computer's certificate by its fingerprint, which the address below carries." class="tv-hint-text" />
                     </ui:VisualElement>
                     <ui:Label name="hostError" class="tv-error-text" />
                     <ui:VisualElement class="tv-row tv-host__actions">
