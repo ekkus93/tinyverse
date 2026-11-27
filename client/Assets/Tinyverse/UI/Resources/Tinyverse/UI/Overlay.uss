@@ -1,0 +1,137 @@
+/* Overlays: menu, settings, confirmation. Toast styles live in Theme.uss. */
+
+.tv-menu {
+    width: 300px;
+    padding: var(--tv-space-6);
+}
+
+.tv-menu__title {
+    margin-bottom: var(--tv-space-4);
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.tv-root .tv-menu__button {
+    min-height: 36px;
+    margin-top: var(--tv-space-3);
+}
+
+.tv-settings {
+    width: 760px;
+    max-width: 94%;
+    height: 560px;
+    max-height: 90%;
+    padding: var(--tv-space-5) var(--tv-space-6);
+}
+
+.tv-settings__header {
+    margin-bottom: var(--tv-space-4);
+}
+
+.tv-settings__columns {
+    flex-direction: row;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.tv-settings__main {
+    flex-grow: 1;
+    flex-basis: 0;
+    margin-right: var(--tv-space-6);
+}
+
+.tv-settings__main .unity-scroll-view__content-container {
+    padding-right: var(--tv-space-3);
+}
+
+.tv-setting {
+    flex-direction: row;
+    align-items: center;
+    min-height: 36px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.04);
+}
+
+.tv-setting__label {
+    width: 170px;
+    padding: 0;
+    color: var(--tv-text);
+}
+
+.tv-setting__slider {
+    flex-grow: 1;
+}
+
+.tv-setting__value {
+    width: 56px;
+    padding: 0;
+    -unity-text-align: middle-right;
+    color: var(--tv-text-dim);
+    font-size: var(--tv-font-s);
+}
+
+.tv-setting__dropdown {
+    flex-grow: 1;
+}
+
+.tv-settings__keys {
+    width: 260px;
+    background-color: var(--tv-raised);
+    border-radius: var(--tv-radius);
+    padding: var(--tv-space-4);
+}
+
+.tv-settings__bindings {
+    flex-grow: 1;
+}
+
+.tv-binding {
+    flex-direction: row;
+    align-items: center;
+    min-height: 24px;
+}
+
+.tv-binding__keys {
+    font-size: var(--tv-font-xs);
+    -unity-font-style: bold;
+    color: var(--tv-text);
+    background-color: var(--tv-input);
+    border-width: 1px;
+    border-color: var(--tv-edge-strong);
+    border-bottom-width: 2px;
+    border-radius: var(--tv-radius-s);
+    padding: 1px var(--tv-space-2);
+    margin-right: var(--tv-space-3);
+}
+
+.tv-binding__action {
+    font-size: var(--tv-font-s);
+    color: var(--tv-text-dim);
+    padding: 0;
+    flex-shrink: 1;
+    white-space: normal;
+}
+
+.tv-confirm {
+    width: 400px;
+    max-width: 90%;
+}
+
+.tv-confirm__title {
+    font-size: var(--tv-font-l);
+    white-space: normal;
+}
+
+.tv-confirm__message {
+    margin-top: var(--tv-space-3);
+    font-size: var(--tv-font-m);
+}
+
+.tv-confirm__actions {
+    margin-top: var(--tv-space-6);
+}
+
+.tv-root .tv-confirm__button {
+    min-width: 96px;
+    margin-left: var(--tv-space-3);
+}

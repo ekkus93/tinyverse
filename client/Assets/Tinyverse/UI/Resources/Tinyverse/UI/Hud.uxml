@@ -1,0 +1,67 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="Hud.uss" />
+    <ui:VisualElement name="hud" class="tv-layer tv-hud" picking-mode="Ignore">
+        <ui:VisualElement name="statusBar" class="tv-status" picking-mode="Ignore">
+            <ui:VisualElement class="tv-pill tv-status__info">
+                <ui:Label name="statusWorld" text="Tinyverse" class="tv-status__world" />
+                <ui:VisualElement class="tv-status__sep" />
+                <ui:VisualElement name="statusDot" class="tv-dot" />
+                <ui:Label name="statusState" text="Disconnected" class="tv-status__text" />
+                <ui:Label name="statusPing" text="– ms" class="tv-status__ping" />
+                <ui:VisualElement class="tv-status__sep" />
+                <ui:Label name="statusPosition" text="0.0, 0.0, 0.0" class="tv-status__position" />
+                <ui:Label name="statusMode" text="Walk" class="tv-mode" />
+            </ui:VisualElement>
+            <ui:VisualElement class="tv-spacer" picking-mode="Ignore" />
+            <ui:VisualElement class="tv-pill tv-status__buttons">
+                <ui:Button name="statusPeopleButton" class="tv-hud-button">
+                    <ui:Label name="statusPeople" text="0" class="tv-hud-button__label" />
+                </ui:Button>
+                <ui:Button name="statusBuildButton" class="tv-hud-button">
+                    <ui:Label text="Build" class="tv-hud-button__label" />
+                </ui:Button>
+                <ui:Button name="statusMenuButton" class="tv-hud-button tv-hud-button--icon" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="peoplePanel" class="tv-panel tv-people">
+            <ui:VisualElement class="tv-row tv-people__header">
+                <ui:Label name="peopleTitle" text="0 people here" class="tv-people__title" />
+                <ui:Button name="peopleClose" class="tv-icon-button" />
+            </ui:VisualElement>
+            <ui:ScrollView name="peopleList" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-people__list" />
+            <ui:VisualElement name="personActions" class="tv-popup tv-person-actions">
+                <ui:VisualElement class="tv-row">
+                    <ui:Label name="personActionsName" class="tv-person-actions__name" />
+                    <ui:Button name="personActionsClose" class="tv-icon-button" />
+                </ui:VisualElement>
+                <ui:Label text="ROLE" class="tv-section__title tv-person-actions__label" />
+                <ui:VisualElement class="tv-segments">
+                    <ui:Button name="personRoleVisitor" text="Visitor" class="tv-segment" />
+                    <ui:Button name="personRoleBuilder" text="Builder" class="tv-segment" />
+                    <ui:Button name="personRoleOwner" text="Owner" class="tv-segment" />
+                </ui:VisualElement>
+                <ui:VisualElement class="tv-divider" />
+                <ui:Button name="personKick" text="Kick" class="tv-button--danger tv-person-actions__button" />
+                <ui:Button name="personBan" text="Ban" class="tv-button--danger tv-person-actions__button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="buildSlot" class="tv-build-slot" picking-mode="Ignore" />
+
+        <ui:VisualElement name="chatPanel" class="tv-chat">
+            <ui:ScrollView name="chatLog" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-chat__log" />
+            <ui:Button name="chatNewHint" text="New messages" class="tv-chat__new" />
+            <ui:VisualElement name="chatInputRow" class="tv-chat__input-row">
+                <ui:Button name="chatChannel" text="Local" class="tv-chip" />
+                <ui:TextField name="chatInput" class="tv-chat__input" />
+                <ui:Label name="chatCounter" text="0/500" class="tv-chat__counter" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="hintLine" class="tv-hint" picking-mode="Ignore">
+            <ui:Label name="hintText" class="tv-hint__text" />
+            <ui:Button name="hintClose" class="tv-icon-button tv-hint__close" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,47 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="Connect.uss" />
+    <ui:VisualElement name="connectScreen" class="tv-screen">
+        <ui:VisualElement class="tv-screen__glow tv-screen__glow--a" picking-mode="Ignore" />
+        <ui:VisualElement class="tv-screen__glow tv-screen__glow--b" picking-mode="Ignore" />
+        <ui:VisualElement class="tv-connect__frame">
+            <ui:VisualElement class="tv-brand">
+                <ui:Label text="tinyverse" class="tv-wordmark" />
+                <ui:Label text="A small world of your own, shared with friends and agents." class="tv-subtitle tv-brand__tagline" />
+            </ui:VisualElement>
+            <ui:VisualElement class="tv-card tv-connect__card">
+                <ui:VisualElement class="tv-connect__columns">
+                    <ui:VisualElement name="connectForm" class="tv-connect__form">
+                        <ui:Label text="Join a world" class="tv-title" />
+                        <ui:Label text="Address" class="tv-field-label" />
+                        <ui:TextField name="connectAddress" />
+                        <ui:Label text="Display name" class="tv-field-label" />
+                        <ui:TextField name="connectName" />
+                        <ui:Label text="Password (optional)" class="tv-field-label" />
+                        <ui:TextField name="connectPassword" />
+                        <ui:Label name="connectError" class="tv-error-text" />
+                        <ui:Button name="connectButton" text="Connect" class="tv-button--primary tv-button--wide" />
+                        <ui:VisualElement class="tv-row tv-connect__alt">
+                            <ui:Label text="No world to join?" class="tv-subtitle" />
+                            <ui:Button name="connectHostButton" text="Host a world" class="tv-button--ghost tv-connect__host" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="tv-connect__recent">
+                        <ui:Label text="RECENT WORLDS" class="tv-section__title" />
+                        <ui:ScrollView name="connectRecentList" mode="Vertical" horizontal-scroller-visibility="Hidden" class="tv-connect__recent-list" />
+                        <ui:Label name="connectRecentEmpty" text="Worlds you visit appear here. Click one to fill in its address, double-click to join." class="tv-hint-text tv-connect__recent-empty" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="connectBusy" class="tv-connect__busy">
+                    <ui:VisualElement name="connectSpinner" class="tv-spinner" picking-mode="Ignore" />
+                    <ui:Label name="connectBusyText" text="Connecting…" class="tv-connect__busy-text" />
+                    <ui:Button name="connectCancel" text="Cancel" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="tv-row tv-connect__footer">
+                <ui:Label name="connectVersion" class="tv-hint-text" />
+                <ui:VisualElement class="tv-spacer" />
+                <ui:Button name="connectSettings" text="Settings" class="tv-button--ghost" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

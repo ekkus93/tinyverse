@@ -1,0 +1,122 @@
+/* Host screen. */
+
+.tv-host__frame {
+    width: 1080px;
+    max-width: 96%;
+    height: 88%;
+    max-height: 720px;
+}
+
+.tv-host__header {
+    align-items: flex-start;
+    margin-bottom: var(--tv-space-4);
+    padding: 0 var(--tv-space-2);
+}
+
+.tv-host__heading {
+    flex-grow: 1;
+}
+
+.tv-host__columns {
+    flex-direction: row;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.tv-host__form-card {
+    width: 420px;
+    margin-right: var(--tv-space-4);
+}
+
+.tv-host__first-label {
+    margin-top: 0;
+}
+
+.tv-host__pair {
+    align-items: flex-start;
+}
+
+.tv-host__port {
+    width: 96px;
+    margin-right: var(--tv-space-3);
+}
+
+.tv-host__password {
+    flex-grow: 1;
+}
+
+.tv-host__actions {
+    margin-top: var(--tv-space-5);
+}
+
+.tv-root .tv-host__start {
+    flex-grow: 1;
+    min-height: 34px;
+    margin-right: var(--tv-space-3);
+}
+
+.tv-root .tv-host__stop {
+    width: 96px;
+    min-height: 34px;
+}
+
+.tv-host__side {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.tv-host__status {
+    margin-bottom: var(--tv-space-4);
+}
+
+.tv-host__status-text {
+    font-size: var(--tv-font-l);
+    margin-left: var(--tv-space-3);
+    padding: 0;
+    white-space: normal;
+    flex-shrink: 1;
+}
+
+.tv-host__share {
+    background-color: var(--tv-accent-soft);
+    border-radius: var(--tv-radius);
+    padding: var(--tv-space-3) var(--tv-space-4);
+    margin-bottom: var(--tv-space-4);
+}
+
+.tv-host__address {
+    flex-grow: 1;
+    font-size: var(--tv-font-l);
+    -unity-font-style: bold;
+    color: var(--tv-text);
+    padding: 0;
+}
+
+.tv-host__log-title {
+    margin-top: var(--tv-space-2);
+}
+
+.tv-log {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 0.35);
+    border-radius: var(--tv-radius);
+    border-width: 1px;
+    border-color: var(--tv-edge);
+    padding: var(--tv-space-2) var(--tv-space-3);
+}
+
+.tv-log__line {
+    font-size: var(--tv-font-s);
+    color: var(--tv-text-dim);
+    padding: 0;
+    margin: 0;
+    white-space: normal;
+}
+
+.tv-log__line--warn {
+    color: var(--tv-warn);
+}
+
+.tv-log__line--error {
+    color: var(--tv-error);
+}
