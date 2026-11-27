@@ -116,6 +116,10 @@ class WorldState:
             return []
         return [o for o in self.objects.values() if o.get("ownerId") == self.me.user_id]
 
+    def ground_y(self) -> float:
+        """Where walking ends: the plane y = 0, clamped into the bounds."""
+        return min(self.bounds_max[1], max(self.bounds_min[1], 0.0))
+
     def clamp_to_bounds(self, p: Vec) -> Vec:
         return tuple(min(hi, max(lo, v)) for v, lo, hi in zip(p, self.bounds_min, self.bounds_max))  # type: ignore[return-value]
 

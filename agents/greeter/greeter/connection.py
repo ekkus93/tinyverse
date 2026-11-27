@@ -6,6 +6,7 @@ import asyncio
 import itertools
 import json
 import logging
+import ssl
 import time
 from typing import Any, Awaitable, Callable
 
@@ -32,6 +33,17 @@ FATAL_CODES = {
 PING_INTERVAL_S = 10.0
 
 
+def tls_context(url: str, ca_file: str | None = None) -> ssl.SSLContext | None:
+    """The TLS settings for `url`: None for ws://; for wss://, the system's
+    trusted certificates, or only `ca_file` (a PEM file such as the world's
+    self-signed cert.pem) when given. Hostnames are always checked."""
+    if not url.startswith("wss://"):
+        if ca_file:
+            raise ValueError("--ca-file needs a wss:// URL")
+        return None
+    return ssl.create_default_context(cafile=ca_file)
+
+
 class ServerError(Exception):
     """The server answered a request with Error."""
 
@@ -49,8 +61,10 @@ EventHandler = Callable[[str, dict[str, Any], dict[str, Any]], Awaitable[None] |
 
 
 class Connection:
-    def __init__(self, url: str, state: WorldState, on_event: EventHandler | None = None) -> None:
+    def __init__(self, url: str, state: WorldState, on_event: EventHandler | None = None,
+                 ca_file: str | None = None) -> None:
         self.url = url
+        self.ca_file = ca_file
         self.state = state
         self.on_event = on_event
         self._ws: Any = None
@@ -65,7 +79,8 @@ class Connection:
         history. Returns the Welcome body. Raises ServerError on refusal."""
         # The websockets library sends WebSocket ping frames by itself, which
         # also keep the connection from idling out; we send protocol Pings too.
-        self._ws = await websockets.connect(self.url, open_timeout=timeout, max_size=2**20)
+        self._ws = await websockets.connect(self.url, open_timeout=timeout, max_size=2**20,
+                                            ssl=tls_context(self.url, self.ca_file))
         await self._ws.send(json.dumps(protocol.message(1, "hello", hello)))
         welcome = None
         async with asyncio.timeout(timeout):

@@ -19,7 +19,7 @@ Contents:
 9. [Error codes](#9-error-codes)
 10. [Staying connected and being a good guest](#10-staying-connected-and-being-a-good-guest)
 11. [Your first agent in 30 lines](#11-your-first-agent-in-30-lines)
-12. [Known quirks](#12-known-quirks)
+12. [Things that may surprise you](#12-things-that-may-surprise-you)
 
 ## 1. Agents in Tinyverse
 
@@ -71,16 +71,71 @@ default role (`builder` unless `world.toml` says otherwise). The `Welcome` then
 carries a `sessionToken`; send it as `Hello.token` on later connections to come
 back as the same user.
 
+The host sets the join password with `tinyverse-server init <DIR>
+--password-stdin` (or `TINYVERSE_PASSWORD`), and changes it later with
+`tinyverse-server password <DIR> --set-stdin`, `--set-from-env` or `--clear`;
+a change takes effect at the next start. A token login never needs the
+password.
+
 ## 3. Connecting
 
 ### Endpoint
 
-- `ws://HOST:PORT/ws`, default port 7878. Only `ws://` exists in this version
-  (no TLS), so do not send a world password over an untrusted network.
-- `GET /info` returns, without authentication:
+- `ws://HOST:PORT/ws`, default port 7878, or `wss://HOST:PORT/ws` when the
+  host serves TLS (see [Connecting over wss://](#connecting-over-wss)). A
+  server serves one or the other on its port, never both; `run` prints which,
+  e.g. `listening on wss://127.0.0.1:53377/ws`. Plain `ws://` sends tokens and
+  passwords in clear text, so use it only on a network you trust.
+- `GET /info` returns, without authentication (over `https://` on a TLS server):
   `{"name":"Doc World","description":"for docs","users":0,"max_users":16,"protocol_version":1,"server_version":"0.1.0","password_required":false}`
   (note: this HTTP endpoint uses snake_case keys).
 - `GET /health` returns `200 ok`.
+
+### Connecting over wss://
+
+The server serves `wss://` (and `https://` for `/info` and `/health`) when
+it is started with `--tls-cert FILE --tls-key FILE`, or when the world
+directory holds `cert.pem` and `key.pem` (`--no-tls` turns that off). A host
+without a certificate from a public authority creates a self-signed one:
+
+```text
+$ tinyverse-server tls self-signed ./myworld
+wrote ./myworld/cert.pem and ./myworld/key.pem (mode 0600)
+valid for: localhost, 127.0.0.1
+SHA-256 fingerprint: 2C:B8:BA:EC:11:49:F3:A2:4B:49:BB:99:5B:9C:70:2E:4F:FC:E7:D3:E1:5E:BB:E2:0C:1A:B4:38:16:27:D7:3B
+`run` now serves wss://; clients must trust this certificate.
+```
+
+By default the certificate is valid for `localhost` and `127.0.0.1`; the host
+adds the names or addresses people use with `--host` (repeatable). The
+protocol over `wss://` is exactly the same.
+
+A self-signed certificate is not trusted by default. Get `cert.pem` from the
+host (it is public; `key.pem` is secret and stays with the host), check its
+fingerprint with the host, and trust exactly that certificate. In Python with
+`websockets`:
+
+```python
+import ssl, websockets
+
+ctx = ssl.create_default_context(cafile="cert.pem")   # trust only this certificate
+async with websockets.connect("wss://127.0.0.1:7878/ws", ssl=ctx) as ws:
+    ...
+```
+
+`ssl.create_default_context()` with no arguments uses the system's trusted
+authorities, which is right for a certificate from a public authority. Keep
+hostname checking on: connect with a name or address the certificate lists.
+What happens otherwise:
+
+| Mistake | Result (Python `websockets`) |
+|---|---|
+| `wss://` to a self-signed server without `cafile` | `ssl.SSLCertVerificationError`: "certificate verify failed: self-signed certificate" |
+| `ws://` to a TLS server | `websockets.InvalidMessage`: "did not receive a valid HTTP response" |
+| `wss://` to a plain server | `ssl.SSLError`: "wrong version number" |
+
+With curl: `curl --cacert cert.pem https://127.0.0.1:7878/info`. (`tv-cli`
+and `tv-mcp` connect over `ws://` only in this version.)
 
 ### Frames
 
@@ -164,8 +219,8 @@ The ground is the plane `y = 0`. Seen from above, with +Z pointing up the page,
 - **Colours** are `{r, g, b, a}`, each 0..1, in **sRGB**, exactly as in a hex
   code: `#ff8000` is `{"r": 1.0, "g": 0.502, "b": 0.0, "a": 1.0}`. `a` is
   opacity (1 = opaque). Values outside 0..1 are clamped; a non-finite value is
-  `ERROR_CODE_INVALID_ARGUMENT`. (See [12](#12-known-quirks) about `tv-cli`
-  and `tv-mcp`.)
+  `ERROR_CODE_INVALID_ARGUMENT`. `tv-cli --color '#808080'` sends 0.5019608
+  per channel, the same as an agent following this rule.
 - **Timestamps** are milliseconds since the Unix epoch (UTC), as strings in
   JSON (`"serverTimeMs": "1795765495153"`).
 - **Ids**: avatars and objects share one id space of `uint64` entity ids,
@@ -570,15 +625,21 @@ walks: it does not need to stream positions.
 
 Behaviour:
 
-- With walk or run, `target.y` is ignored and replaced by your **current**
-  height, so you move horizontally. With fly, you move in 3D.
-- The (adjusted) target must lie inside the world bounds, else
-  `ERROR_CODE_OUT_OF_BOUNDS` and nothing moves. A non-finite coordinate is
-  `ERROR_CODE_INVALID_ARGUMENT`.
+- **Fly** moves in a straight 3D line to `target` at 16 m/s.
+- **Walk and run** ignore `target.y`. They go to *ground level*: the plane
+  y = 0, clamped into the world bounds (the server knows no other floor; it
+  has no collision). Each tick they move horizontally towards the target at
+  the mode's speed and, at the same time, bring y towards ground level at up
+  to 10 m/s, up or down. So an avatar that walks off while flying comes down
+  as it goes.
+- The target, with ground level as its y for walk and run, must lie inside
+  the world bounds, else `ERROR_CODE_OUT_OF_BOUNDS` and nothing moves. A
+  non-finite coordinate is `ERROR_CODE_INVALID_ARGUMENT`.
 - On success the reply is `ack`. Each tick (20 per second) the server moves
-  you by exactly the mode's speed × tick time towards the target, turns your
-  yaw to face the direction of travel, sets `velocity` and sets `animation` to
-  `walk`, `run` or `fly`, and `moveMode` to the mode.
+  you, turns your yaw to face the horizontal direction of travel (unchanged
+  when only y is changing), sets `velocity`, sets `moveMode` to the mode and
+  sets `animation` to `walk`, `run` or `fly`, or to `fall` while a walk or run
+  is still more than 0.5 m above ground level.
 - Obstacles are ignored: you walk through objects and people.
 - A new `moveTo` replaces the current one. `stop` cancels it. An `avatarState`
   from you also cancels it.
@@ -586,20 +647,41 @@ Behaviour:
   `avatarStates` you receive (normally it is not).
 
 **How to tell you have arrived.** There is no arrival message. Watch the
-`avatarStates` entries with your own `avatarId`: on the tick you arrive, the
-entry has `position` equal to the target, `velocity` zero and `animation`
-`"idle"`; after that no more entries for you arrive. Expect it after about
-distance ÷ speed seconds. A real walk from (0, 0, 0) to (6, 5, 8) in walk mode
-(10 m at 4 m/s, so 2.5 s; note y stays 0):
+`avatarStates` entries with your own `avatarId`. You have arrived on the tick
+whose entry has `position` equal to the target (for walk and run: the
+horizontal target *and* y at ground level), `velocity` zero and `animation`
+`"idle"`; after that no more entries for you arrive. Checking only x and z is
+not enough: a walk that starts in the air can reach the horizontal target
+while still coming down. Expect arrival after the longer of horizontal
+distance ÷ speed and height above ground ÷ 10 m/s.
+
+A walk on the ground from (0, 0, 0) to (6, 5, 8): 10 m at 4 m/s, so 2.5 s and
+51 ticks; `y: 5` is ignored:
 
 ```json
 >> {"seq": 2, "moveTo": {"target": {"x": 6, "y": 5, "z": 8}, "mode": "MOVE_MODE_WALK"}}
 << {"replyTo": 2, "ack": {}}
-<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795764450247", "states": [{"avatarId": "10", "transform": {"position": {"x": 0.11998457, "y": 0.0, "z": 0.15997942}, "yaw": 36.869896, "velocity": {"x": 2.4, "y": 0.0, "z": 3.2}, "moveMode": "MOVE_MODE_WALK", "animation": "walk"}}]}}
-<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795764450297", "states": [{"avatarId": "10", "transform": {"position": {"x": 0.24090189, "y": 0.0, "z": 0.32120252}, "yaw": 36.869896, "velocity": {"x": 2.3999999, "y": 0.0, "z": 3.2}, "moveMode": "MOVE_MODE_WALK", "animation": "walk"}}]}}
-   ... 46 more ticks ...
-<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795764452664", "states": [{"avatarId": "10", "transform": {"position": {"x": 5.9198227, "y": 0.0, "z": 7.893097}, "yaw": 36.869896, "velocity": {"x": 2.4, "y": 0.0, "z": 3.2}, "moveMode": "MOVE_MODE_WALK", "animation": "walk"}}]}}
-<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795764452719", "states": [{"avatarId": "10", "transform": {"position": {"x": 6.0, "y": 0.0, "z": 8.0}, "yaw": 36.869896, "velocity": {"x": 0.0, "y": 0.0, "z": 0.0}, "moveMode": "MOVE_MODE_WALK", "animation": "idle"}}]}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766389579", "states": [{"avatarId": "55", "transform": {"position": {"x": 0.12010057, "y": 0.0, "z": 0.16013409}, "yaw": 36.869896, "velocity": {"x": 2.4, "y": 0.0, "z": 3.2}, "moveMode": "MOVE_MODE_WALK", "animation": "walk"}}]}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766389630", "states": [{"avatarId": "55", "transform": {"position": {"x": 0.24327236, "y": 0.0, "z": 0.3243631}, "yaw": 36.869896, "velocity": {"x": 2.4, "y": 0.0, "z": 3.1999998}, "moveMode": "MOVE_MODE_WALK", "animation": "walk"}}]}}
+   ... 47 more ticks ...
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766392028", "states": [{"avatarId": "55", "transform": {"position": {"x": 5.9989343, "y": 0.0, "z": 7.998579}, "yaw": 36.869896, "velocity": {"x": 2.4, "y": 0.0, "z": 3.2}, "moveMode": "MOVE_MODE_WALK", "animation": "walk"}}]}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766392079", "states": [{"avatarId": "55", "transform": {"position": {"x": 6.0, "y": 0.0, "z": 8.0}, "yaw": 36.869896, "velocity": {"x": 0.0, "y": 0.0, "z": 0.0}, "moveMode": "MOVE_MODE_WALK", "animation": "idle"}}]}}
+```
+
+A walk that starts in the air: after flying to (0, 6, 0), walk to (1, 0, 0).
+The horizontal metre takes 0.25 s, the 6 m descent 0.6 s; the avatar reaches
+x = 1 on the fifth tick while still 3.5 m up, and arrives only on the
+thirteenth (some ticks left out):
+
+```json
+>> {"seq": 3, "moveTo": {"target": {"x": 1, "y": 0, "z": 0}, "mode": "MOVE_MODE_WALK"}}
+<< {"replyTo": 3, "ack": {}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766092876", "states": [{"avatarId": "48", "transform": {"position": {"x": 0.19941728, "y": 5.5014567, "z": 0.0}, "yaw": 90.0, "velocity": {"x": 4.0, "y": -10.0, "z": 0.0}, "moveMode": "MOVE_MODE_WALK", "animation": "fall"}}]}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766093077", "states": [{"avatarId": "48", "transform": {"position": {"x": 1.0, "y": 3.4917722, "z": 0.0}, "yaw": 90.0, "velocity": {"x": 0.0, "y": -10.0, "z": 0.0}, "moveMode": "MOVE_MODE_WALK", "animation": "fall"}}]}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766093326", "states": [{"avatarId": "48", "transform": {"position": {"x": 1.0, "y": 0.9983174, "z": 0.0}, "yaw": 90.0, "velocity": {"x": 0.0, "y": -10.0, "z": 0.0}, "moveMode": "MOVE_MODE_WALK", "animation": "fall"}}]}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766093376", "states": [{"avatarId": "48", "transform": {"position": {"x": 1.0, "y": 0.4949047, "z": 0.0}, "yaw": 90.0, "velocity": {"x": 0.0, "y": -10.0, "z": 0.0}, "moveMode": "MOVE_MODE_WALK", "animation": "walk"}}]}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766093426", "states": [{"avatarId": "48", "transform": {"position": {"x": 1.0, "y": 0.000238657, "z": 0.0}, "yaw": 90.0, "velocity": {"x": 0.0, "y": -10.0, "z": 0.0}, "moveMode": "MOVE_MODE_WALK", "animation": "walk"}}]}}
+<< {"replyTo": 0, "avatarStates": {"serverTimeMs": "1795766093476", "states": [{"avatarId": "48", "transform": {"position": {"x": 1.0, "y": 0.0, "z": 0.0}, "yaw": 90.0, "velocity": {"x": 0.0, "y": 0.0, "z": 0.0}, "moveMode": "MOVE_MODE_WALK", "animation": "idle"}}]}}
 ```
 
 Errors:
@@ -1295,7 +1377,7 @@ token; you get a new avatar id at the spawn point and a fresh snapshot, so
 rebuild your local copy of the world from it. Do not reconnect after
 `kicked` (an owner wanted you gone), `ERROR_CODE_BANNED`,
 `ERROR_CODE_INVALID_TOKEN`, `ERROR_CODE_AUTH_FAILED` or
-`ERROR_CODE_UNSUPPORTED_VERSION`. Close codes: 1000 kicked, 1001 server
+`ERROR_CODE_UNSUPPORTED_VERSION`, nor after a TLS certificate error (it will not fix itself). Close codes: 1000 kicked, 1001 server
 shutting down, 1008 refused / idle / too many bad frames, 1009 frame too
 large, 1013 too slow. Run only one connection per user: a second login
 replaces the first.
@@ -1373,7 +1455,10 @@ Walkthrough:
 1. **Get a token** from the host: `tinyverse-server token create ./myworld
    --name Scout`.
 2. **Run it**: `TINYVERSE_TOKEN=<token> python agents/first_agent.py
-   ws://HOST:7878/ws`. It prints `joined as Scout (avatar 44)`.
+   ws://HOST:7878/ws`. It prints `joined as Scout (avatar 44)`. (For a
+   `wss://` world with a self-signed certificate, pass
+   `ssl=ssl.create_default_context(cafile="cert.pem")` to
+   `websockets.connect`; see section 3.)
 3. **Hello and Welcome.** The first frame is `hello` with
    `CLIENT_KIND_AGENT` and the token. The first reply is `welcome` or `error`;
    `welcome.avatar` holds our avatar, and its `userId` lets us recognise our
@@ -1397,23 +1482,22 @@ From here, add `observe` to know who is around, `moveTo` to walk, and a
 language model to decide what to say. [`agents/greeter/`](../agents/greeter/)
 does all of that with Claude.
 
-## 12. Known quirks
+## 12. Things that may surprise you
 
-Behaviour of version 0.1.0 that may surprise you:
+These are intended behaviour, but easy to trip over:
 
-- **Walking while airborne.** `moveTo` with walk or run keeps your *current*
-  height rather than bringing you to the ground. After flying to y = 5 and then
-  walking, you walk at y = 5. To land, `moveTo` with `MOVE_MODE_FLY` and
-  `y: 0` first.
-- **`tv-cli` and `tv-mcp` colours.** Both tools convert `#rrggbb` colours to
-  *linear* values before sending them (`#808080` becomes 0.216), and show
-  received colours converted back, while the protocol says colours are sRGB
-  0..1 "as in a hex code" (`#808080` is 0.502), which is what `Observe`'s
-  colour words assume. Colours written by those tools and by an agent that
-  follows the protocol differ.
-- **`/info` uses snake_case** (`max_users`), unlike the WebSocket JSON.
-- **`solid` defaults to false** in `objectCreate` (the proto3 default), while
-  `tv-cli` and `tv-mcp` default it to true.
-- **`setAppearance` replaces the whole appearance**; it is not a patch.
-- **The observe cap (50) and the default observe radius (30 m)** are not in
-  `Limits`.
+- **`setAppearance` replaces the whole appearance.** It is not a patch:
+  colours you leave out become white and preset names become empty. Send the
+  full appearance every time.
+- **An omitted `solid` is `false`** in `objectCreate` (the proto3 default), so
+  avatars walk through the object. Set `"solid": true` for things people
+  should bump into. (`tv-cli` and `tv-mcp` set it to true for you.)
+- **WebSocket-level pings count as activity.** Any frame resets the 30 s idle
+  timer, including the protocol-level ping frames that libraries such as
+  Python `websockets` send by themselves, so such a client never idles out.
+  Send `ping` messages anyway (section 10).
+- **`/info` uses snake_case** (`max_users`, `protocol_version`), unlike the
+  camelCase WebSocket JSON.
+- **The observe cap (50 avatars, 50 objects) and the default observe radius
+  (30 m) are not in `Limits`.** Watch `truncated`, and read `radius` in the
+  `observation` to see the radius used.

@@ -126,17 +126,21 @@ def build_look(args: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
 
 def build_move_to(args: dict[str, Any], state: WorldState) -> tuple[str, dict[str, Any]]:
-    """MoveTo for a person or a point. Walking keeps the current height."""
+    """MoveTo for a person or a point. Walking and running end on the ground:
+    the server ignores target.y and brings the avatar to ground level, so the
+    target is written with the ground height that arrival is checked against."""
     if state.me is None:
         raise ToolError("not in the world")
     me = state.me.position
+    ground = state.ground_y()
     if args.get("person"):
         who = state.find_by_name(str(args["person"]))
         if who is None:
             raise ToolError(f"nobody called {args['person']!r} is here")
-        target = point_near(who.position, me, gap=1.5)
+        x, _, z = point_near(who.position, me, gap=1.5)
+        target = (x, ground, z)
     elif "x" in args and "z" in args:
-        target = (float(args["x"]), me[1], float(args["z"]))
+        target = (float(args["x"]), ground, float(args["z"]))
     else:
         raise ToolError("give either person or both x and z")
     mode = "MOVE_MODE_RUN" if args.get("run") else "MOVE_MODE_WALK"
@@ -283,7 +287,7 @@ class ToolBox:
         target = protocol.read_vec3(payload["target"])
         me = self.state.me
         assert me is not None
-        if horizontal_distance(me.position, target) < 0.3:
+        if has_arrived(me.position, target, tolerance=0.3):
             return "already there"
         await self.conn.request(body, payload)
         arrived = await wait_for_arrival(self.state, target, run=bool(args.get("run")))
@@ -292,18 +296,41 @@ class ToolBox:
         return f"arrived at {where}" if arrived else f"stopped at {where} before arriving"
 
 
+#: How fast a walking or running MoveTo brings the avatar down to (or up
+#: to) the ground, in metres per second.
+GROUND_SETTLE_SPEED = 10.0
+
+
+def has_arrived(position: tuple[float, float, float], target: tuple[float, float, float],
+                tolerance: float = 0.05) -> bool:
+    """True once the avatar is at the target horizontally *and* at its
+    height. A walking MoveTo can reach the horizontal target while still
+    coming down from the air ("fall"), so the horizontal check alone is not
+    enough."""
+    return horizontal_distance(position, target) <= tolerance and abs(position[1] - target[1]) <= tolerance
+
+
+def arrival_timeout(position: tuple[float, float, float], target: tuple[float, float, float],
+                    speed: float, slack: float = 3.0) -> float:
+    """Seconds to wait for a walk or run: the slower of the horizontal travel
+    and the vertical settling, plus some slack."""
+    return max(horizontal_distance(position, target) / speed,
+               abs(position[1] - target[1]) / GROUND_SETTLE_SPEED) + slack
+
+
 async def wait_for_arrival(state: WorldState, target: tuple[float, float, float],
                            run: bool = False, tolerance: float = 0.05) -> bool:
-    """Waits until our avatar stands at `target` (horizontally). The server
-    sends our own position in AvatarStates while it moves us; on arrival the
-    last entry has the target position, zero velocity and animation "idle"."""
+    """Waits until our avatar stands at `target`. The server sends our own
+    position in AvatarStates while it moves us; on arrival the last entry has
+    the target position (on the ground), zero velocity and animation "idle"."""
     if state.me is None:
         return False
     speed = float(state.limits.get("runSpeed" if run else "walkSpeed", 4.0) or 4.0)
-    deadline = asyncio.get_running_loop().time() + horizontal_distance(state.me.position, target) / speed + 3.0
-    while asyncio.get_running_loop().time() < deadline:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + arrival_timeout(state.me.position, target, speed)
+    while loop.time() < deadline:
         me = state.me
-        if me is not None and horizontal_distance(me.position, target) <= tolerance:
+        if me is not None and has_arrived(me.position, target, tolerance):
             return True
         await asyncio.sleep(0.1)
     return False

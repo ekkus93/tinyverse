@@ -5,10 +5,12 @@ or TINYVERSE_SERVER points at one.
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import time
@@ -43,22 +45,29 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
-@pytest.fixture
-def world(tmp_path):
-    """A fresh world served on a free port; yields (url, greeter token)."""
+@contextlib.contextmanager
+def serve_world(tmp_path, tls=False):
+    """A fresh world served on a free port; yields (url, greeter token,
+    path of the self-signed cert.pem or None)."""
     wdir = tmp_path / "world"
     subprocess.run([SERVER, "init", wdir], check=True, capture_output=True)
     out = subprocess.run([SERVER, "token", "create", wdir, "--name", "Greeter", "--role", "builder"],
                          check=True, capture_output=True, text=True).stdout
     token = next(line.split()[-1] for line in out.splitlines() if line.startswith("token:"))
+    cert = None
+    if tls:
+        subprocess.run([SERVER, "tls", "self-signed", wdir], check=True, capture_output=True)
+        cert = wdir / "cert.pem"
     port = free_port()
     log = open(tmp_path / "server.log", "w")
     proc = subprocess.Popen([SERVER, "run", wdir, "--port", str(port), "--bind", "127.0.0.1"],
                             stdout=log, stderr=subprocess.STDOUT)
+    scheme = "https" if tls else "http"
+    context = ssl.create_default_context(cafile=cert) if tls else None
     deadline = time.time() + 10
     while True:
         try:
-            urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1)
+            urllib.request.urlopen(f"{scheme}://127.0.0.1:{port}/health", timeout=1, context=context)
             break
         except OSError:
             if time.time() > deadline or proc.poll() is not None:
@@ -66,7 +75,7 @@ def world(tmp_path):
                 pytest.fail("the server did not start")
             time.sleep(0.1)
     try:
-        yield f"ws://127.0.0.1:{port}/ws", token
+        yield f"{'wss' if tls else 'ws'}://127.0.0.1:{port}/ws", token, cert
     finally:
         proc.send_signal(signal.SIGTERM)
         try:
@@ -74,6 +83,18 @@ def world(tmp_path):
         except subprocess.TimeoutExpired:
             proc.kill()
         log.close()
+
+
+@pytest.fixture
+def world(tmp_path):
+    with serve_world(tmp_path) as (url, token, _):
+        yield url, token
+
+
+@pytest.fixture
+def tls_world(tmp_path):
+    with serve_world(tmp_path, tls=True) as served:
+        yield served
 
 
 class Client:
@@ -87,8 +108,9 @@ class Client:
         self.task = asyncio.create_task(self._read())
 
     @classmethod
-    async def join(cls, url, name, kind="CLIENT_KIND_HUMAN"):
-        ws = await websockets.connect(url)
+    async def join(cls, url, name, kind="CLIENT_KIND_HUMAN", ca_file=None):
+        ctx = ssl.create_default_context(cafile=ca_file) if url.startswith("wss://") else None
+        ws = await websockets.connect(url, ssl=ctx)
         await ws.send(json.dumps({"seq": 1, "hello": {"protocolVersion": 1, "kind": kind, "name": name}}))
         welcome = json.loads(await ws.recv())["welcome"]
         return cls(ws, welcome)
@@ -206,4 +228,43 @@ def test_greeter_end_to_end(world, tmp_path):
         asyncio.run(scenario(url, token, tmp_path))
     except BaseException:
         print((tmp_path / "greeter.log").read_text())
+        raise
+
+
+async def tls_scenario(url, token, cert, tmp_path):
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    env.pop("ANTHROPIC_API_KEY", None)
+    base = [sys.executable, "-m", "greeter", "--url", url, "--token", token, "--no-llm"]
+
+    # Without the certificate the greeter refuses the self-signed server and exits 2.
+    untrusted = await asyncio.create_subprocess_exec(*base, cwd=GREETER_DIR, env=env,
+                                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    out, _ = await asyncio.wait_for(untrusted.communicate(), 15)
+    assert untrusted.returncode == 2, out
+    assert b"--ca-file" in out
+
+    log = open(tmp_path / "greeter-tls.log", "w")
+    greeter = await asyncio.create_subprocess_exec(*base, "--ca-file", str(cert), cwd=GREETER_DIR, env=env,
+                                                   stdout=log, stderr=subprocess.STDOUT)
+    try:
+        await asyncio.sleep(2.0)
+        tess = await Client.join(url, "Tess", ca_file=cert)
+        await tess.wait_for(lambda m: any("Hi Tess" in t for t in tess.chats_from("Greeter")))
+        greeter.send_signal(signal.SIGINT)
+        assert await asyncio.wait_for(greeter.wait(), 10) == 0
+        await tess.close()
+    finally:
+        if greeter.returncode is None:
+            greeter.kill()
+            await greeter.wait()
+        log.close()
+
+
+def test_greeter_over_wss(tls_world, tmp_path):
+    url, token, cert = tls_world
+    assert url.startswith("wss://")
+    try:
+        asyncio.run(tls_scenario(url, token, cert, tmp_path))
+    except BaseException:
+        print((tmp_path / "greeter-tls.log").read_text() if (tmp_path / "greeter-tls.log").exists() else "")
         raise

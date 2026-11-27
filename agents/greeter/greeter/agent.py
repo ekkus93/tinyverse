@@ -7,9 +7,12 @@ import asyncio
 import logging
 import math
 import signal
+import ssl
 import time
 from dataclasses import dataclass
 from typing import Any
+
+import websockets
 
 from . import protocol
 from .brains import ClaudeBrain, RuleBrain, Trigger
@@ -35,6 +38,7 @@ class Options:
     token: str = ""
     name: str = ""
     password: str = ""
+    ca_file: str | None = None
     no_llm: bool = False
     model: str | None = None
     greet_radius: float = 4.0
@@ -153,6 +157,13 @@ class Greeter:
                 except FatalError as e:
                     log.error("%s", e)
                     return 2
+                except ssl.SSLCertVerificationError as e:
+                    log.error("the server's TLS certificate is not trusted (%s); pass the world's "
+                              "cert.pem with --ca-file if it is self-signed", e.verify_message)
+                    return 2
+                except websockets.InvalidHandshake as e:
+                    hint = " (the server may serve wss://)" if self.opts.url.startswith("ws://") else ""
+                    log.warning("not a Tinyverse WebSocket at %s%s: %s", self.opts.url, hint, e)
                 except (OSError, ServerError, asyncio.TimeoutError) as e:
                     log.warning("connection failed: %s", e)
                 if self.stop.is_set():
@@ -173,7 +184,7 @@ class Greeter:
         return 0
 
     async def _session(self) -> None:
-        conn = Connection(self.opts.url, self.state, self.on_event)
+        conn = Connection(self.opts.url, self.state, self.on_event, ca_file=self.opts.ca_file)
         # After a first join without an agent token, reuse the session token
         # so we come back as the same user.
         token = self.opts.token or self.session_token

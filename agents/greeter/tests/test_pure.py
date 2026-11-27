@@ -240,3 +240,39 @@ def test_rule_brain_understands_build_requests():
     assert parse_build_request("build something") is None
     assert parse_build_request("a red box is nice") is None
     assert Trigger("chat", "Ada", False, "hi").channel == "CHAT_CHANNEL_LOCAL"
+
+
+# ------------------------------------------------- arrival and connection
+
+def test_walking_arrives_only_on_the_ground():
+    from greeter.tools import arrival_timeout, has_arrived
+
+    target = (1.0, 0.0, 0.0)
+    assert not has_arrived((1.0, 3.49, 0.0), target)  # horizontal target reached, still falling
+    assert not has_arrived((0.8, 0.0, 0.0), target)
+    assert has_arrived((1.0, 0.0002, 0.0), target)
+    # 1 m at 4 m/s, but 6 m down at 10 m/s: the descent decides.
+    assert arrival_timeout((0, 6, 0), target, speed=4.0, slack=0) == pytest.approx(0.6)
+    assert arrival_timeout((-7, 0, 0), target, speed=4.0, slack=0) == pytest.approx(2.0)
+
+
+def test_move_to_targets_ground_level_even_from_the_air():
+    s = state_with()
+    s.me.position = (0.0, 5.0, 0.0)
+    _, payload = build_move_to({"x": 3, "z": 4}, s)
+    assert payload["target"] == {"x": 3.0, "y": 0.0, "z": 4.0}
+    s.bounds_min = (-10, 2, -10)  # a world whose floor is above y = 0
+    assert s.ground_y() == 2
+    assert build_move_to({"x": 3, "z": 4}, s)[1]["target"]["y"] == 2.0
+
+
+def test_tls_context_only_for_wss():
+    import ssl
+
+    from greeter.connection import tls_context
+
+    assert tls_context("ws://127.0.0.1:7878/ws") is None
+    with pytest.raises(ValueError):
+        tls_context("ws://127.0.0.1:7878/ws", ca_file="cert.pem")
+    ctx = tls_context("wss://example.org/ws")
+    assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname

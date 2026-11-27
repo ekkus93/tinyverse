@@ -14,11 +14,13 @@ from .agent import Greeter, Options
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="greeter", description="An AI agent that welcomes people to a Tinyverse world.")
     p.add_argument("--url", default=os.environ.get("TINYVERSE_URL", "ws://127.0.0.1:7878/ws"),
-                   help="WebSocket URL of the world (default %(default)s, or TINYVERSE_URL)")
+                   help="ws:// or wss:// URL of the world (default %(default)s, or TINYVERSE_URL)")
     p.add_argument("--token", default=os.environ.get("TINYVERSE_TOKEN", ""),
                    help="agent token from `tinyverse-server token create` (or TINYVERSE_TOKEN)")
     p.add_argument("--token-file", help="file holding the token")
     p.add_argument("--name", default="", help="display name (default: the token's name, or Greeter)")
+    p.add_argument("--ca-file", help="PEM certificate(s) to trust for a wss:// URL, e.g. the world's "
+                   "self-signed cert.pem (default: the system's trusted certificates)")
     p.add_argument("--password", default=os.environ.get("TINYVERSE_PASSWORD", ""),
                    help="the world's join password, when joining without a token")
     p.add_argument("--no-llm", action="store_true", help="canned replies and simple rules; no API key needed")
@@ -43,7 +45,10 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_llm and not os.environ.get("ANTHROPIC_API_KEY"):
         print("greeter: ANTHROPIC_API_KEY is not set; set it, or run with --no-llm", file=sys.stderr)
         return 2
-    opts = Options(url=args.url, token=token, name=name, password=args.password, no_llm=args.no_llm,
+    if args.ca_file and not args.url.startswith("wss://"):
+        print("greeter: --ca-file needs a wss:// URL", file=sys.stderr)
+        return 2
+    opts = Options(url=args.url, ca_file=args.ca_file, token=token, name=name, password=args.password, no_llm=args.no_llm,
                    model=args.model, greet_radius=args.greet_radius,
                    greet_agents=args.greet_agents)
     return asyncio.run(Greeter(opts).run())
