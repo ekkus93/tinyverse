@@ -42,6 +42,9 @@ namespace Tinyverse.Avatars
         /// <summary>Degrees per pixel of mouse drag.</summary>
         public float OrbitSensitivity { get; set; } = 0.2f;
 
+        /// <summary>Moving the mouse up tilts the view down instead of up.</summary>
+        public bool InvertY { get; set; }
+
         /// <summary>Zoom factor per scroll notch.</summary>
         public float ZoomFactor { get; set; } = 1.2f;
 
@@ -202,7 +205,7 @@ namespace Tinyverse.Avatars
             if (orbiting)
             {
                 var d = lookDelta.ReadValue<Vector2>();
-                Orbit(new Vector2(d.x, -d.y) * OrbitSensitivity);
+                Orbit(new Vector2(d.x, InvertY ? d.y : -d.y) * OrbitSensitivity);
             }
 
             if (!overUI)
