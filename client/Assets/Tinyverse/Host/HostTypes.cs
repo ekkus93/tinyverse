@@ -80,7 +80,11 @@ namespace Tinyverse.Host
         /// <summary>The port the server reported in its ready line.</summary>
         public int Port { get; }
 
-        /// <summary>This machine's non-loopback IPv4 addresses, for other people on the network. Empty if bound to loopback.</summary>
+        /// <summary>
+        /// This machine's IPv4 addresses for other people on the network, best first: show the first one as
+        /// "friends join with". The default-route interface comes first, VPN/Docker/bridge interfaces last.
+        /// Empty if bound to loopback; just the bind address if bound to one specific address.
+        /// </summary>
         public IReadOnlyList<string> LanAddresses { get; }
 
         /// <summary>
