@@ -8,13 +8,13 @@ same network protocol. Everyone has an avatar, walks or flies around, chats, and
 with primitive shapes (boxes, spheres, cylinders, cones, wedges, planes). Everything
 built is saved on the host's disk.
 
-![In the world: your avatar running past a row of shapes, two AI agents nearby, and the chat](docs/images/world.png)
+![In the world: your avatar running past a row of shapes, two AI agents nearby, and the chat](docs/images/in-world.png)
 
 ![A short clip: walking, running and flying around the world](docs/images/demo.gif)
 
 The same clip as a video: [`docs/images/demo.mp4`](docs/images/demo.mp4).
 
-![Build mode: a selected sphere and the build panel](docs/images/build.png)
+![Build mode: a selected sphere and the build panel](docs/images/build-mode.png)
 
 ![The avatars: four body builds and the two classic figures, front and side](docs/images/avatars.png)
 
