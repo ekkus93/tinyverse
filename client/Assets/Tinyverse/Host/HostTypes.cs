@@ -43,18 +43,24 @@ namespace Tinyverse.Host
         /// </summary>
         public string Password { get; set; }
 
+        /// <summary>
+        /// Serve plain <c>ws://</c> even if the world folder holds <c>cert.pem</c> and <c>key.pem</c> (passes <c>--no-tls</c>).
+        /// </summary>
+        public bool DisableTls { get; set; }
+
         /// <summary>Never includes the password.</summary>
         public override string ToString() =>
-            $"HostSettings(dir={WorldDirectory}, name={WorldName}, port={Port}, bind={BindAddress}, password={(Password == null ? "unchanged" : Password.Length == 0 ? "none" : "set")})";
+            $"HostSettings(dir={WorldDirectory}, name={WorldName}, port={Port}, bind={BindAddress}, tls={(DisableTls ? "off" : "auto")}, password={(Password == null ? "unchanged" : Password.Length == 0 ? "none" : "set")})";
     }
 
     /// <summary>Returned by <see cref="ServerProcess.StartAsync"/> once the server is listening.</summary>
     public sealed class HostStartResult
     {
-        internal HostStartResult(string localUrl, int port, IReadOnlyList<string> lanAddresses,
+        internal HostStartResult(string localUrl, bool tls, int port, IReadOnlyList<string> lanAddresses,
             IReadOnlyList<string> lanUrls, string ownerToken, string worldDirectory)
         {
             LocalUrl = localUrl;
+            Tls = tls;
             Port = port;
             LanAddresses = lanAddresses;
             LanUrls = lanUrls;
@@ -62,8 +68,14 @@ namespace Tinyverse.Host
             WorldDirectory = worldDirectory;
         }
 
-        /// <summary>The URL this client connects to, e.g. <c>ws://127.0.0.1:7878/ws</c>.</summary>
+        /// <summary>
+        /// The URL this client connects to, e.g. <c>ws://127.0.0.1:7878/ws</c>, or <c>wss://127.0.0.1:7878/ws</c>
+        /// with TLS (127.0.0.1 is covered by the server's self-signed certificate by default).
+        /// </summary>
         public string LocalUrl { get; }
+
+        /// <summary>True if the server serves TLS (its ready line said <c>wss://</c>). All URLs then use <c>wss://</c>.</summary>
+        public bool Tls { get; }
 
         /// <summary>The port the server reported in its ready line.</summary>
         public int Port { get; }
@@ -71,7 +83,10 @@ namespace Tinyverse.Host
         /// <summary>This machine's non-loopback IPv4 addresses, for other people on the network. Empty if bound to loopback.</summary>
         public IReadOnlyList<string> LanAddresses { get; }
 
-        /// <summary><see cref="LanAddresses"/> as <c>ws://addr:port/ws</c> URLs.</summary>
+        /// <summary>
+        /// <see cref="LanAddresses"/> as <c>ws://addr:port/ws</c> (or <c>wss://</c>) URLs. With the default self-signed
+        /// certificate, which covers only localhost and 127.0.0.1, other machines will see a name mismatch.
+        /// </summary>
         public IReadOnlyList<string> LanUrls { get; }
 
         /// <summary>Contents of <c>owner.token</c> (trimmed), or null if the file is missing or unreadable.</summary>

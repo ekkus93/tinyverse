@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Fake tinyverse-server for the Host tests. Implements the CLI contract:
-#   init <dir> [--name n] [--description d] [--password pw]
-#   run <dir> [--port p] [--bind b]
-#   password <dir> --set pw | --clear
+#   init <dir> [--name n] [--description d]     (password from TINYVERSE_PASSWORD if set)
+#   run <dir> [--port p] [--bind b] [--no-tls]  (wss:// if <dir> holds cert.pem and key.pem)
+#   password <dir> --set-from-env | --clear
+# A password on the command line (--password, --set) is rejected, so a client that puts one there fails.
 #
 # Switches (environment variables):
 #   FAKE_START_DELAY=<s>     run: wait this long before the ready line
@@ -16,6 +17,7 @@
 #   FAKE_LEAK=1              print the password and owner token in log lines
 #   FAKE_INIT_FAIL=1         init: fail with an error on stderr
 # On a graceful SIGTERM/SIGINT, run writes "graceful" to <dir>/shutdown.marker and exits 0.
+# run writes "set" or "unset" to <dir>/run.env: whether TINYVERSE_PASSWORD reached it.
 set -u
 
 log() { echo "$(date +%H:%M:%S) INFO tinyverse_server: $*" >&2; }
@@ -28,15 +30,19 @@ shift 2
 
 case "$cmd" in
   init)
-    name=""; desc=""; pw=""
+    name=""; desc=""
     while [ $# -gt 0 ]; do
       case "$1" in
         --name) name=$2; shift 2 ;;
         --description) desc=$2; shift 2 ;;
-        --password) pw=$2; shift 2 ;;
+        --password|--password-stdin) echo "error: fake server: password must come from TINYVERSE_PASSWORD" >&2; exit 64 ;;
         *) echo "error: unexpected argument '$1'" >&2; exit 64 ;;
       esac
     done
+    if [ "${TINYVERSE_PASSWORD+set}" = set ] && [ -z "$TINYVERSE_PASSWORD" ]; then
+      echo "error: the password must not be empty" >&2; exit 1
+    fi
+    pw=${TINYVERSE_PASSWORD:-}
     if [ "${FAKE_INIT_FAIL:-}" = 1 ]; then
       [ "${FAKE_LEAK:-}" = 1 ] && echo "debug: init called with password $pw" >&2
       echo "Error: cannot create $dir: Permission denied (os error 13)" >&2
@@ -66,25 +72,30 @@ case "$cmd" in
   password)
     [ -e "$dir/world.toml" ] || { echo "Error: $dir is not a world" >&2; exit 2; }
     case "${1:-}" in
-      --set) [ -n "${2:-}" ] || { echo "error: --set needs a value" >&2; exit 64; }
-             [ "${FAKE_LEAK:-}" = 1 ] && echo "debug: new password $2" >&2
+      --set-from-env)
+             [ "${TINYVERSE_PASSWORD+set}" = set ] || { echo "error: TINYVERSE_PASSWORD is not set" >&2; exit 1; }
+             [ -n "$TINYVERSE_PASSWORD" ] || { echo "error: the password must not be empty" >&2; exit 1; }
+             [ "${FAKE_LEAK:-}" = 1 ] && echo "debug: new password $TINYVERSE_PASSWORD" >&2
              sed -i 's/^password_set = .*/password_set = true/' "$dir/world.toml"; echo "Password set" ;;
       --clear) sed -i 's/^password_set = .*/password_set = false/' "$dir/world.toml"; echo "Password cleared" ;;
-      *) echo "error: use --set <pw> or --clear" >&2; exit 64 ;;
+      *) echo "error: fake server: use --set-from-env or --clear" >&2; exit 64 ;;
     esac
     exit 0 ;;
 
   run)
-    port=7878; bind=0.0.0.0
+    port=7878; bind=0.0.0.0; scheme=ws
+    [ -e "$dir/cert.pem" ] && [ -e "$dir/key.pem" ] && scheme=wss
     while [ $# -gt 0 ]; do
       case "$1" in
         --port) port=$2; shift 2 ;;
         --bind) bind=$2; shift 2 ;;
+        --no-tls) scheme=ws; shift ;;
         *) echo "error: unexpected argument '$1'" >&2; exit 64 ;;
       esac
     done
     [ -e "$dir/world.toml" ] || { echo "Error: $dir is not a world (no world.toml)" >&2; exit 2; }
     echo $$ > "$dir/run.pid"
+    if [ "${TINYVERSE_PASSWORD+set}" = set ]; then echo set > "$dir/run.env"; else echo unset > "$dir/run.env"; fi
     rm -f "$dir/shutdown.marker"
 
     shutdown() {
@@ -113,7 +124,7 @@ case "$cmd" in
     [ -n "${FAKE_START_DELAY:-}" ] && nap "$FAKE_START_DELAY"
 
     if [ "${FAKE_MODE:-}" != never_ready ]; then
-      line="$(date +%H:%M:%S) INFO tinyverse_server: listening on ws://$bind:$port/ws"
+      line="$(date +%H:%M:%S) INFO tinyverse_server: listening on $scheme://$bind:$port/ws"
       if [ "${FAKE_READY_STREAM:-}" = stdout ]; then echo "$line"; else echo "$line" >&2; fi
     fi
     if [ -n "${FAKE_CHATTY:-}" ]; then

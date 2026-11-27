@@ -46,7 +46,8 @@ namespace Tinyverse.Host
         private bool _disposed;
         private HostStartResult _result;
         private Redactor _redactor = new Redactor();
-        private TaskCompletionSource<int> _ready;
+        private TaskCompletionSource<(bool Tls, int Port)> _ready;
+        private readonly List<ChildProcess> _launches = new List<ChildProcess>();
 
         // Serialises Stop calls.
         private readonly object _stopGate = new object();
@@ -115,6 +116,9 @@ namespace Tinyverse.Host
                 }
             }
         }
+
+        /// <summary>Test seam: every child launched so far (file, arguments, whether the password was in its environment).</summary>
+        internal IReadOnlyList<ChildProcess> Launches { get { lock (_lock) return _launches.ToArray(); } }
 
         /// <summary>A snapshot of the most recent output lines (at most <see cref="ServerProcessOptions.LogCapacity"/>), oldest first.</summary>
         public IReadOnlyList<string> GetRecentLines(int max = int.MaxValue)
@@ -191,16 +195,18 @@ namespace Tinyverse.Host
                 var args = new List<string> { "init", dir };
                 if (!string.IsNullOrWhiteSpace(settings.WorldName)) { args.Add("--name"); args.Add(settings.WorldName.Trim()); }
                 if (!string.IsNullOrWhiteSpace(settings.Description)) { args.Add("--description"); args.Add(settings.Description.Trim()); }
-                if (!string.IsNullOrEmpty(settings.Password)) { args.Add("--password"); args.Add(settings.Password); }
-                await RunToolAsync(args, dir, "create the world", ct).ConfigureAwait(false);
+                // The password goes through the environment, never the command line (visible in the process list).
+                string password = string.IsNullOrEmpty(settings.Password) ? null : settings.Password;
+                await RunToolAsync(args, dir, "create the world", password, ct).ConfigureAwait(false);
             }
             else if (settings.Password != null)
             {
                 SetState(HostState.Initialising);
                 var args = new List<string> { "password", dir };
                 if (settings.Password.Length == 0) { HostLog("Removing the join password"); args.Add("--clear"); }
-                else { HostLog("Setting the join password"); args.Add("--set"); args.Add(settings.Password); }
-                await RunToolAsync(args, dir, "change the world's password", ct).ConfigureAwait(false);
+                else { HostLog("Setting the join password"); args.Add("--set-from-env"); }
+                await RunToolAsync(args, dir, "change the world's password",
+                    settings.Password.Length == 0 ? null : settings.Password, ct).ConfigureAwait(false);
             }
 
             ThrowIfStopRequested(ct);
@@ -220,10 +226,11 @@ namespace Tinyverse.Host
                 "--port", settings.Port.ToString(CultureInfo.InvariantCulture),
                 "--bind", settings.BindAddress.Trim(),
             };
+            if (settings.DisableTls) runArgs.Add("--no-tls");
             bool parentDeath = (_options.OrphanGuard & OrphanGuard.ParentDeathSignal) != 0
                 && _platform.TryWrapForParentDeath(ref file, runArgs);
 
-            var ready = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var ready = new TaskCompletionSource<(bool Tls, int Port)>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (_lock) _ready = ready;
 
             ChildProcess child;
@@ -240,6 +247,7 @@ namespace Tinyverse.Host
             lock (_lock)
             {
                 _current = child;
+                _launches.Add(child);
                 stoppedMeanwhile = _stopRequested;
             }
             if (stoppedMeanwhile)
@@ -260,8 +268,8 @@ namespace Tinyverse.Host
             {
                 // Cancelled by Stop: the state is (or is about to be) Stopped.
                 if (ready.Task.IsCanceled) throw new OperationCanceledException("Hosting was stopped before the server was ready.");
-                int port = ready.Task.Result;
-                HostStartResult result = BuildResult(settings, dir, port, token);
+                (bool tls, int port) = ready.Task.Result;
+                HostStartResult result = BuildResult(settings, dir, tls, port, token);
                 bool exited, stopped;
                 lock (_lock)
                 {
@@ -305,7 +313,7 @@ namespace Tinyverse.Host
         }
 
         /// <summary>Runs <c>init</c> or <c>password</c> to completion. Output is held back until the owner token is known.</summary>
-        private async Task RunToolAsync(List<string> args, string dir, string purpose, CancellationToken ct)
+        private async Task RunToolAsync(List<string> args, string dir, string purpose, string password, CancellationToken ct)
         {
             var buffered = new List<string>();
             Action<string> onLine = l => { lock (buffered) buffered.Add(l); };
@@ -313,7 +321,7 @@ namespace Tinyverse.Host
             ChildProcess child;
             try
             {
-                child = await ChildProcess.Launch(_serverPath, args, null, onLine, "tinyverse-server-tool", _options.Environment).ConfigureAwait(false);
+                child = await ChildProcess.Launch(_serverPath, args, null, onLine, "tinyverse-server-tool", _options.Environment, password).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -324,6 +332,7 @@ namespace Tinyverse.Host
             lock (_lock)
             {
                 _current = child;
+                _launches.Add(child);
                 stopped = _stopRequested;
             }
             if (stopped) Terminate(child, TimeSpan.FromSeconds(2));
@@ -362,29 +371,30 @@ namespace Tinyverse.Host
                 throw Fail(HostErrorKind.InitFailed, $"Could not {purpose} (exit code {code}).", code, Tail(shown));
         }
 
-        private HostStartResult BuildResult(HostSettings settings, string dir, int port, string token)
+        private HostStartResult BuildResult(HostSettings settings, string dir, bool tls, int port, string token)
         {
             string bind = settings.BindAddress.Trim();
             string local;
             List<string> lan;
             if (Addresses.IsWildcard(bind))
             {
-                local = Addresses.Url("127.0.0.1", port);
+                // 127.0.0.1 is also what the self-signed certificate covers by default.
+                local = Addresses.Url(tls, "127.0.0.1", port);
                 lan = Addresses.LanIPv4();
             }
             else if (Addresses.IsLoopback(bind))
             {
-                local = Addresses.Url(bind, port);
+                local = Addresses.Url(tls, bind, port);
                 lan = new List<string>();
             }
             else
             {
                 // Bound to one interface: 127.0.0.1 would not reach it.
-                local = Addresses.Url(bind, port);
+                local = Addresses.Url(tls, bind, port);
                 lan = new List<string> { bind.Trim('[', ']') };
             }
-            var urls = lan.ConvertAll(a => Addresses.Url(a, port));
-            return new HostStartResult(local, port, lan.AsReadOnly(), urls.AsReadOnly(), token, dir);
+            var urls = lan.ConvertAll(a => Addresses.Url(tls, a, port));
+            return new HostStartResult(local, tls, port, lan.AsReadOnly(), urls.AsReadOnly(), token, dir);
         }
 
         private static string ReadOwnerToken(string dir)
@@ -601,7 +611,7 @@ namespace Tinyverse.Host
         private void OnServerLine(string raw)
         {
             Redactor r;
-            TaskCompletionSource<int> ready;
+            TaskCompletionSource<(bool Tls, int Port)> ready;
             lock (_lock)
             {
                 r = _redactor;
@@ -610,8 +620,8 @@ namespace Tinyverse.Host
             string line = r.Apply(raw);
             EmitLine(line);
             // Parse the raw line: redaction must never be able to hide the ready line.
-            if (ready != null && !ready.Task.IsCompleted && ReadyLine.TryParse(raw, out _, out int port))
-                ready.TrySetResult(port);
+            if (ready != null && !ready.Task.IsCompleted && ReadyLine.TryParse(raw, out bool tls, out _, out int port))
+                ready.TrySetResult((tls, port));
         }
 
         private void HostLog(string message)
