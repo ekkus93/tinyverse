@@ -105,7 +105,9 @@ namespace Tinyverse.Host.Tests
         public void NotFound_ExplainsEveryPlaceItLooked()
         {
             string streaming = Dir("game", "StreamingAssets");
-            string start = Dir("x", "client");
+            // A start folder that does not exist, directly under the filesystem root: the temp folder may sit
+            // inside a checkout (TMPDIR is the repo's tmp/), where walking up would find a built server.
+            string start = Path.Combine(Path.GetPathRoot(_root), "tinyverse-no-such-dir-" + Guid.NewGuid().ToString("N"), "x", "client");
             ServerLocation l = ServerLocator.Locate(null, null, streaming, start, true);
             Assert.That(l.Found, Is.False);
             Assert.That(l.Path, Is.Null);
