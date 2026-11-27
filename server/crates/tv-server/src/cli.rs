@@ -1,6 +1,7 @@
 //! The `tinyverse-server` command line.
 
-use std::io::Write;
+use std::ffi::OsString;
+use std::io::{BufRead, IsTerminal, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 
@@ -10,7 +11,17 @@ use tv_store::{Store, UserRecord};
 use tv_world::{ClientKind, UserId};
 
 use crate::config::{RoleName, WorldDir, WorldFile, edit_password_hash, world_exists};
+use crate::tls::{self, TlsFiles};
 use crate::{Tuning, auth, now_ms};
+
+/// The environment variable `init` and `password --set-from-env` read the
+/// join password from.
+pub const PASSWORD_ENV: &str = "TINYVERSE_PASSWORD";
+
+const RUN_NOTE: &str = "Prints `listening on ws://<addr>/ws` (or `wss://` with TLS) on stdout once \
+                        it accepts connections. TLS is used when --tls-cert and --tls-key are \
+                        given, or when the world directory holds cert.pem and key.pem (see \
+                        `tinyverse-server tls self-signed`); --no-tls refuses it.";
 
 const STORE_NOTE: &str = "These commands edit world.db directly and may be used while the server \
                           runs; a running server applies a change to a user at their next join.";
@@ -36,17 +47,38 @@ pub enum Cmd {
         name: Option<String>,
         #[arg(long)]
         description: Option<String>,
-        /// Join password for visitors without a token.
-        #[arg(long)]
+        /// Join password for visitors without a token. Visible to other local
+        /// users in the process list; prefer --password-stdin or the
+        /// TINYVERSE_PASSWORD environment variable, which is used when neither
+        /// flag is given.
+        #[arg(long, value_name = "PASSWORD", conflicts_with = "password_stdin")]
         password: Option<String>,
+        /// Read the join password from the first line of stdin.
+        #[arg(long)]
+        password_stdin: bool,
     },
-    /// Serve a world until SIGINT or SIGTERM.
+    /// Serve a world until SIGINT or SIGTERM, then save it and exit 0.
+    #[command(after_help = RUN_NOTE)]
     Run {
         dir: PathBuf,
         #[arg(long, default_value_t = tv_proto::DEFAULT_PORT)]
         port: u16,
         #[arg(long, default_value = "0.0.0.0")]
         bind: IpAddr,
+        /// PEM certificate chain to serve wss:// and HTTPS with (needs --tls-key).
+        #[arg(long, value_name = "PEM", requires = "tls_key", conflicts_with = "no_tls")]
+        tls_cert: Option<PathBuf>,
+        /// PEM private key of --tls-cert.
+        #[arg(long, value_name = "PEM", requires = "tls_cert", conflicts_with = "no_tls")]
+        tls_key: Option<PathBuf>,
+        /// Serve plain ws:// even if the world directory holds cert.pem and key.pem.
+        #[arg(long)]
+        no_tls: bool,
+    },
+    /// Manage the world's TLS certificate.
+    Tls {
+        #[command(subcommand)]
+        command: TlsCmd,
     },
     /// Manage login tokens (for agents, or to invite people).
     #[command(after_help = STORE_NOTE)]
@@ -61,14 +93,39 @@ pub enum Cmd {
         command: UserCmd,
     },
     /// Show, set or clear the world's join password. Takes effect at the next start.
+    #[command(group = clap::ArgGroup::new("action").multiple(false))]
     Password {
         dir: PathBuf,
         /// Remove the password.
-        #[arg(long, conflicts_with = "set")]
+        #[arg(long, group = "action")]
         clear: bool,
-        /// Set a new password.
-        #[arg(long, value_name = "PASSWORD")]
+        /// Set a new password. Visible to other local users in the process
+        /// list; prefer --set-stdin or --set-from-env.
+        #[arg(long, value_name = "PASSWORD", group = "action")]
         set: Option<String>,
+        /// Set the password to the first line of stdin.
+        #[arg(long, group = "action")]
+        set_stdin: bool,
+        /// Set the password to the value of TINYVERSE_PASSWORD.
+        #[arg(long, group = "action")]
+        set_from_env: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum TlsCmd {
+    /// Write a self-signed cert.pem and key.pem (mode 0600) into the world
+    /// directory; `run` then serves wss:// with them. Clients must be told to
+    /// trust this certificate: compare the printed SHA-256 fingerprint.
+    SelfSigned {
+        dir: PathBuf,
+        /// A DNS name or IP address the certificate is valid for. Repeat for
+        /// several (default: localhost and 127.0.0.1).
+        #[arg(long = "host", value_name = "NAME_OR_IP")]
+        hosts: Vec<String>,
+        /// Replace an existing cert.pem and key.pem.
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -136,17 +193,123 @@ pub fn init_logging(verbose: u8) {
         _ => "trace",
     };
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default));
-    let _ =
-        tracing_subscriber::fmt().with_env_filter(filter).with_writer(std::io::stderr).try_init();
+    // A dead stderr (the process that launched us crashed) must never panic:
+    // by default tracing-subscriber reports a failed write with `eprintln!`,
+    // which panics on a broken pipe, so turn that off and swallow errors.
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(|| QuietStderr)
+        .with_ansi(std::io::stderr().is_terminal())
+        .log_internal_errors(false)
+        .try_init();
 }
 
-/// Runs one command. Normal output goes to `out`.
+/// Standard error that reports every write as done, so a closed pipe is
+/// silently ignored instead of failing (and maybe panicking) the caller.
+pub struct QuietStderr;
+
+impl Write for QuietStderr {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let _ = std::io::stderr().write_all(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        let _ = std::io::stderr().flush();
+        Ok(())
+    }
+}
+
+/// Where commands read passwords from besides their arguments.
+pub struct Inputs<'a> {
+    pub stdin: &'a mut dyn BufRead,
+    /// The value of `TINYVERSE_PASSWORD`, if set.
+    pub env_password: Option<OsString>,
+}
+
+/// Where a password comes from.
+enum Source {
+    Arg(String),
+    Stdin,
+    Env,
+}
+
+fn read_password(source: Source, inputs: &mut Inputs<'_>) -> anyhow::Result<String> {
+    let password = match source {
+        Source::Arg(pw) => pw,
+        Source::Stdin => read_line(inputs.stdin)?,
+        Source::Env => match inputs.env_password.take() {
+            None => bail!("{PASSWORD_ENV} is not set"),
+            Some(value) => value
+                .into_string()
+                .map_err(|_| anyhow::anyhow!("{PASSWORD_ENV} is not valid UTF-8"))?,
+        },
+    };
+    if password.is_empty() {
+        bail!("the password must not be empty");
+    }
+    Ok(password)
+}
+
+/// One line of input without its line ending.
+pub fn read_line(input: &mut dyn BufRead) -> anyhow::Result<String> {
+    let mut line = String::new();
+    if input.read_line(&mut line).context("cannot read the password from stdin")? == 0 {
+        bail!("no password on stdin");
+    }
+    if line.ends_with('\n') {
+        line.pop();
+        if line.ends_with('\r') {
+            line.pop();
+        }
+    }
+    Ok(line)
+}
+
+/// Runs one command with the process's stdin and environment. Normal output
+/// goes to `out`.
 pub fn execute(cli: Cli, out: &mut dyn Write) -> anyhow::Result<()> {
+    let stdin = std::io::stdin();
+    let mut lock = stdin.lock();
+    let mut inputs = Inputs { stdin: &mut lock, env_password: std::env::var_os(PASSWORD_ENV) };
+    execute_with(cli, &mut inputs, out)
+}
+
+/// Runs one command, reading passwords from `inputs` only.
+pub fn execute_with(cli: Cli, inputs: &mut Inputs<'_>, out: &mut dyn Write) -> anyhow::Result<()> {
     match cli.command {
-        Cmd::Init { dir, name, description, password } => {
+        Cmd::Init { dir, name, description, password, password_stdin } => {
+            let source = match (password, password_stdin) {
+                (Some(pw), _) => Some(Source::Arg(pw)),
+                (None, true) => Some(Source::Stdin),
+                (None, false) => inputs.env_password.is_some().then_some(Source::Env),
+            };
+            let password = source.map(|s| read_password(s, inputs)).transpose()?;
             init(&dir, name, description, password, out)
         }
-        Cmd::Run { dir, port, bind } => run(&dir, SocketAddr::new(bind, port), out),
+        Cmd::Run { dir, port, bind, tls_cert, tls_key, no_tls } => {
+            let tls = match (tls_cert, tls_key) {
+                (Some(cert), Some(key)) => Some(TlsFiles { cert, key }),
+                _ if no_tls => None,
+                _ => tls_in_dir(&dir)?,
+            };
+            run(&dir, SocketAddr::new(bind, port), tls, out)
+        }
+        Cmd::Tls { command: TlsCmd::SelfSigned { dir, hosts, force } } => {
+            if !WorldDir::new(&dir).toml().exists() {
+                bail!("{} is not a world directory; create one with `init`", dir.display());
+            }
+            let made = tls::write_self_signed(&dir, &hosts, force)?;
+            writeln!(
+                out,
+                "wrote {} and {} (mode 0600)",
+                made.files.cert.display(),
+                made.files.key.display()
+            )?;
+            writeln!(out, "valid for: {}", made.hosts.join(", "))?;
+            writeln!(out, "SHA-256 fingerprint: {}", made.fingerprint)?;
+            writeln!(out, "`run` now serves wss://; clients must trust this certificate.")?;
+            Ok(())
+        }
         Cmd::Token { command } => match command {
             TokenCmd::Create { dir, name, role, kind } => {
                 let mut store = open_store(&dir)?;
@@ -204,7 +367,16 @@ pub fn execute(cli: Cli, out: &mut dyn Write) -> anyhow::Result<()> {
                 Ok(())
             }
         },
-        Cmd::Password { dir, clear, set } => password(&dir, clear, set, out),
+        Cmd::Password { dir, clear, set, set_stdin, set_from_env } => {
+            let source = match (set, set_stdin, set_from_env) {
+                (Some(pw), _, _) => Some(Source::Arg(pw)),
+                (None, true, _) => Some(Source::Stdin),
+                (None, false, true) => Some(Source::Env),
+                (None, false, false) => None,
+            };
+            let new = source.map(|s| read_password(s, inputs)).transpose()?;
+            password(&dir, clear, new, out)
+        }
     }
 }
 
@@ -296,12 +468,44 @@ fn write_new(path: &Path, contents: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run(dir: &Path, bind: SocketAddr, out: &mut dyn Write) -> anyhow::Result<()> {
+/// `cert.pem` and `key.pem` of the world directory if both exist; an error
+/// if only one does.
+fn tls_in_dir(dir: &Path) -> anyhow::Result<Option<TlsFiles>> {
+    let files = TlsFiles::in_dir(dir);
+    match (files.cert.exists(), files.key.exists()) {
+        (true, true) => Ok(Some(files)),
+        (false, false) => Ok(None),
+        (true, false) => bail!(
+            "{} exists but {} does not; add the key, remove the certificate, or pass --no-tls",
+            files.cert.display(),
+            files.key.display()
+        ),
+        (false, true) => bail!(
+            "{} exists but {} does not; add the certificate, remove the key, or pass --no-tls",
+            files.key.display(),
+            files.cert.display()
+        ),
+    }
+}
+
+fn run(
+    dir: &Path,
+    bind: SocketAddr,
+    tls: Option<TlsFiles>,
+    out: &mut dyn Write,
+) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
     runtime.block_on(async {
-        let server = crate::start(dir, bind, Tuning::default()).await?;
-        writeln!(out, "listening on {}", server.ws_url())?;
-        out.flush()?;
+        let server = crate::start_with(dir, bind, Tuning::default(), tls.as_ref()).await?;
+        if let (Some(files), Some(fingerprint)) = (&tls, server.tls_fingerprint()) {
+            tracing::info!(cert = %files.cert.display(), %fingerprint, "serving TLS");
+        }
+        // Whoever reads stdout may already be gone; that must not stop the
+        // server, which still has to save the world on SIGTERM.
+        if writeln!(out, "listening on {}", server.ws_url()).and_then(|()| out.flush()).is_err() {
+            tracing::warn!("cannot write to stdout");
+        }
+        tracing::info!("listening on {}", server.ws_url());
         server.run_until(shutdown_signal()).await?;
         tracing::info!("stopped");
         Ok(())
@@ -523,5 +727,146 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let err = open_store(dir.path()).err().unwrap();
         assert!(err.to_string().contains("init"), "{err}");
+    }
+
+    fn exec(args: &[&str], stdin: &str, env: Option<&str>) -> anyhow::Result<String> {
+        let cli = Cli::try_parse_from(args)?;
+        let mut input = stdin.as_bytes();
+        let mut inputs = Inputs { stdin: &mut input, env_password: env.map(OsString::from) };
+        let mut out = Vec::new();
+        execute_with(cli, &mut inputs, &mut out)?;
+        Ok(String::from_utf8(out).unwrap())
+    }
+
+    fn hash_of(dir: &Path) -> Option<String> {
+        WorldFile::load(&WorldDir::new(dir)).unwrap().password_hash
+    }
+
+    #[test]
+    fn read_line_strips_one_line_ending() {
+        for (input, want) in
+            [("pw\n", "pw"), ("pw\r\n", "pw"), ("pw", "pw"), ("a b \nrest", "a b ")]
+        {
+            assert_eq!(read_line(&mut input.as_bytes()).unwrap(), want, "{input:?}");
+        }
+        assert!(read_line(&mut "".as_bytes()).unwrap_err().to_string().contains("no password"));
+        assert_eq!(read_line(&mut "\n".as_bytes()).unwrap(), "");
+    }
+
+    #[test]
+    fn init_reads_the_password_from_stdin_env_or_flag() {
+        let tmp = tempfile::tempdir().unwrap();
+        let s = |p: &Path| p.to_str().unwrap().to_owned();
+
+        let a = tmp.path().join("stdin");
+        exec(&["t", "init", &s(&a), "--password-stdin"], "from stdin\n", Some("ignored")).unwrap();
+        assert!(auth::verify_password("from stdin", &hash_of(&a).unwrap()));
+
+        let b = tmp.path().join("env");
+        exec(&["t", "init", &s(&b)], "", Some("from env")).unwrap();
+        assert!(auth::verify_password("from env", &hash_of(&b).unwrap()));
+
+        let c = tmp.path().join("flag");
+        exec(&["t", "init", &s(&c), "--password", "flag"], "", Some("ignored")).unwrap();
+        assert!(auth::verify_password("flag", &hash_of(&c).unwrap()));
+
+        let d = tmp.path().join("none");
+        exec(&["t", "init", &s(&d)], "", None).unwrap();
+        assert_eq!(hash_of(&d), None);
+
+        // Empty passwords are errors, not "no password", and create nothing.
+        for (args, stdin, env) in [
+            (vec!["--password-stdin"], "\n", None),
+            (vec!["--password-stdin"], "", None),
+            (vec![], "", Some("")),
+            (vec!["--password", ""], "", None),
+        ] {
+            let e = tmp.path().join("empty");
+            let mut all = vec!["t".to_owned(), "init".to_owned(), s(&e)];
+            all.extend(args.iter().map(|a| a.to_string()));
+            let all: Vec<&str> = all.iter().map(String::as_str).collect();
+            let err = exec(&all, stdin, env).unwrap_err().to_string();
+            assert!(err.contains("password"), "{all:?}: {err}");
+            assert!(!e.exists(), "{all:?} created the world anyway");
+        }
+        assert!(
+            exec(&["t", "init", &s(&d), "--password", "x", "--password-stdin"], "", None).is_err()
+        );
+    }
+
+    #[test]
+    fn password_command_reads_stdin_and_env() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(WorldDir::new(dir.path()).toml(), WorldFile::default().to_toml()).unwrap();
+        let d = dir.path().to_str().unwrap();
+        exec(&["t", "password", d, "--set-stdin"], "piped\n", None).unwrap();
+        assert!(auth::verify_password("piped", &hash_of(dir.path()).unwrap()));
+        exec(&["t", "password", d, "--set-from-env"], "", Some("env pw")).unwrap();
+        assert!(auth::verify_password("env pw", &hash_of(dir.path()).unwrap()));
+
+        let before = hash_of(dir.path());
+        for (args, stdin, env, needle) in [
+            (vec!["--set-stdin"], "\n", None, "empty"),
+            (vec!["--set-from-env"], "", Some(""), "empty"),
+            (vec!["--set-from-env"], "", None, PASSWORD_ENV),
+        ] {
+            let mut all = vec!["t", "password", d];
+            all.extend(args);
+            let err = exec(&all, stdin, env).unwrap_err().to_string();
+            assert!(err.contains(needle), "{all:?}: {err}");
+        }
+        assert_eq!(hash_of(dir.path()), before, "failed attempts change nothing");
+        assert!(exec(&["t", "password", d, "--set-stdin", "--clear"], "x\n", None).is_err());
+        assert!(exec(&["t", "password", d, "--set-from-env", "--set", "x"], "", None).is_err());
+    }
+
+    #[test]
+    fn help_warns_about_the_process_list() {
+        let mut cmd = Cli::command();
+        let init = cmd.find_subcommand_mut("init").unwrap().render_long_help().to_string();
+        assert!(init.contains("process list") && init.contains("TINYVERSE_PASSWORD"), "{init}");
+        let mut cmd = Cli::command();
+        let pw = cmd.find_subcommand_mut("password").unwrap().render_long_help().to_string();
+        assert!(pw.contains("process list"), "{pw}");
+    }
+
+    #[test]
+    fn run_tls_flags() {
+        let parse = |args: &[&str]| Cli::try_parse_from(args).map(|c| c.command);
+        assert!(parse(&["t", "run", "w", "--tls-cert", "c.pem"]).is_err(), "needs --tls-key");
+        assert!(parse(&["t", "run", "w", "--tls-key", "k.pem"]).is_err(), "needs --tls-cert");
+        assert!(
+            parse(&["t", "run", "w", "--tls-cert", "c", "--tls-key", "k", "--no-tls"]).is_err()
+        );
+        assert!(matches!(
+            parse(&["t", "run", "w", "--tls-cert", "c", "--tls-key", "k"]),
+            Ok(Cmd::Run { tls_cert: Some(_), tls_key: Some(_), no_tls: false, .. })
+        ));
+        match parse(&["t", "tls", "self-signed", "w", "--host", "a.lan", "--host", "10.0.0.2"]) {
+            Ok(Cmd::Tls { command: TlsCmd::SelfSigned { hosts, force: false, .. } }) => {
+                assert_eq!(hosts, vec!["a.lan", "10.0.0.2"]);
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn tls_files_in_the_world_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(tls_in_dir(dir.path()).unwrap(), None);
+        std::fs::write(dir.path().join("cert.pem"), "x").unwrap();
+        let err = tls_in_dir(dir.path()).unwrap_err().to_string();
+        assert!(err.contains("key.pem") && err.contains("--no-tls"), "{err}");
+        std::fs::write(dir.path().join("key.pem"), "x").unwrap();
+        assert_eq!(tls_in_dir(dir.path()).unwrap(), Some(TlsFiles::in_dir(dir.path())));
+        std::fs::remove_file(dir.path().join("cert.pem")).unwrap();
+        assert!(tls_in_dir(dir.path()).unwrap_err().to_string().contains("cert.pem"));
+    }
+
+    #[test]
+    fn quiet_stderr_never_fails() {
+        let mut w = QuietStderr;
+        assert_eq!(w.write(b"").unwrap(), 0);
+        w.flush().unwrap();
     }
 }

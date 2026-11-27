@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
@@ -12,7 +13,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tv_proto::v1::{self, client_message::Body as C, server_message::Body as S};
 use tv_proto::{Encoding, Frame};
-use tv_server::cli::{Cli, execute};
+use tv_server::cli::{Cli, Inputs, execute_with};
 use tv_server::config::{WorldDir, WorldFile};
 use tv_server::{ServerHandle, Tuning};
 use tv_store::Store;
@@ -51,7 +52,10 @@ impl TestWorld {
             "Test World".as_ref(),
         ])
         .unwrap();
-        execute(cli, &mut Vec::new()).unwrap();
+        // Never inherit TINYVERSE_PASSWORD from the developer's shell.
+        let mut stdin = std::io::empty();
+        let mut inputs = Inputs { stdin: &mut stdin, env_password: None };
+        execute_with(cli, &mut inputs, &mut Vec::new()).unwrap();
         let paths = WorldDir::new(&dir);
         let mut file = WorldFile::load(&paths).unwrap();
         edit(&mut file);
@@ -146,6 +150,18 @@ impl Client {
     pub async fn connect(server: &ServerHandle, encoding: Encoding) -> Client {
         let (ws, _) = tokio_tungstenite::connect_async(server.ws_url()).await.unwrap();
         Client { ws, encoding, seq: 0 }
+    }
+
+    /// Connects to `url` (`ws://` or `wss://`), trusting `tls` for `wss://`.
+    pub async fn connect_url(
+        url: &str,
+        encoding: Encoding,
+        tls: Option<Arc<rustls::ClientConfig>>,
+    ) -> Result<Client, tokio_tungstenite::tungstenite::Error> {
+        let connector = tls.map(tokio_tungstenite::Connector::Rustls);
+        let (ws, _) =
+            tokio_tungstenite::connect_async_tls_with_config(url, None, false, connector).await?;
+        Ok(Client { ws, encoding, seq: 0 })
     }
 
     pub async fn send_frame(&mut self, frame: Frame) {
@@ -294,7 +310,11 @@ impl std::ops::DerefMut for Session {
 
 /// Sends `hello` and reads Welcome, every Snapshot chunk and ChatHistory.
 pub async fn join_with(server: &ServerHandle, encoding: Encoding, hello: v1::Hello) -> Session {
-    let mut client = Client::connect(server, encoding).await;
+    join_client(Client::connect(server, encoding).await, hello).await
+}
+
+/// Sends `hello` on a connected client and reads the join sequence.
+pub async fn join_client(mut client: Client, hello: v1::Hello) -> Session {
     let seq = client.send(C::Hello(hello)).await;
     let msg = client.recv().await;
     assert_eq!(msg.reply_to, seq, "Welcome carries the Hello's seq");
@@ -361,13 +381,48 @@ pub async fn move_and_wait(session: &mut Session, watcher: &mut Session, x: f32,
 
 /// A minimal HTTP/1.1 GET; returns status code and body.
 pub async fn http_get(server: &ServerHandle, path: &str) -> (u16, String) {
+    let stream = TcpStream::connect(server.addr()).await.unwrap();
+    http_request(stream, &server.addr().to_string(), path).await
+}
+
+/// The same over TLS, trusting `tls`.
+pub async fn https_get(
+    server: &ServerHandle,
+    path: &str,
+    tls: Arc<rustls::ClientConfig>,
+) -> (u16, String) {
+    let tcp = TcpStream::connect(server.addr()).await.unwrap();
+    let name = rustls::pki_types::ServerName::try_from("localhost").unwrap();
+    let stream = tokio_rustls::TlsConnector::from(tls).connect(name, tcp).await.unwrap();
+    http_request(stream, "localhost", path).await
+}
+
+/// A client config that trusts exactly the certificates in `cert_pem`.
+pub fn trusting(cert_pem: &Path) -> Arc<rustls::ClientConfig> {
+    use rustls::pki_types::CertificateDer;
+    use rustls::pki_types::pem::PemObject;
+    let mut roots = rustls::RootCertStore::empty();
+    for cert in CertificateDer::pem_file_iter(cert_pem).unwrap() {
+        roots.add(cert.unwrap()).unwrap();
+    }
+    let config = rustls::ClientConfig::builder_with_provider(tv_server::tls::provider())
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+    Arc::new(config)
+}
+
+async fn http_request<S>(mut stream: S, host: &str, path: &str) -> (u16, String)
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let mut stream = TcpStream::connect(server.addr()).await.unwrap();
-    let request =
-        format!("GET {path} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n", server.addr());
+    let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).await.unwrap();
     let mut response = Vec::new();
-    stream.read_to_end(&mut response).await.unwrap();
+    // A TLS peer may close without close_notify after the response.
+    let _ = stream.read_to_end(&mut response).await;
     let text = String::from_utf8(response).unwrap();
     let (head, body) = text.split_once("\r\n\r\n").unwrap();
     let status = head.split_whitespace().nth(1).unwrap().parse().unwrap();

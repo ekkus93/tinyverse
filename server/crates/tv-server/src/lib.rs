@@ -1,7 +1,9 @@
 //! The Tinyverse host server.
 //!
 //! [`start`] opens a world directory and serves it: `GET /ws` (the protocol),
-//! `GET /info` and `GET /health`. One task ([`hub`]) owns the world; one task
+//! `GET /info` and `GET /health`, over plain HTTP or, with [`start_with`] and
+//! a certificate, over TLS (`wss://` and HTTPS on the same port; see
+//! [`tls`]). One task ([`hub`]) owns the world; one task
 //! per connection ([`session`]) speaks the protocol; the store runs on its
 //! own thread ([`store`]). The binary `tinyverse-server` wraps this in a CLI
 //! ([`cli`]).
@@ -25,6 +27,7 @@ pub mod persist;
 pub mod ratelimit;
 pub mod session;
 pub mod store;
+pub mod tls;
 
 use std::net::SocketAddr;
 use std::path::Path;
@@ -71,6 +74,7 @@ pub struct Tuning {
 /// A running server.
 pub struct ServerHandle {
     addr: SocketAddr,
+    tls: Option<String>,
     shutdown: watch::Sender<bool>,
     task: JoinHandle<anyhow::Result<()>>,
 }
@@ -81,14 +85,21 @@ impl ServerHandle {
         self.addr
     }
 
-    /// `ws://<addr>/ws`.
+    /// `ws://<addr>/ws`, or `wss://<addr>/ws` with TLS.
     pub fn ws_url(&self) -> String {
-        format!("ws://{}{}", self.addr, tv_proto::WS_PATH)
+        let scheme = if self.tls.is_some() { "wss" } else { "ws" };
+        format!("{scheme}://{}{}", self.addr, tv_proto::WS_PATH)
     }
 
-    /// `http://<addr>`.
+    /// `http://<addr>`, or `https://<addr>` with TLS.
     pub fn http_url(&self) -> String {
-        format!("http://{}", self.addr)
+        let scheme = if self.tls.is_some() { "https" } else { "http" };
+        format!("{scheme}://{}", self.addr)
+    }
+
+    /// The SHA-256 fingerprint of the certificate, if serving TLS.
+    pub fn tls_fingerprint(&self) -> Option<&str> {
+        self.tls.as_deref()
     }
 
     /// Stops accepting connections, closes every session, writes the world
@@ -133,9 +144,22 @@ pub struct Info {
     pub password_required: bool,
 }
 
-/// Opens the world in `dir` and starts serving it on `bind` (port 0 picks a
-/// free port; see [`ServerHandle::addr`]).
+/// Opens the world in `dir` and starts serving it on `bind` over plain
+/// HTTP (port 0 picks a free port; see [`ServerHandle::addr`]).
 pub async fn start(dir: &Path, bind: SocketAddr, tuning: Tuning) -> anyhow::Result<ServerHandle> {
+    start_with(dir, bind, tuning, None).await
+}
+
+/// Like [`start`], serving TLS with the given certificate and key when
+/// `tls` is set. A missing, unreadable or mismatched pair is an error before
+/// anything else is opened.
+pub async fn start_with(
+    dir: &Path,
+    bind: SocketAddr,
+    tuning: Tuning,
+    tls: Option<&tls::TlsFiles>,
+) -> anyhow::Result<ServerHandle> {
+    let tls = tls.map(tls::load).transpose()?;
     let dir = WorldDir::new(dir);
     let file = WorldFile::load(&dir)?;
     let config = file.world_config();
@@ -192,19 +216,35 @@ pub async fn start(dir: &Path, bind: SocketAddr, tuning: Tuning) -> anyhow::Resu
         .route("/health", get(|| async { "ok" }))
         .with_state(app);
 
-    let mut serve_shutdown = shutdown_rx;
+    let fingerprint = tls.as_ref().map(|t| t.fingerprint.clone());
+    let stop = shutdown_rx;
     let task = tokio::spawn(async move {
-        let served = axum::serve(listener, router)
-            .with_graceful_shutdown(async move {
-                let _ = serve_shutdown.wait_for(|stop| *stop).await;
-            })
-            .await;
+        let served = match tls {
+            None => serve(listener, router, stop).await,
+            Some(tls) => serve(tls::TlsListener::new(listener, tls.config)?, router, stop).await,
+        };
         // The hub stops on the same signal and saves the world.
         hub_task.await.context("world task panicked")?;
         served.context("HTTP server failed")
     });
 
-    Ok(ServerHandle { addr, shutdown: shutdown_tx, task })
+    Ok(ServerHandle { addr, tls: fingerprint, shutdown: shutdown_tx, task })
+}
+
+async fn serve<L>(
+    listener: L,
+    router: Router,
+    mut stop: watch::Receiver<bool>,
+) -> std::io::Result<()>
+where
+    L: axum::serve::Listener,
+    L::Addr: std::fmt::Debug,
+{
+    axum::serve(listener, router)
+        .with_graceful_shutdown(async move {
+            let _ = stop.wait_for(|stop| *stop).await;
+        })
+        .await
 }
 
 async fn ws_handler(State(app): State<Arc<App>>, upgrade: WebSocketUpgrade) -> Response {
