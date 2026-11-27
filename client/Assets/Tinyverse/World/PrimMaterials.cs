@@ -14,8 +14,26 @@ namespace Tinyverse.World
         public const string ShaderName = "Tinyverse/World/Prim";
         public const string ResourceFolder = "Tinyverse/World/Materials/";
 
-        /// <summary>Instanced per-object colour (linear RGBA, set with SetVector so no sRGB conversion happens).</summary>
+        /// <summary>
+        /// Instanced per-object colour as the shader consumes it: shading-space RGBA (linear in a
+        /// linear-space project). Write it with <see cref="ToShaderColor"/> and SetVector.
+        /// </summary>
         public static readonly int ColorId = Shader.PropertyToID("_PrimColor");
+
+        /// <summary>
+        /// Converts an sRGB colour (as in <see cref="PrimData.Color"/>, a hex code or a colour
+        /// picker) to the value written to <see cref="ColorId"/>: linearised when the project
+        /// renders in linear colour space, unchanged in gamma space. Alpha is never converted.
+        /// </summary>
+        public static Vector4 ToShaderColor(Color srgb)
+        {
+            if (QualitySettings.activeColorSpace == ColorSpace.Linear)
+            {
+                var l = srgb.linear;
+                return new Vector4(l.r, l.g, l.b, srgb.a);
+            }
+            return new Vector4(srgb.r, srgb.g, srgb.b, srgb.a);
+        }
 
         /// <summary>Instanced per-object highlight amount, 0 or 1.</summary>
         public static readonly int HighlightId = Shader.PropertyToID("_Highlight");

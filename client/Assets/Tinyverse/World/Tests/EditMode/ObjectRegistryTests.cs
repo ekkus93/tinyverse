@@ -86,14 +86,36 @@ namespace Tinyverse.World.Tests
             var b = reg.GetGameObject(2);
             Assert.That(a.GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(b.GetComponent<MeshRenderer>().sharedMaterial));
             Assert.That(a.GetComponent<MeshRenderer>().HasPropertyBlock(), Is.True);
-            // Linear values pass through unchanged (no sRGB conversion).
-            Assert.That(ColourOf(a), Is.EqualTo(new Vector4(0.2f, 0.4f, 0.6f, 1f)));
+            // sRGB data reaches the shader converted for the project colour space.
+            Assert.That(ColourOf(a), Is.EqualTo(PrimMaterials.ToShaderColor(new Color(0.2f, 0.4f, 0.6f, 1f))));
             Assert.That(ColourOf(b), Is.EqualTo(new Vector4(1, 0, 0, 1)));
             Assert.That(HighlightOf(a), Is.EqualTo(0));
 
             p2.Color = new Color(0, 1, 0, 0.5f);
             reg.Upsert(p2);
             Assert.That(ColourOf(b), Is.EqualTo(new Vector4(0, 1, 0, 0.5f)));
+        }
+
+        [Test]
+        public void SrgbColourIsLinearisedForTheShader()
+        {
+            Assert.That(QualitySettings.activeColorSpace, Is.EqualTo(ColorSpace.Linear), "this project renders in linear space");
+            var p = Prim(1);
+            p.Color = new Color(0.5f, 0.5f, 0.5f, 0.5f); // mid-grey sRGB, half alpha
+            reg.Upsert(p);
+            var v = ColourOf(reg.GetGameObject(1));
+            Assert.That(v.x, Is.EqualTo(0.214f).Within(0.001f));
+            Assert.That(v.y, Is.EqualTo(0.214f).Within(0.001f));
+            Assert.That(v.z, Is.EqualTo(0.214f).Within(0.001f));
+            Assert.That(v.w, Is.EqualTo(0.5f), "alpha is not converted");
+
+            // #ff8000 → R 1, G linear(0.502) ≈ 0.216, B 0.
+            p.Color = new Color(1f, 128f / 255f, 0f, 1f);
+            reg.Upsert(p);
+            v = ColourOf(reg.GetGameObject(1));
+            Assert.That(v.x, Is.EqualTo(1f).Within(1e-5f));
+            Assert.That(v.y, Is.EqualTo(0.216f).Within(0.001f));
+            Assert.That(v.z, Is.EqualTo(0f).Within(1e-5f));
         }
 
         [Test]
@@ -236,7 +258,7 @@ namespace Tinyverse.World.Tests
                 p.Material = m;
                 reg.Upsert(p);
                 Assert.That(r.sharedMaterial, Is.SameAs(PrimMaterials.Get(m)));
-                Assert.That(ColourOf(r.gameObject), Is.EqualTo(new Vector4(0.2f, 0.4f, 0.6f, 1f)));
+                Assert.That(ColourOf(r.gameObject), Is.EqualTo(PrimMaterials.ToShaderColor(new Color(0.2f, 0.4f, 0.6f, 1f))));
                 Assert.That(r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.Off, Is.EqualTo(m == PrimMaterial.Glass));
             }
         }

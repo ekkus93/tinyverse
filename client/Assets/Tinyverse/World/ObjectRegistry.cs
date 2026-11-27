@@ -265,8 +265,7 @@ namespace Tinyverse.World
         void ApplyProperties(Entry e)
         {
             block.Clear();
-            var c = e.Data.Color;
-            block.SetVector(PrimMaterials.ColorId, new Vector4(c.r, c.g, c.b, c.a));
+            block.SetVector(PrimMaterials.ColorId, PrimMaterials.ToShaderColor(e.Data.Color));
             block.SetFloat(PrimMaterials.HighlightId, e.Highlighted ? 1f : 0f);
             e.Renderer.SetPropertyBlock(block);
         }
