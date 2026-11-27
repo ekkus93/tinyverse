@@ -19,8 +19,16 @@ namespace Tinyverse.Avatars
         /// <summary>Downward acceleration on the ground and in the air, m/s².</summary>
         public float Gravity { get; set; } = 20f;
 
+        /// <summary>Terminal fall speed, m/s; under the server's 60 m/s vertical limit.</summary>
+        public const float MaxFallSpeed = 55f;
+
         /// <summary>Upward speed of a jump, m/s (about 0.9 m high with the default gravity).</summary>
-        public float JumpSpeed { get; set; } = 6f;
+        public float JumpSpeed { get => jumpSpeed; set => jumpSpeed = Mathf.Clamp(value, 0f, MaxRiseSpeed); }
+
+        /// <summary>Highest upward speed on foot, m/s; under the server's 10 m/s vertical limit.</summary>
+        public const float MaxRiseSpeed = 9.5f;
+
+        private float jumpSpeed = 6f;
 
         public float GroundAcceleration { get; set; } = 28f;
         public float GroundDeceleration { get; set; } = 36f;
@@ -242,7 +250,7 @@ namespace Tinyverse.Avatars
                 }
                 else
                 {
-                    vy = Mathf.Max(vy - Gravity * dt, -limits.FlySpeed);
+                    vy = Mathf.Max(vy - Gravity * dt, -MaxFallSpeed);
                 }
                 velocity = new Vector3(horizontal.x, vy, horizontal.z);
             }
@@ -302,21 +310,20 @@ namespace Tinyverse.Avatars
 
         private AvatarPose MakePose(Vector3 actualVelocity, bool running)
         {
-            // Report the intended velocity (what remote clients should extrapolate), never above the limit of the
-            // reported mode. Standing on the ground has no vertical speed.
+            // Report the real velocity. Standing on the ground has no vertical speed.
             var v = velocity;
             if (grounded && !flying) v.y = 0f;
-            // When blocked (walking into a wall) report what actually happened instead.
-            if (actualVelocity.sqrMagnitude < v.sqrMagnitude) v = new Vector3(actualVelocity.x, v.y, actualVelocity.z);
-            var mode = AvatarMotion.ClassifyMode(v.magnitude, flying, running, limits);
-            v = Vector3.ClampMagnitude(v, limits.SpeedFor(mode));
+            // When blocked (walking into a wall) report the horizontal movement that actually happened.
+            var actualHorizontal = new Vector2(actualVelocity.x, actualVelocity.z);
+            if (actualHorizontal.sqrMagnitude < new Vector2(v.x, v.z).sqrMagnitude)
+                v = new Vector3(actualHorizontal.x, v.y, actualHorizontal.y);
             float horizontalSpeed = new Vector2(v.x, v.z).magnitude;
             return new AvatarPose
             {
                 Position = transform.position,
                 Yaw = yaw,
                 Velocity = v,
-                Mode = mode,
+                Mode = AvatarMotion.ClassifyMode(horizontalSpeed, flying, running, limits),
                 Animation = AvatarMotion.AnimationFor(flying, grounded, horizontalSpeed, limits),
             };
         }

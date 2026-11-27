@@ -116,13 +116,15 @@ namespace Tinyverse.Avatars.Tests
         }
 
         [Test]
-        public void ReportedModeCoversTheSpeed()
+        public void ReportedModeIsTheTrueMode()
         {
             Assert.That(AvatarMotion.ClassifyMode(3.9f, false, false, Limits), Is.EqualTo(MoveKind.Walk));
+            Assert.That(AvatarMotion.ClassifyMode(4f, false, false, Limits), Is.EqualTo(MoveKind.Walk), "walking (or a walking jump or fall)");
+            Assert.That(AvatarMotion.ClassifyMode(0f, false, false, Limits), Is.EqualTo(MoveKind.Walk), "falling straight down");
             Assert.That(AvatarMotion.ClassifyMode(0f, false, true, Limits), Is.EqualTo(MoveKind.Run));
-            Assert.That(AvatarMotion.ClassifyMode(7.2f, false, false, Limits), Is.EqualTo(MoveKind.Run), "jumping while walking");
-            Assert.That(AvatarMotion.ClassifyMode(12f, false, false, Limits), Is.EqualTo(MoveKind.Fly), "a long fall");
+            Assert.That(AvatarMotion.ClassifyMode(7.5f, false, false, Limits), Is.EqualTo(MoveKind.Run), "airborne from a running jump, Shift released");
             Assert.That(AvatarMotion.ClassifyMode(0f, true, false, Limits), Is.EqualTo(MoveKind.Fly));
+            Assert.That(AvatarMotion.ClassifyMode(0f, true, true, Limits), Is.EqualTo(MoveKind.Fly));
         }
 
         [Test]

@@ -1,6 +1,6 @@
 {
     "name": "Tinyverse.Avatar.Tests.EditMode",
-    "rootNamespace": "Tinyverse.Avatar.Tests",
+    "rootNamespace": "Tinyverse.Avatars.Tests",
     "references": [
         "Tinyverse.Avatar",
         "Unity.InputSystem",

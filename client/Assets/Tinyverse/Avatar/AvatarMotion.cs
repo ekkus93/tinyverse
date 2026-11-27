@@ -83,17 +83,16 @@ namespace Tinyverse.Avatars
         }
 
         /// <summary>
-        /// The move mode to report so the reported speed is within that mode's limit: Fly while flying; otherwise
-        /// Walk if the speed fits the walk limit and the run key is not held, Run if it fits the run limit, and Fly
-        /// beyond that (a long fall, for example).
+        /// The move mode to report: Fly only while really flying; on foot (including jumps and falls) Run while the
+        /// run key is held or the horizontal speed is still above the walk limit (a running jump, slowing down after
+        /// releasing Shift), otherwise Walk. The server checks only horizontal speed against Walk and Run.
         /// </summary>
-        public static MoveKind ClassifyMode(float speed, bool flying, bool running, in MoveLimits limits)
+        public static MoveKind ClassifyMode(float horizontalSpeed, bool flying, bool running, in MoveLimits limits)
         {
             const float eps = 0.01f;
             if (flying) return MoveKind.Fly;
-            if (!running && speed <= limits.WalkSpeed + eps) return MoveKind.Walk;
-            if (speed <= limits.RunSpeed + eps) return MoveKind.Run;
-            return MoveKind.Fly;
+            if (running || horizontalSpeed > limits.WalkSpeed + eps) return MoveKind.Run;
+            return MoveKind.Walk;
         }
 
         /// <summary>The animation hint for the local avatar's state.</summary>
