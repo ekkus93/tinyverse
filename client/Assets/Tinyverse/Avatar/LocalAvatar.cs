@@ -71,6 +71,22 @@ namespace Tinyverse.Avatars
         }
 
         public string DisplayName { get; private set; } = "";
+
+        /// <summary>
+        /// Whether the player sees their own name tag in third person. Default false, as in most third-person
+        /// games: your own name over your head only covers the view. It is always hidden in first person.
+        /// </summary>
+        public bool ShowNameTag
+        {
+            get => showNameTag;
+            set
+            {
+                showNameTag = value;
+                if (Visual?.NameTag != null) Visual.NameTag.Suppressed = !value;
+            }
+        }
+
+        private bool showNameTag;
         public IAvatarVisual Visual { get; private set; }
         public CharacterController Controller => controller;
 
@@ -131,6 +147,7 @@ namespace Tinyverse.Avatars
             }
 
             Visual = AvatarVisuals.CreateFor(transform);
+            ShowNameTag = showNameTag;
             yaw = AvatarMotion.NormalizeYaw(transform.eulerAngles.y);
             CurrentPose = MakePose(Vector3.zero, false);
         }

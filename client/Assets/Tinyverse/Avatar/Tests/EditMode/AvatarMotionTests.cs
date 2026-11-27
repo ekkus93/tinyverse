@@ -136,5 +136,33 @@ namespace Tinyverse.Avatars.Tests
             Assert.That(AvatarMotion.AnimationFor(false, false, 4f, Limits), Is.EqualTo("fall"));
             Assert.That(AvatarMotion.AnimationFor(true, false, 0f, Limits), Is.EqualTo("fly"));
         }
+
+        [Test]
+        public void NameTagScaleIsCappedNearAndGrowsFar()
+        {
+            const float fov = 60f, min = 0.017f, max = 0.028f, maxScale = 4f;
+            float tan = Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+            foreach (float depth in new[] { 0.5f, 1f, 2f, 5f, 10f, 20f, 40f, 100f })
+            {
+                float scale = NameTag.ScaleFor(depth, fov, min, max, maxScale);
+                float fraction = NameTag.BaseLineHeight * scale / (2f * depth * tan);
+                Assert.That(fraction, Is.LessThanOrEqualTo(max + 1e-5f), $"depth {depth}");
+                Assert.That(scale, Is.LessThanOrEqualTo(maxScale + 1e-5f));
+                if (scale < maxScale - 1e-3f) Assert.That(fraction, Is.GreaterThanOrEqualTo(min - 1e-5f), $"depth {depth}");
+            }
+            Assert.That(NameTag.ScaleFor(1f, fov, min, max, maxScale), Is.LessThan(0.5f), "shrinks when near");
+            Assert.That(NameTag.ScaleFor(30f, fov, min, max, maxScale), Is.GreaterThan(2f), "grows when far");
+        }
+
+        [Test]
+        public void NameTagFadesNearAndFar()
+        {
+            Assert.That(NameTag.AlphaFor(0.5f, 1f, 2f, 35f, 50f), Is.EqualTo(0f));
+            Assert.That(NameTag.AlphaFor(1f, 1f, 2f, 35f, 50f), Is.EqualTo(0f));
+            Assert.That(NameTag.AlphaFor(1.5f, 1f, 2f, 35f, 50f), Is.EqualTo(0.5f).Within(1e-4f));
+            Assert.That(NameTag.AlphaFor(10f, 1f, 2f, 35f, 50f), Is.EqualTo(1f));
+            Assert.That(NameTag.AlphaFor(42.5f, 1f, 2f, 35f, 50f), Is.EqualTo(0.5f).Within(1e-4f));
+            Assert.That(NameTag.AlphaFor(60f, 1f, 2f, 35f, 50f), Is.EqualTo(0f));
+        }
     }
 }
