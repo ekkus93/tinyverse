@@ -29,8 +29,7 @@ namespace Tinyverse.Bootstrap
         /// <summary>True if <paramref name="pose"/> should be sent now; records it as sent if so.</summary>
         public bool ShouldSend(AvatarPose pose, double nowSeconds)
         {
-            bool changed = !hasLast || Changed(last, pose);
-            bool moving = changed;
+            bool moving = hasLast && Changed(last, pose);
             double since = nowSeconds - lastSent;
             bool send;
             if (!hasLast) send = true;

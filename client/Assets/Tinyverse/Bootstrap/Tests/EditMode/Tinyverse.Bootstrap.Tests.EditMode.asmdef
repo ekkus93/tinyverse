@@ -1,0 +1,32 @@
+{
+    "name": "Tinyverse.Bootstrap.Tests.EditMode",
+    "rootNamespace": "Tinyverse.Bootstrap.Tests",
+    "references": [
+        "Tinyverse.Bootstrap",
+        "Tinyverse.Proto",
+        "Tinyverse.Net",
+        "Tinyverse.World",
+        "Tinyverse.Avatar",
+        "Tinyverse.Build",
+        "Tinyverse.UI",
+        "Tinyverse.Host",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "Google.Protobuf.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

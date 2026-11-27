@@ -44,7 +44,6 @@ namespace Tinyverse.Bootstrap
             ui.StatusBar.SetConnectionState(Tinyverse.UI.ConnectionState.Connected);
             ui.People.SetLocalRole(ProtoConvert.ToUI(w.Role));
             RefreshPeople();
-            if (reconnect) AddSystem("Reconnected.");
         }
 
         void RoleChanged()
@@ -80,10 +79,15 @@ namespace Tinyverse.Bootstrap
             if (ui == null) return;
             var lines = h.Entries.Select(ProtoConvert.ToChatLine).ToList();
             ui.Chat.SetHistory(lines);
+            // The history replaces the panel's lines, so the join or reconnect note comes after it.
             if (!joinedOnce)
             {
                 joinedOnce = true;
                 AddSystem($"Welcome to {WorldName}." + (lines.Count > 0 ? $" {lines.Count} recent message{(lines.Count == 1 ? "" : "s")} above." : ""));
+            }
+            else if (WelcomeCount > 1)
+            {
+                AddSystem("Reconnected.");
             }
         }
 
