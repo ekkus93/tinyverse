@@ -188,6 +188,34 @@ namespace Tinyverse.Host.Tests
         }
 
         [Test]
+        public void CreateCertificate_MakesOneOnce_AndReportsItsPin()
+        {
+            var server = Real();
+            HostSettings settings = Settings("tls-auto");
+            settings.CreateCertificate = true;
+            HostStartResult r = Wait(server.StartAsync(settings), 60);
+            Track(server.ProcessId);
+            Assert.That(r.Tls, Is.True);
+            Assert.That(File.Exists(Path.Combine(settings.WorldDirectory, "cert.pem")), Is.True);
+            string printed;
+            using (var p = Process.Start(new ProcessStartInfo(_real) { UseShellExecute = false, ArgumentList = { "tls", "fingerprint", settings.WorldDirectory }, RedirectStandardOutput = true, RedirectStandardError = true }))
+            {
+                printed = p.StandardOutput.ReadToEnd();
+                p.WaitForExit(30000);
+                Assert.That(p.ExitCode, Is.EqualTo(0));
+            }
+            Assert.That(printed, Does.StartWith("tls certificate sha256=" + r.CertificateSha256));
+            Assert.That(r.LocalJoinUrl, Is.EqualTo(r.LocalUrl + "#sha256=" + r.CertificateSha256));
+            string first = r.CertificateSha256;
+            server.Stop(TimeSpan.FromSeconds(10));
+
+            r = Wait(server.StartAsync(settings), 60);
+            Track(server.ProcessId);
+            Assert.That(r.CertificateSha256, Is.EqualTo(first), "the certificate is kept across restarts");
+            server.Stop(TimeSpan.FromSeconds(10));
+        }
+
+        [Test]
         public void ParentDeath_RealServerShutsDownByItself()
         {
             var platform = ServerPlatform.Current as PosixServerPlatform;

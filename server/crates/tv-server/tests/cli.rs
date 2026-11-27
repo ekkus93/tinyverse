@@ -44,6 +44,17 @@ fn spawn_run(
     dir: &Path,
     extra: &[&str],
 ) -> (std::process::Child, String, BufReader<std::process::ChildStdout>) {
+    let (child, url, stdout, _) = spawn_run_with_lines(dir, extra);
+    (child, url, stdout)
+}
+
+/// Like [`spawn_run`], also returning the stdout lines before `listening on`.
+// The child is returned for the caller to stop and wait for.
+#[allow(clippy::zombie_processes)]
+fn spawn_run_with_lines(
+    dir: &Path,
+    extra: &[&str],
+) -> (std::process::Child, String, BufReader<std::process::ChildStdout>, Vec<String>) {
     let mut child = command()
         .args(["run", s(dir), "--port", "0", "--bind", "127.0.0.1"])
         .args(extra)
@@ -52,10 +63,19 @@ fn spawn_run(
         .spawn()
         .unwrap();
     let mut stdout = BufReader::new(child.stdout.take().unwrap());
-    let mut line = String::new();
-    stdout.read_line(&mut line).unwrap();
-    let url = line.trim().strip_prefix("listening on ").unwrap_or_else(|| panic!("{line:?}"));
-    (child, url.to_owned(), stdout)
+    let mut before = Vec::new();
+    loop {
+        let mut line = String::new();
+        if stdout.read_line(&mut line).unwrap_or(0) == 0 {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("no `listening on` line: {before:?}");
+        }
+        if let Some(url) = line.trim().strip_prefix("listening on ") {
+            return (child, url.to_owned(), stdout, before);
+        }
+        before.push(line.trim().to_owned());
+    }
 }
 
 fn sigterm_and_wait(child: &mut std::process::Child) -> std::process::ExitStatus {
@@ -379,6 +399,36 @@ async fn survives_dead_stdout_and_stderr() {
     assert!(status.success(), "exit status {status:?}");
     let loaded = store(&dir).load_world().unwrap();
     assert_eq!(loaded.objects.iter().map(|o| o.id).collect::<Vec<_>>(), vec![id]);
+}
+
+#[test]
+fn run_self_signed_creates_a_certificate_and_prints_its_pin() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("w");
+    ok(&["init", s(&dir)]);
+    let (mut child, url, mut stdout, before) = spawn_run_with_lines(&dir, &["--self-signed"]);
+    assert!(url.starts_with("wss://127.0.0.1:"), "{url}");
+    assert!(dir.join("cert.pem").exists() && dir.join("key.pem").exists());
+    let fingerprint = ok(&["tls", "fingerprint", s(&dir)]);
+    let line = fingerprint.lines().next().unwrap().to_owned();
+    assert_eq!(before, std::slice::from_ref(&line), "the certificate line comes first");
+    let hex = line.strip_prefix("tls certificate sha256=").unwrap();
+    assert_eq!(hex.len(), 64);
+    let mut join = String::new();
+    stdout.read_line(&mut join).unwrap();
+    assert_eq!(join.trim(), format!("join with {url}#sha256={hex}"));
+    assert!(sigterm_and_wait(&mut child).success());
+
+    // The next start keeps the certificate, with or without the flag.
+    for extra in [&["--self-signed"][..], &[]] {
+        let (mut child, _, _, before) = spawn_run_with_lines(&dir, extra);
+        assert_eq!(before, std::slice::from_ref(&line));
+        assert!(sigterm_and_wait(&mut child).success());
+    }
+    // No world, no certificate.
+    let err = fails(&["run", s(&tmp.path().join("nope")), "--self-signed", "--port", "0"]);
+    assert!(err.contains("init"), "{err}");
+    assert!(!tmp.path().join("nope").exists());
 }
 
 #[tokio::test]

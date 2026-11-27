@@ -31,6 +31,24 @@ namespace Tinyverse.Host.Internal
         }
     }
 
+    /// <summary><c>tls certificate sha256=&lt;64 hex&gt;</c>, which the server prints before its ready line.</summary>
+    internal static class CertificateLine
+    {
+        private static readonly Regex Pattern = new Regex(
+            @"^tls certificate sha256=(?<hex>[0-9a-fA-F]{64})\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        public static bool TryParse(string line, out string sha256)
+        {
+            sha256 = null;
+            if (line == null) return false;
+            Match m = Pattern.Match(line.Trim());
+            if (!m.Success) return false;
+            sha256 = m.Groups["hex"].Value.ToLowerInvariant();
+            return true;
+        }
+    }
+
     internal static class Addresses
     {
         public static string Url(bool tls, string host, int port)

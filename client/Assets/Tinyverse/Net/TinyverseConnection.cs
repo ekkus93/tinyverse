@@ -138,7 +138,9 @@ namespace Tinyverse.Net
         /// Opens the socket, sends Hello, waits for Welcome and completes with it. Throws
         /// <see cref="TinyverseServerException"/> when the server refuses the Hello,
         /// <see cref="TimeoutException"/> on connect or handshake timeout, and
-        /// <see cref="OperationCanceledException"/> when cancelled or closed meanwhile.
+        /// <see cref="OperationCanceledException"/> when cancelled or closed meanwhile, and
+        /// <see cref="TinyverseCertificateException"/> when a <c>wss://</c> server's certificate is refused
+        /// (the URL may pin one with <c>#sha256=…</c>, see <see cref="CertificatePin"/>).
         /// Only valid in state Disconnected.
         /// </summary>
         public async Task<P.Welcome> ConnectAsync(ConnectOptions connectOptions, CancellationToken cancellationToken = default)
@@ -147,6 +149,8 @@ namespace Tinyverse.Net
             if (!Uri.TryCreate(connectOptions.Url, UriKind.Absolute, out var target) ||
                 (target.Scheme != "ws" && target.Scheme != "wss"))
                 throw new ArgumentException($"Not a ws:// or wss:// URL: \"{connectOptions.Url}\"", nameof(connectOptions));
+            if (!CertificatePin.TrySplit(connectOptions.Url, out _, out _, out var pinError))
+                throw new ArgumentException(pinError, nameof(connectOptions));
 
             CancellationTokenSource session;
             lock (gate)
@@ -495,6 +499,15 @@ namespace Tinyverse.Net
                 }
                 catch (TinyverseServerException e) when (IsFatalRefusal(e.Code))
                 {
+                    lock (gate)
+                    {
+                        if (sessionCts == session) FinalDisconnect(e.Message, false);
+                    }
+                    return;
+                }
+                catch (TinyverseCertificateException e)
+                {
+                    // The server now presents another certificate: retrying will not help.
                     lock (gate)
                     {
                         if (sessionCts == session) FinalDisconnect(e.Message, false);

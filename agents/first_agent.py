@@ -1,14 +1,35 @@
 """The smallest useful Tinyverse agent: joins, says hello, echoes chat addressed to it.
 
 usage: TINYVERSE_TOKEN=... python first_agent.py [ws://127.0.0.1:7878/ws]
+
+A wss:// URL may end in #sha256=<hex>, the fingerprint of a world's self-signed
+certificate (the host's Host screen and `tinyverse-server run` show such
+addresses): then exactly that certificate is accepted, checked before the token
+is sent.
 """
-import asyncio, json, os, sys, time
+import asyncio, hashlib, json, os, ssl, sys, time
 import websockets
 
 URL = sys.argv[1] if len(sys.argv) > 1 else "ws://127.0.0.1:7878/ws"
+URL, _, FRAGMENT = URL.partition("#")
+PIN = FRAGMENT[len("sha256="):].replace(":", "").lower() if FRAGMENT.lower().startswith("sha256=") else None
+if FRAGMENT and (PIN is None or len(PIN) != 64):
+    sys.exit("the only URL fragment understood is #sha256=<64 hex digits>")
+
+def tls():
+    if not URL.startswith("wss://"):
+        return None
+    ctx = ssl.create_default_context()
+    if PIN:  # trust by fingerprint instead of by authority; checked after the handshake
+        ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
+    return ctx
 
 async def main():
-    async with websockets.connect(URL) as ws:
+    async with websockets.connect(URL, ssl=tls()) as ws:
+        if PIN:
+            der = ws.transport.get_extra_info("ssl_object").getpeercert(binary_form=True)
+            if hashlib.sha256(der).hexdigest() != PIN:
+                sys.exit("the server's certificate does not match the #sha256= pin; not sending the token")
         seq = 1
         async def send(body, payload):
             nonlocal seq

@@ -56,6 +56,7 @@ server/               Cargo workspace
   crates/tv-proto/    generated protobuf types + JSON mapping
   crates/tv-world/    pure world state and rules (no IO, no async)
   crates/tv-store/    SQLite persistence
+  crates/tv-tls/      certificate fingerprints and pinning, shared by server and clients
   crates/tv-server/   binary: networking, sessions, tick loop, CLI
   crates/tv-cli/      binary: test client and scriptable bot
   crates/tv-mcp/      binary: MCP bridge for AI agents (milestone 3)
@@ -84,9 +85,27 @@ scripts/              codegen, checks, packaging
   used for `Hello`. Unity uses binary; agents normally use JSON.
 - `GET /info` returns world name, description, player count and protocol version
   as JSON without authentication. `GET /health` returns 200.
-- Until milestone 4 the server offers plain `ws://` only, which is acceptable on
-  a local network. Over the open internet the password would travel in clear
-  text, so TLS (`wss://` with a host-supplied certificate) is a milestone 4 item.
+- TLS: the server serves `wss://` (and `https://`) on the same port when given
+  a certificate (`--tls-cert`/`--tls-key`, or `cert.pem`/`key.pem` in the
+  world directory), or plain `ws://` otherwise. `run --self-signed` and
+  `tls self-signed` make a self-signed certificate valid for `localhost`,
+  `127.0.0.1`, `::1` and every current network address (`--host` adds more).
+  With TLS, `run` prints `tls certificate sha256=<hex>` before its ready line
+  and `join with wss://<address>:<port>/ws#sha256=<hex>` lines after it;
+  `tls fingerprint <dir>` prints the same. `GET /info` does not carry it.
+- Trust on first use by pin: a world address may end in `#sha256=<hex>`, the
+  SHA-256 of the server's leaf certificate. With a pin a client accepts exactly
+  that certificate (host name and chain unchecked, handshake signature still
+  checked) and sends nothing before checking; without one, normal WebPKI
+  verification applies (plus `--ca-file` in `tv-cli` and `tv-mcp`). The
+  fragment never leaves the client. No client has a switch that turns
+  verification off. Shared Rust code is in `tv-tls`.
+- The Unity client remembers the pin per `host:port` once the player accepts
+  a certificate (shown by fingerprint) or joins by a pinned address. A
+  different certificate later is refused, with the choice to forget the old
+  pin. Hosting from the client uses TLS with a self-signed certificate by
+  default; the Host screen shows the pinned LAN address, and the host joins its
+  own world with the pin.
 - Limits: 64 KB per message, per-connection rate limits per message type,
   30 s idle timeout with ping/pong.
 
@@ -262,8 +281,10 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
 - `tv-store` loads the world at start and writes behind: changed objects are
   flushed every 5 s and on shutdown, on a blocking thread. SIGINT and SIGTERM
   trigger a clean flush.
-- CLI: `tinyverse-server init <dir>`, `run <dir> [--port] [--bind]`,
-  `token create|list|revoke`, `user list|set-role|ban`.
+- CLI: `tinyverse-server init <dir>`, `run <dir> [--port] [--bind]
+  [--self-signed | --tls-cert --tls-key | --no-tls]`,
+  `tls self-signed|fingerprint`, `token create|list|revoke`,
+  `user list|set-role|ban`, `password`.
 - Budget: 16 users and 10,000 objects should sit under 50 MB of memory and a few
   percent of one core.
 
@@ -271,9 +292,15 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
 
 - Unity 6000.6 (the version installed on the dev machine), URP, Input System,
   UI Toolkit. Linux standalone build first.
-- Networking uses `System.Net.WebSockets.ClientWebSocket` and `Google.Protobuf`.
-  No Netcode for GameObjects: the Rust server replaces it. Receive runs off the
-  main thread and hands decoded messages to a main-thread queue.
+- Networking uses `System.Net.WebSockets.ClientWebSocket` for `ws://` and
+  `Google.Protobuf`. No Netcode for GameObjects: the Rust server replaces it.
+  Receive runs off the main thread and hands decoded messages to a main-thread
+  queue. For `wss://` the client opens TCP and `SslStream` itself (with its own
+  certificate check: the pin, or the system's verdict), does the HTTP upgrade
+  by hand and frames with `WebSocket.CreateFromStream`: Unity's Mono
+  `ClientWebSocket` ignores both `ClientWebSocketOptions.RemoteCertificateValidationCallback`
+  and `ServicePointManager.ServerCertificateValidationCallback` (checked in
+  6000.6), so it cannot accept a self-signed certificate by fingerprint.
 - One assembly definition per folder under `Assets/Tinyverse/`. `Net`
   references `Proto`; `Build` references `World`; `World`, `Avatar`, `UI` and
   `Host` reference none of the others and expose plain C# types, events and

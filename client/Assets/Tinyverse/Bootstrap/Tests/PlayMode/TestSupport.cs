@@ -145,18 +145,41 @@ namespace Tinyverse.Bootstrap.Tests
         public string OwnerToken => File.ReadAllText(Path.Combine(WorldDir, "owner.token")).Trim();
         public Child Process => server;
 
-        public ServerFixture(string worldName = "Test World", string password = null)
+        public ServerFixture(string worldName = "Test World", string password = null, bool tls = false)
         {
             Binaries.Require();
             WorldDir = Path.Combine(Path.GetTempPath(), "tv-it-" + Guid.NewGuid().ToString("N").Substring(0, 8));
             var args = new List<string> { "init", WorldDir, "--name", worldName };
             if (password != null) { args.Add("--password"); args.Add(password); }
-            using (var init = new Child(Binaries.Server, args, "init"))
+            Tool(args.ToArray());
+            if (tls) NewCertificate();
+        }
+
+        /// <summary>Runs a short tinyverse-server command and returns its output.</summary>
+        public string Tool(params string[] args)
+        {
+            using (var c = new Child(Binaries.Server, args, args[0]))
             {
-                Assert.IsTrue(init.WaitForExit(20000), "init finished");
-                Assert.AreEqual(0, init.ExitCode, init.Output);
+                Assert.IsTrue(c.WaitForExit(20000), args[0] + " finished");
+                c.WaitForExit(1000); // drain output
+                Assert.AreEqual(0, c.ExitCode, c.Output);
+                return c.Output;
             }
         }
+
+        /// <summary>Writes a new self-signed certificate (replacing any); a running server keeps the old one until restarted.</summary>
+        public void NewCertificate() => Tool("tls", "self-signed", WorldDir, "--force");
+
+        /// <summary>The SHA-256 pin of the world's certificate, from <c>tinyverse-server tls fingerprint</c>.</summary>
+        public string Pin()
+        {
+            var m = Regex.Match(Tool("tls", "fingerprint", WorldDir), @"tls certificate sha256=([0-9a-f]{64})");
+            Assert.IsTrue(m.Success, "no pin printed");
+            return m.Groups[1].Value;
+        }
+
+        /// <summary>The server's URL with the certificate pinned.</summary>
+        public string PinnedUrl => Url + "#sha256=" + Pin();
 
         /// <summary>Starts <c>run</c> (port 0 = any) and waits for its "listening on" line.</summary>
         public IEnumerator Start(int port = 0)

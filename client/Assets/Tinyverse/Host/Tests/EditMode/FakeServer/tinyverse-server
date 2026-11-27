@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fake tinyverse-server for the Host tests. Implements the CLI contract:
 #   init <dir> [--name n] [--description d]     (password from TINYVERSE_PASSWORD if set)
-#   run <dir> [--port p] [--bind b] [--no-tls]  (wss:// if <dir> holds cert.pem and key.pem)
+#   run <dir> [--port p] [--bind b] [--no-tls] [--self-signed]
+#       (wss:// if <dir> holds cert.pem and key.pem; --self-signed writes fake ones first)
 #   password <dir> --set-from-env | --clear
 # A password on the command line (--password, --set) is rejected, so a client that puts one there fails.
 #
@@ -90,10 +91,18 @@ case "$cmd" in
         --port) port=$2; shift 2 ;;
         --bind) bind=$2; shift 2 ;;
         --no-tls) scheme=ws; shift ;;
+        --self-signed) self_signed=1; shift ;;
         *) echo "error: unexpected argument '$1'" >&2; exit 64 ;;
       esac
     done
     [ -e "$dir/world.toml" ] || { echo "Error: $dir is not a world (no world.toml)" >&2; exit 2; }
+    if [ -n "${self_signed:-}" ]; then
+      [ -e "$dir/cert.pem" ] || echo "fake certificate" > "$dir/cert.pem"
+      [ -e "$dir/key.pem" ] || echo "fake key" > "$dir/key.pem"
+      scheme=wss
+    fi
+    # Like the real server: the pin of the certificate comes before the ready line.
+    [ "$scheme" = wss ] && echo "tls certificate sha256=$(sha256sum "$dir/cert.pem" | cut -c1-64)"
     echo $$ > "$dir/run.pid"
     if [ "${TINYVERSE_PASSWORD+set}" = set ]; then echo set > "$dir/run.env"; else echo unset > "$dir/run.env"; fi
     rm -f "$dir/shutdown.marker"

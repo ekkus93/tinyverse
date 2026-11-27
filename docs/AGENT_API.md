@@ -96,46 +96,96 @@ password.
 The server serves `wss://` (and `https://` for `/info` and `/health`) when
 it is started with `--tls-cert FILE --tls-key FILE`, or when the world
 directory holds `cert.pem` and `key.pem` (`--no-tls` turns that off). A host
-without a certificate from a public authority creates a self-signed one:
+without a certificate from a public authority creates a self-signed one,
+either with `run --self-signed` (makes one on the first start, then reuses
+it) or ahead of time:
 
 ```text
 $ tinyverse-server tls self-signed ./myworld
-wrote ./myworld/cert.pem and ./myworld/key.pem (mode 0600)
-valid for: localhost, 127.0.0.1
-SHA-256 fingerprint: 2C:B8:BA:EC:11:49:F3:A2:4B:49:BB:99:5B:9C:70:2E:4F:FC:E7:D3:E1:5E:BB:E2:0C:1A:B4:38:16:27:D7:3B
-`run` now serves wss://; clients must trust this certificate.
+wrote ./myworld/cert.pem (certificate, public)
+wrote ./myworld/key.pem (private key, mode 0600)
+valid for: localhost, 127.0.0.1, ::1, 192.168.1.20
+tls certificate sha256=041f8e50d2f5d096c380cf7a24ad5d45ccdccd600136163cf76519837cba0db7
+SHA-256 fingerprint: 04:1F:8E:50:D2:F5:D0:96:C3:80:CF:7A:24:AD:5D:45:CC:DC:CD:60:01:36:16:3C:F7:65:19:83:7C:BA:0D:B7
 ```
 
-By default the certificate is valid for `localhost` and `127.0.0.1`; the host
-adds the names or addresses people use with `--host` (repeatable). The
-protocol over `wss://` is exactly the same.
+The certificate is valid for `localhost`, `127.0.0.1`, `::1` and every
+network address the machine has at that moment; `--host NAME_OR_IP`
+(repeatable) adds more. `tinyverse-server tls fingerprint ./myworld` prints
+the fingerprint again. The protocol over `wss://` is exactly the same.
 
-A self-signed certificate is not trusted by default. Get `cert.pem` from the
-host (it is public; `key.pem` is secret and stays with the host), check its
-fingerprint with the host, and trust exactly that certificate. In Python with
-`websockets`:
+#### Pinned addresses (trust on first use)
+
+A self-signed certificate is not trusted by any authority, so clients trust
+it by its SHA-256 fingerprint instead. A world address may carry it as its
+fragment:
+
+```text
+wss://192.168.1.20:7878/ws#sha256=041f8e50d2f5d096c380cf7a24ad5d45ccdccd600136163cf76519837cba0db7
+```
+
+`run` prints such addresses after its ready line, one per network address:
+
+```text
+tls certificate sha256=041f8e50…0db7
+listening on wss://0.0.0.0:7878/ws
+join with wss://192.168.1.20:7878/ws#sha256=041f8e50…0db7
+join with wss://127.0.0.1:7878/ws#sha256=041f8e50…0db7
+```
+
+and the desktop client's Host screen shows one under "Friends join with".
+The rules, the same in every Tinyverse client (Unity, `tv-cli`, `tv-mcp`, the
+Python examples):
+
+- The pin is the SHA-256 of the server's leaf certificate (its DER bytes): 64
+  hex digits, either case, colons allowed. Only `#sha256=` is accepted after
+  `#`, and only on `wss://`.
+- With a pin, the connection succeeds only if the server presents exactly that
+  certificate. The host name and the chain are then not checked (the
+  handshake signature still is, so the server must hold the certificate's
+  key). Nothing is sent, not even the Hello, before the check.
+- Without a pin, normal verification applies: a public authority (or the
+  `--ca-file` of `tv-cli` and `tv-mcp`) must vouch for the certificate and its
+  name must match. There is no switch that turns verification off.
+- The fragment never leaves the client: the request line is `GET /ws`.
+- Get the pinned address from the host over a channel you trust (in person,
+  a chat you trust). Whoever gives you the address decides which server you
+  trust.
+
+In Python with `websockets`, trusting by pin (the token goes only after the
+check):
 
 ```python
-import ssl, websockets
+import hashlib, ssl, websockets
 
-ctx = ssl.create_default_context(cafile="cert.pem")   # trust only this certificate
-async with websockets.connect("wss://127.0.0.1:7878/ws", ssl=ctx) as ws:
-    ...
+URL, PIN = "wss://192.168.1.20:7878/ws", "041f8e50…0db7"   # from the #sha256= address
+ctx = ssl.create_default_context()
+ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE  # the pin replaces both
+async with websockets.connect(URL, ssl=ctx) as ws:
+    der = ws.transport.get_extra_info("ssl_object").getpeercert(binary_form=True)
+    if hashlib.sha256(der).hexdigest() != PIN:
+        raise SystemExit("not the pinned certificate")
+    ...  # now send the Hello
 ```
 
-`ssl.create_default_context()` with no arguments uses the system's trusted
-authorities, which is right for a certificate from a public authority. Keep
-hostname checking on: connect with a name or address the certificate lists.
-What happens otherwise:
+Or trust exactly the world's `cert.pem` (public; `key.pem` is secret and
+stays with the host) as the only authority, with hostname checks on:
+`ssl.create_default_context(cafile="cert.pem")`, connecting with a name or
+address the certificate lists. `ssl.create_default_context()` with no
+arguments uses the system's trusted authorities, which is right for a
+certificate from a public authority. What happens otherwise:
 
 | Mistake | Result (Python `websockets`) |
 |---|---|
-| `wss://` to a self-signed server without `cafile` | `ssl.SSLCertVerificationError`: "certificate verify failed: self-signed certificate" |
+| `wss://` to a self-signed server without `cafile` or a pin | `ssl.SSLCertVerificationError`: "certificate verify failed: self-signed certificate" |
 | `ws://` to a TLS server | `websockets.InvalidMessage`: "did not receive a valid HTTP response" |
 | `wss://` to a plain server | `ssl.SSLError`: "wrong version number" |
 
-With curl: `curl --cacert cert.pem https://127.0.0.1:7878/info`. (`tv-cli`
-and `tv-mcp` connect over `ws://` only in this version.)
+`tv-cli --url` and `tv-mcp --url` take pinned addresses as they are, and
+`--ca-file cert.pem` as the alternative; refused certificates are reported
+with their fingerprint and the pinned address to use once the host confirms
+it. With curl: `curl --cacert cert.pem https://127.0.0.1:7878/info`, or
+`curl -k https://…/info` only to read the public `/info`.
 
 ### Frames
 
@@ -1403,8 +1453,9 @@ replaces the first.
 
 ## 11. Your first agent in 30 lines
 
-This is [`agents/first_agent.py`](../agents/first_agent.py). It needs Python
-3.11+ and `pip install websockets`. It joins with a token, says hello, and
+This is the core of [`agents/first_agent.py`](../agents/first_agent.py); the
+file adds a dozen lines for pinned `wss://` addresses (see step 2). It needs
+Python 3.11+ and `pip install websockets`. It joins with a token, says hello, and
 echoes chat from people that mentions its name; it pings every 10 s.
 
 ```python
@@ -1455,10 +1506,11 @@ Walkthrough:
 1. **Get a token** from the host: `tinyverse-server token create ./myworld
    --name Scout`.
 2. **Run it**: `TINYVERSE_TOKEN=<token> python agents/first_agent.py
-   ws://HOST:7878/ws`. It prints `joined as Scout (avatar 44)`. (For a
-   `wss://` world with a self-signed certificate, pass
-   `ssl=ssl.create_default_context(cafile="cert.pem")` to
-   `websockets.connect`; see section 3.)
+   ws://HOST:7878/ws`. It prints `joined as Scout (avatar 44)`. For a
+   `wss://` world with a self-signed certificate, give it the pinned address
+   the host shows, `wss://HOST:7878/ws#sha256=<fingerprint>`: the file checks
+   the certificate's fingerprint before it sends the token (see
+   [Pinned addresses](#pinned-addresses-trust-on-first-use)).
 3. **Hello and Welcome.** The first frame is `hello` with
    `CLIENT_KIND_AGENT` and the token. The first reply is `welcome` or `error`;
    `welcome.avatar` holds our avatar, and its `userId` lets us recognise our

@@ -87,8 +87,9 @@ struct Inner {
     connect_lock: tokio::sync::Mutex<()>,
     seq: AtomicU32,
     conn_ids: AtomicU64,
-    /// The TLS setup for a `wss://` URL, or why it could not be built.
-    tls: Option<Result<Arc<rustls::ClientConfig>, String>>,
+    /// The URL to connect to (without its fragment) and the certificate pin
+    /// from `#sha256=<hex>`, or why the URL is unusable.
+    target: Result<(String, Option<tv_tls::Pin>), String>,
 }
 
 /// Handle to the world connection. Cheap to clone.
@@ -188,10 +189,10 @@ impl Bridge {
     pub fn new(cfg: Config) -> Self {
         crate::tls::install_crypto_provider();
         let (changed, _) = watch::channel(0);
-        let tls = crate::tls::is_wss(&cfg.url).then(|| crate::tls::client_config(&cfg.ca_certs));
+        let target = tv_tls::split_url(&cfg.url);
         Bridge {
             inner: Arc::new(Inner {
-                tls,
+                target,
                 cfg,
                 state: Mutex::new(State::default()),
                 changed,
@@ -325,11 +326,20 @@ impl Bridge {
 
     async fn connect_inner(&self) -> Result<(), ConnectError> {
         let cfg = &self.inner.cfg;
-        let url = &cfg.url;
-        let connector = match &self.inner.tls {
-            None => tokio_tungstenite::Connector::Plain,
-            Some(Ok(config)) => tokio_tungstenite::Connector::Rustls(config.clone()),
-            Some(Err(e)) => return Err(ConnectError::permanent(e.clone())),
+        let (url, pin) = match &self.inner.target {
+            Ok((url, pin)) => (url, *pin),
+            Err(e) => return Err(ConnectError::permanent(e.clone())),
+        };
+        // With a pin only that certificate counts; the CA file is not used.
+        let with_ca = pin.is_none() && !cfg.ca_certs.is_empty();
+        let (connector, seen) = if crate::tls::is_wss(url) {
+            let extra = if pin.is_some() { &[][..] } else { &cfg.ca_certs[..] };
+            match tv_tls::client_config(pin, extra) {
+                Ok((config, seen)) => (tokio_tungstenite::Connector::Rustls(config), Some(seen)),
+                Err(e) => return Err(ConnectError::permanent(e)),
+            }
+        } else {
+            (tokio_tungstenite::Connector::Plain, None)
         };
         let ws = match tokio::time::timeout(
             cfg.connect_timeout,
@@ -349,8 +359,15 @@ impl Bridge {
                 )));
             }
             Ok(Err(e)) => {
+                if let Some(why) =
+                    seen.as_ref().and_then(|s| tv_tls::explain_refusal(url, pin, s, with_ca))
+                {
+                    return Err(ConnectError::transient(format!(
+                        "cannot reach the world at {url}: {why}"
+                    )));
+                }
                 let e = e.to_string();
-                let hint = crate::tls::hint(url, &e, !cfg.ca_certs.is_empty());
+                let hint = crate::tls::hint(url, &e, with_ca);
                 return Err(ConnectError::transient(format!(
                     "cannot reach the world at {url} ({e}){hint}"
                 )));

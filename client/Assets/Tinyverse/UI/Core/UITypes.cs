@@ -69,6 +69,12 @@ namespace Tinyverse.UI
         public int Port;
         public string Password;
         public string DisplayName;
+
+        /// <summary>
+        /// Serve plain <c>ws://</c>. By default (false) the world is served over <c>wss://</c> with a
+        /// self-signed certificate that guests trust by its fingerprint.
+        /// </summary>
+        public bool Unencrypted;
     }
 
     /// <summary>One chat line. For <see cref="ChatChannel.System"/> the sender is ignored.</summary>

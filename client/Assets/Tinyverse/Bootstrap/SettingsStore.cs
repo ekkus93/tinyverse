@@ -22,6 +22,8 @@ namespace Tinyverse.Bootstrap
         public StoredAppearance appearance = new StoredAppearance();
         /// <summary>The name each visited world gave in its Welcome, for the recent-worlds list.</summary>
         public System.Collections.Generic.List<KnownWorld> worlds = new System.Collections.Generic.List<KnownWorld>();
+        /// <summary>Trusted certificate fingerprints per host:port (see <see cref="KnownCertificates"/>).</summary>
+        public System.Collections.Generic.List<KnownCertificate> certificates = new System.Collections.Generic.List<KnownCertificate>();
 
         public string WorldName(string url) => worlds?.Find(w => w.url == url)?.name ?? "";
 
@@ -103,6 +105,7 @@ namespace Tinyverse.Bootstrap
             s.appearance.top ??= "";
             s.appearance.bottom ??= "";
             s.worlds ??= new System.Collections.Generic.List<KnownWorld>();
+            s.certificates ??= new System.Collections.Generic.List<KnownCertificate>();
             Current = s;
             return s;
         }

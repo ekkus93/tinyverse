@@ -16,7 +16,7 @@ import websockets
 
 from . import protocol
 from .brains import ClaudeBrain, RuleBrain, Trigger
-from .connection import FATAL_CODES, Connection, ServerError
+from .connection import FATAL_CODES, CertificateMismatch, Connection, ServerError
 from .policy import Heard, Memory, ReplyPolicy, SpeechLimiter, fit_chat
 from .tools import ToolBox, ToolError
 from .world import Proximity, WorldState, horizontal_distance
@@ -158,8 +158,13 @@ class Greeter:
                     log.error("%s", e)
                     return 2
                 except ssl.SSLCertVerificationError as e:
-                    log.error("the server's TLS certificate is not trusted (%s); pass the world's "
-                              "cert.pem with --ca-file if it is self-signed", e.verify_message)
+                    log.error("the server's TLS certificate is not trusted (%s); if it is self-signed, "
+                              "join with the address the host gives, which ends in #sha256=<fingerprint>, "
+                              "or pass the world's cert.pem with --ca-file", e.verify_message)
+                    return 2
+                except CertificateMismatch as e:
+                    log.error("%s: either this is not the world you think it is, or its host made a new "
+                              "certificate; ask the host for the current address", e)
                     return 2
                 except websockets.InvalidHandshake as e:
                     hint = " (the server may serve wss://)" if self.opts.url.startswith("ws://") else ""

@@ -151,6 +151,13 @@ namespace Tinyverse.Bootstrap.Tests
             Assert.AreEqual(P.Role.Owner, app.Session.Role, "joined with the owner token");
             Assert.IsTrue(app.Hosting.IsRunning);
             Assert.IsNotEmpty(app.UI.Host.ShareAddress);
+            // Hosting defaults to TLS with a self-signed certificate: friends get the pinned address, and the
+            // host joined its own world with the pin, without a trust question.
+            Assert.IsTrue(app.Hosting.Current.Tls);
+            StringAssert.StartsWith("wss://", app.UI.Host.ShareAddress);
+            StringAssert.EndsWith("#sha256=" + app.Hosting.Current.CertificateSha256, app.UI.Host.ShareAddress);
+            Assert.IsFalse(app.UI.Confirm.IsVisible);
+            Assert.AreEqual(app.Hosting.Current.CertificateSha256, app.RememberedPin(app.Hosting.Current.LocalUrl));
             Assert.IsTrue(app.UI.Host.LogLines.Any(l => l.Contains("listening on")), "server log in the Host screen");
             Assert.IsTrue(app.UI.People.IsLocalOwner, "owner actions offered");
             int? pid = app.Hosting.Process.ProcessId;
@@ -187,7 +194,7 @@ namespace Tinyverse.Bootstrap.Tests
             app.ShowHostScreen();
             Assert.AreEqual(UIScreen.Host, app.UI.Screen);
             Assert.AreEqual(Tinyverse.UI.HostState.Running, app.UI.Host.State, "the Host screen shows the running server");
-            StringAssert.StartsWith("Running at ws://", app.UI.Host.StatusText, "not stuck on \"Joining your world\"");
+            StringAssert.StartsWith("Running at wss://", app.UI.Host.StatusText, "not stuck on \"Joining your world\"");
             Assert.AreEqual("host-join", app.UI.HandleEscape());
             yield return InWorld();
             Assert.AreEqual(P.Role.Owner, app.Session.Role, "rejoined as owner through Join");

@@ -21,7 +21,10 @@ pub const PASSWORD_ENV: &str = "TINYVERSE_PASSWORD";
 const RUN_NOTE: &str = "Prints `listening on ws://<addr>/ws` (or `wss://` with TLS) on stdout once \
                         it accepts connections. TLS is used when --tls-cert and --tls-key are \
                         given, or when the world directory holds cert.pem and key.pem (see \
-                        `tinyverse-server tls self-signed`); --no-tls refuses it.";
+                        `tinyverse-server tls self-signed`, or pass --self-signed); --no-tls \
+                        refuses it. With TLS, `tls certificate sha256=<hex>` comes first, and \
+                        `join with wss://<address>:<port>/ws#sha256=<hex>` lines follow: \
+                        addresses with the certificate pinned, for guests to paste.";
 
 const STORE_NOTE: &str = "These commands edit world.db directly and may be used while the server \
                           runs; a running server applies a change to a user at their next join.";
@@ -74,6 +77,10 @@ pub enum Cmd {
         /// Serve plain ws:// even if the world directory holds cert.pem and key.pem.
         #[arg(long)]
         no_tls: bool,
+        /// Serve wss:// with the world directory's cert.pem and key.pem,
+        /// creating a self-signed pair first if there is none.
+        #[arg(long, conflicts_with_all = ["no_tls", "tls_cert"])]
+        self_signed: bool,
     },
     /// Manage the world's TLS certificate.
     Tls {
@@ -116,17 +123,27 @@ pub enum Cmd {
 pub enum TlsCmd {
     /// Write a self-signed cert.pem (public, world-readable) and key.pem
     /// (private, mode 0600) into the world directory; `run` then serves wss://
-    /// with them. Clients must be told to trust this certificate: compare the
-    /// printed SHA-256 fingerprint.
+    /// with them. It is valid for localhost, 127.0.0.1, ::1 and this
+    /// machine's current network addresses. Guests trust it by its SHA-256
+    /// fingerprint: give them the `wss://…#sha256=<hex>` address `run` prints.
     SelfSigned {
         dir: PathBuf,
-        /// A DNS name or IP address the certificate is valid for. Repeat for
-        /// several (default: localhost and 127.0.0.1).
+        /// A further DNS name or IP address the certificate is valid for.
+        /// Repeat for several.
         #[arg(long = "host", value_name = "NAME_OR_IP")]
         hosts: Vec<String>,
         /// Replace an existing cert.pem and key.pem.
         #[arg(long)]
         force: bool,
+    },
+    /// Print the SHA-256 fingerprint of the world's cert.pem: first as
+    /// `tls certificate sha256=<hex>` (the pin guests put after `#` in the
+    /// address), then as colon-separated hex.
+    Fingerprint {
+        dir: PathBuf,
+        /// A certificate file other than the world directory's cert.pem.
+        #[arg(long, value_name = "PEM")]
+        cert: Option<PathBuf>,
     },
 }
 
@@ -193,6 +210,9 @@ pub fn init_logging(verbose: u8) {
         1 => "debug",
         _ => "trace",
     };
+    // Mono's SslStream (the Unity client) sends an IP address as SNI, which
+    // rustls ignores with a warning on every connection: not worth a line.
+    let default = format!("{default},rustls::msgs::handshake=error");
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default));
     // A dead stderr (the process that launched us crashed) must never panic:
     // by default tracing-subscriber reports a failed write with `eprintln!`,
@@ -287,24 +307,63 @@ pub fn execute_with(cli: Cli, inputs: &mut Inputs<'_>, out: &mut dyn Write) -> a
             let password = source.map(|s| read_password(s, inputs)).transpose()?;
             init(&dir, name, description, password, out)
         }
-        Cmd::Run { dir, port, bind, tls_cert, tls_key, no_tls } => {
+        Cmd::Run { dir, port, bind, tls_cert, tls_key, no_tls, self_signed } => {
             let tls = match (tls_cert, tls_key) {
                 (Some(cert), Some(key)) => Some(TlsFiles { cert, key }),
                 _ if no_tls => None,
-                _ => tls_in_dir(&dir)?,
+                _ => match tls_in_dir(&dir)? {
+                    None if self_signed => {
+                        require_world(&dir)?;
+                        let made = tls::write_self_signed(&dir, &[], false)?;
+                        tracing::info!(
+                            cert = %made.files.cert.display(),
+                            names = %made.hosts.join(", "),
+                            "created a self-signed certificate"
+                        );
+                        Some(made.files)
+                    }
+                    found => found,
+                },
             };
             run(&dir, SocketAddr::new(bind, port), tls, out)
         }
         Cmd::Tls { command: TlsCmd::SelfSigned { dir, hosts, force } } => {
-            if !WorldDir::new(&dir).toml().exists() {
-                bail!("{} is not a world directory; create one with `init`", dir.display());
-            }
+            require_world(&dir)?;
             let made = tls::write_self_signed(&dir, &hosts, force)?;
             writeln!(out, "wrote {} (certificate, public)", made.files.cert.display())?;
             writeln!(out, "wrote {} (private key, mode 0600)", made.files.key.display())?;
             writeln!(out, "valid for: {}", made.hosts.join(", "))?;
+            writeln!(out, "{}", tls::certificate_line(&made.pin))?;
             writeln!(out, "SHA-256 fingerprint: {}", made.fingerprint)?;
-            writeln!(out, "`run` now serves wss://; clients must trust this certificate.")?;
+            writeln!(
+                out,
+                "`run` now serves wss://. Guests trust this certificate by its fingerprint: give \
+                 them the wss://…#{} address that `run` prints.",
+                made.pin
+            )?;
+            Ok(())
+        }
+        Cmd::Tls { command: TlsCmd::Fingerprint { dir, cert } } => {
+            let cert = match cert {
+                Some(c) => c,
+                None => {
+                    require_world(&dir)?;
+                    let path = TlsFiles::in_dir(&dir).cert;
+                    if !path.exists() {
+                        bail!(
+                            "{} has no certificate; make one with `tinyverse-server tls \
+                             self-signed {}`",
+                            dir.display(),
+                            dir.display()
+                        );
+                    }
+                    path
+                }
+            };
+            let leaf = tls::read_leaf(&cert)?;
+            let pin = tls::Pin::of(leaf.as_ref());
+            writeln!(out, "{}", tls::certificate_line(&pin))?;
+            writeln!(out, "SHA-256 fingerprint: {}", pin.colons())?;
             Ok(())
         }
         Cmd::Token { command } => match command {
@@ -465,6 +524,34 @@ fn write_new(path: &Path, contents: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn require_world(dir: &Path) -> anyhow::Result<()> {
+    if !WorldDir::new(dir).toml().exists() {
+        bail!("{} is not a world directory; create one with `init`", dir.display());
+    }
+    Ok(())
+}
+
+/// The addresses to give guests for a server bound to `bind` on `port`,
+/// with the certificate pinned: every LAN address for a wildcard bind (then
+/// 127.0.0.1), else the bind address itself.
+pub fn join_urls(bind: SocketAddr, pin: &tls::Pin, lan: &[IpAddr]) -> Vec<String> {
+    let url = |ip: IpAddr| {
+        let base = format!("wss://{}{}", SocketAddr::new(ip, bind.port()), tv_proto::WS_PATH);
+        tv_tls::pinned_url(&base, pin)
+    };
+    if bind.ip().is_unspecified() {
+        let mut urls: Vec<String> = lan
+            .iter()
+            .filter(|ip| ip.is_ipv4() || bind.ip().is_ipv6())
+            .map(|ip| url(*ip))
+            .collect();
+        urls.push(url(IpAddr::from([127, 0, 0, 1])));
+        urls
+    } else {
+        vec![url(bind.ip())]
+    }
+}
+
 /// `cert.pem` and `key.pem` of the world directory if both exist; an error
 /// if only one does.
 fn tls_in_dir(dir: &Path) -> anyhow::Result<Option<TlsFiles>> {
@@ -494,12 +581,24 @@ fn run(
     let runtime = tokio::runtime::Runtime::new()?;
     runtime.block_on(async {
         let server = crate::start_with(dir, bind, Tuning::default(), tls.as_ref()).await?;
+        let mut lines = Vec::new();
         if let (Some(files), Some(fingerprint)) = (&tls, server.tls_fingerprint()) {
             tracing::info!(cert = %files.cert.display(), %fingerprint, "serving TLS");
         }
+        let pin = server.tls_pin();
+        // Before the ready line, so that whoever waits for it has the pin.
+        if let Some(pin) = &pin {
+            lines.push(tls::certificate_line(pin));
+        }
+        lines.push(format!("listening on {}", server.ws_url()));
+        if let Some(pin) = &pin {
+            let urls = join_urls(server.addr(), pin, &tls::guest_addresses());
+            lines.extend(urls.iter().map(|u| format!("join with {u}")));
+        }
         // Whoever reads stdout may already be gone; that must not stop the
         // server, which still has to save the world on SIGTERM.
-        if writeln!(out, "listening on {}", server.ws_url()).and_then(|()| out.flush()).is_err() {
+        let printed = lines.iter().try_for_each(|l| writeln!(out, "{l}"));
+        if printed.and_then(|()| out.flush()).is_err() {
             tracing::warn!("cannot write to stdout");
         }
         tracing::info!("listening on {}", server.ws_url());
@@ -845,6 +944,67 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+        assert!(matches!(
+            parse(&["t", "run", "w", "--self-signed"]),
+            Ok(Cmd::Run { self_signed: true, no_tls: false, .. })
+        ));
+        assert!(parse(&["t", "run", "w", "--self-signed", "--no-tls"]).is_err());
+        assert!(
+            parse(&["t", "run", "w", "--self-signed", "--tls-cert", "c", "--tls-key", "k"])
+                .is_err()
+        );
+        assert!(matches!(
+            parse(&["t", "tls", "fingerprint", "w"]),
+            Ok(Cmd::Tls { command: TlsCmd::Fingerprint { cert: None, .. } })
+        ));
+    }
+
+    #[test]
+    fn join_urls_pin_every_reachable_address() {
+        let pin = tls::Pin::of(b"abc");
+        let hex = pin.hex();
+        let lan: Vec<IpAddr> = vec!["192.168.1.20".parse().unwrap(), "fd00::5".parse().unwrap()];
+        let any: SocketAddr = "0.0.0.0:7878".parse().unwrap();
+        assert_eq!(
+            join_urls(any, &pin, &lan),
+            [
+                format!("wss://192.168.1.20:7878/ws#sha256={hex}"),
+                format!("wss://127.0.0.1:7878/ws#sha256={hex}"),
+            ]
+        );
+        let any6: SocketAddr = "[::]:9000".parse().unwrap();
+        assert_eq!(join_urls(any6, &pin, &lan).len(), 3);
+        assert!(join_urls(any6, &pin, &lan)[1].starts_with("wss://[fd00::5]:9000/ws#sha256="));
+        let one: SocketAddr = "10.0.0.2:7878".parse().unwrap();
+        assert_eq!(join_urls(one, &pin, &lan), [format!("wss://10.0.0.2:7878/ws#sha256={hex}")]);
+    }
+
+    #[test]
+    fn tls_fingerprint_prints_the_pin_of_the_world_certificate() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path().to_str().unwrap();
+        let err = exec(&["t", "tls", "fingerprint", d], "", None).unwrap_err().to_string();
+        assert!(err.contains("not a world directory"), "{err}");
+        exec(&["t", "init", d], "", None).unwrap();
+        let err = exec(&["t", "tls", "fingerprint", d], "", None).unwrap_err().to_string();
+        assert!(err.contains("tls self-signed"), "{err}");
+        let made = exec(&["t", "tls", "self-signed", d], "", None).unwrap();
+        let printed = exec(&["t", "tls", "fingerprint", d], "", None).unwrap();
+        let first = printed.lines().next().unwrap();
+        assert!(first.starts_with("tls certificate sha256="), "{printed}");
+        assert_eq!(first.len(), "tls certificate sha256=".len() + 64, "{printed}");
+        assert!(made.contains(first), "self-signed prints the same line:\n{made}\n{printed}");
+        let setup = tls::load(&TlsFiles::in_dir(dir.path())).unwrap();
+        assert_eq!(first, tls::certificate_line(&setup.pin));
+        assert!(printed.contains(&format!("SHA-256 fingerprint: {}", setup.fingerprint)));
+        let cert = dir.path().join("cert.pem");
+        let other = exec(
+            &["t", "tls", "fingerprint", "/nonexistent", "--cert", cert.to_str().unwrap()],
+            "",
+            None,
+        )
+        .unwrap();
+        assert_eq!(other, printed);
     }
 
     #[test]

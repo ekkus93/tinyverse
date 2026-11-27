@@ -17,9 +17,7 @@ tokio.workspace = true
 tokio-tungstenite.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-# Already in the build through tokio-tungstenite (rustls-tls-webpki-roots);
-# needed directly to combine the public roots with a --ca-file.
-webpki-roots.workspace = true
+tv-tls.workspace = true
 
 [lints]
 workspace = true

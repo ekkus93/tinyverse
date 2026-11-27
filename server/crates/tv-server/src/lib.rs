@@ -74,7 +74,8 @@ pub struct Tuning {
 /// A running server.
 pub struct ServerHandle {
     addr: SocketAddr,
-    tls: Option<String>,
+    /// Fingerprint (`AB:CD:…`) and pin of the certificate, with TLS.
+    tls: Option<(String, tls::Pin)>,
     shutdown: watch::Sender<bool>,
     task: JoinHandle<anyhow::Result<()>>,
 }
@@ -99,7 +100,12 @@ impl ServerHandle {
 
     /// The SHA-256 fingerprint of the certificate, if serving TLS.
     pub fn tls_fingerprint(&self) -> Option<&str> {
-        self.tls.as_deref()
+        self.tls.as_ref().map(|(f, _)| f.as_str())
+    }
+
+    /// The certificate's pin (`sha256=<hex>`), if serving TLS.
+    pub fn tls_pin(&self) -> Option<tls::Pin> {
+        self.tls.as_ref().map(|(_, p)| *p)
     }
 
     /// Stops accepting connections, closes every session, writes the world
@@ -216,7 +222,7 @@ pub async fn start_with(
         .route("/health", get(|| async { "ok" }))
         .with_state(app);
 
-    let fingerprint = tls.as_ref().map(|t| t.fingerprint.clone());
+    let fingerprint = tls.as_ref().map(|t| (t.fingerprint.clone(), t.pin));
     let stop = shutdown_rx;
     let task = tokio::spawn(async move {
         let served = match tls {

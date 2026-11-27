@@ -90,10 +90,22 @@
 
 .tv-host__address {
     flex-grow: 1;
+    flex-shrink: 1;
     font-size: var(--tv-font-l);
     -unity-font-style: bold;
     color: var(--tv-text);
     padding: 0;
+    white-space: normal;
+}
+
+/* A wss:// address with its #sha256= fingerprint is long: smaller, wrapped. */
+.tv-host__address--long {
+    font-size: var(--tv-font-s);
+    -unity-font-style: normal;
+}
+
+.tv-host__tls {
+    margin-top: var(--tv-space-3);
 }
 
 .tv-host__log-title {

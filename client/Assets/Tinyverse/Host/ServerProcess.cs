@@ -47,6 +47,7 @@ namespace Tinyverse.Host
         private HostStartResult _result;
         private Redactor _redactor = new Redactor();
         private TaskCompletionSource<(bool Tls, int Port)> _ready;
+        private string _certificateSha256;
         private readonly List<ChildProcess> _launches = new List<ChildProcess>();
 
         // Serialises Stop calls.
@@ -227,11 +228,16 @@ namespace Tinyverse.Host
                 "--bind", settings.BindAddress.Trim(),
             };
             if (settings.DisableTls) runArgs.Add("--no-tls");
+            else if (settings.CreateCertificate) runArgs.Add("--self-signed");
             bool parentDeath = (_options.OrphanGuard & OrphanGuard.ParentDeathSignal) != 0
                 && _platform.TryWrapForParentDeath(ref file, runArgs);
 
             var ready = new TaskCompletionSource<(bool Tls, int Port)>(TaskCreationOptions.RunContinuationsAsynchronously);
-            lock (_lock) _ready = ready;
+            lock (_lock)
+            {
+                _ready = ready;
+                _certificateSha256 = null;
+            }
 
             ChildProcess child;
             try
@@ -285,8 +291,11 @@ namespace Tinyverse.Host
                 if (exited)
                     throw Fail(HostErrorKind.UnexpectedExit,
                         $"The server stopped right after starting (exit code {child.Exited.Result}).", child.Exited.Result);
+                // The best two network addresses; the rest are usually VPN and container networks.
+                string network = string.Join(", ", System.Linq.Enumerable.Take(result.LanJoinUrls, 2)) +
+                                 (result.LanJoinUrls.Count > 2 ? $" and {result.LanJoinUrls.Count - 2} more" : "");
                 HostLog("The world is open at " + result.LocalUrl +
-                        (result.LanUrls.Count > 0 ? " (on the network: " + string.Join(", ", result.LanUrls) + ")" : ""));
+                        (result.LanJoinUrls.Count > 0 ? " (on the network: " + network + ")" : ""));
                 return result;
             }
 
@@ -394,7 +403,9 @@ namespace Tinyverse.Host
                 lan = new List<string> { bind.Trim('[', ']') };
             }
             var urls = lan.ConvertAll(a => Addresses.Url(tls, a, port));
-            return new HostStartResult(local, tls, port, lan.AsReadOnly(), urls.AsReadOnly(), token, dir);
+            string pin;
+            lock (_lock) pin = _certificateSha256;
+            return new HostStartResult(local, tls, port, lan.AsReadOnly(), urls.AsReadOnly(), token, dir, pin);
         }
 
         private static string ReadOwnerToken(string dir)
@@ -620,6 +631,8 @@ namespace Tinyverse.Host
             string line = r.Apply(raw);
             EmitLine(line);
             // Parse the raw line: redaction must never be able to hide the ready line.
+            if (CertificateLine.TryParse(raw, out string sha256))
+                lock (_lock) _certificateSha256 = sha256;
             if (ready != null && !ready.Task.IsCompleted && ReadyLine.TryParse(raw, out bool tls, out _, out int port))
                 ready.TrySetResult((tls, port));
         }
