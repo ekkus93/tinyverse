@@ -23,7 +23,8 @@ A Rust server (`server/`, Cargo workspace) owns one world and persists it to SQL
 - Only one Unity editor can open a project at a time. A task that needs the editor or Unity tests uses its own git worktree.
 - Parallel Unity tasks write C#, UXML and USS only. Scenes, prefabs, `.meta` files, `ProjectSettings/` and `Packages/` belong to the integration task of each milestone.
 - There is one scene with one bootstrap object. Create everything else from code, not by editing the scene.
-- Assembly dependencies point one way: `UI`, `Build`, `Avatar` → `World` → `Net` → `Proto`.
+- Assemblies: `Net` → `Proto`; `Build` → `World`; `World`, `Avatar`, `UI`, `Host` reference none of the others; `Bootstrap` references all and holds the glue. Reference assemblies by name, never by GUID.
+- Only `Net` and `Bootstrap` use `Tinyverse.Proto` types. Its `Color`, `Vec3`, `Quat`, `Material` and `Shape` clash with Unity's.
 
 ## Protocol conventions
 

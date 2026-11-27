@@ -1,0 +1,22 @@
+[package]
+name = "tv-store"
+description = "Tinyverse persistence: one SQLite file per world"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tv-world.workspace = true
+glam.workspace = true
+hex.workspace = true
+rusqlite.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

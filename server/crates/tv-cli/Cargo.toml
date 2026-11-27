@@ -1,0 +1,21 @@
+[package]
+name = "tv-cli"
+description = "Tinyverse command-line test client and scriptable bot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tv-proto.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+futures-util.workspace = true
+rand.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

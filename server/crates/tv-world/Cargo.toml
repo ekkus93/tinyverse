@@ -1,0 +1,13 @@
+[package]
+name = "tv-world"
+description = "Tinyverse world state and rules: pure, synchronous, no IO"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glam.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

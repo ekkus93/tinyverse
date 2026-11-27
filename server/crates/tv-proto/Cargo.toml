@@ -1,0 +1,20 @@
+[package]
+name = "tv-proto"
+description = "Tinyverse wire protocol: generated protobuf types, proto3 JSON mapping and frame helpers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pbjson.workspace = true
+prost.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[build-dependencies]
+pbjson-build.workspace = true
+prost-build.workspace = true
+
+[lints]
+workspace = true

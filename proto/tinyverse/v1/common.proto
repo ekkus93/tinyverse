@@ -1,0 +1,238 @@
+// Tinyverse protocol v1 — shared types.
+//
+// Conventions (see docs/SPEC.md section 4.2):
+//   * metres and seconds; left-handed, Y up (Unity's convention);
+//   * quaternions are x y z w; avatars carry yaw only, in degrees,
+//     clockwise seen from above, 0 = facing +Z;
+//   * colours are linear 0..1 floats;
+//   * timestamps are milliseconds since the Unix epoch;
+//   * fields are only ever added, never renumbered or reused.
+syntax = "proto3";
+
+package tinyverse.v1;
+
+option csharp_namespace = "Tinyverse.Proto";
+
+// A point or direction in world space, in metres.
+message Vec3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+// A rotation. An all-zero Quat is treated as identity.
+message Quat {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  float w = 4;
+}
+
+// An RGBA colour, each channel 0..1.
+message Color {
+  float r = 1;
+  float g = 2;
+  float b = 3;
+  float a = 4;
+}
+
+// What sits behind a connection.
+enum ClientKind {
+  CLIENT_KIND_UNSPECIFIED = 0;
+  CLIENT_KIND_HUMAN = 1;
+  CLIENT_KIND_AGENT = 2;
+}
+
+// What a user may do in this world. Ordered: each role includes the ones before it.
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  // Move, chat, observe.
+  ROLE_VISITOR = 1;
+  // Also create objects; edit and delete own objects and unlocked objects of others.
+  ROLE_BUILDER = 2;
+  // Everything, plus edit any object, kick, ban, change roles.
+  ROLE_OWNER = 3;
+}
+
+// How an avatar is moving. Sets the speed limit the server enforces.
+enum MoveMode {
+  MOVE_MODE_UNSPECIFIED = 0;
+  MOVE_MODE_WALK = 1;
+  MOVE_MODE_RUN = 2;
+  MOVE_MODE_FLY = 3;
+}
+
+enum ChatChannel {
+  CHAT_CHANNEL_UNSPECIFIED = 0;
+  // Heard by avatars within Limits.local_chat_radius of the speaker. Never retained.
+  CHAT_CHANNEL_LOCAL = 1;
+  // Heard by everyone. Retained in memory for a few hours.
+  CHAT_CHANNEL_WORLD = 2;
+}
+
+// Primitive shapes. Each fits a 1 m cube centred on the origin before scaling.
+enum Shape {
+  SHAPE_UNSPECIFIED = 0;
+  SHAPE_BOX = 1;
+  SHAPE_SPHERE = 2;
+  // Axis along Y.
+  SHAPE_CYLINDER = 3;
+  // Apex at +Y, base at -Y.
+  SHAPE_CONE = 4;
+  // A box cut along its diagonal: full height at -Z, sloping to zero at +Z.
+  SHAPE_WEDGE = 5;
+  // A flat 1 m x 1 m quad in the XZ plane, facing +Y. Its Y scale is ignored.
+  SHAPE_PLANE = 6;
+}
+
+// Surface presets. The client decides how each one looks.
+enum Material {
+  MATERIAL_UNSPECIFIED = 0;
+  MATERIAL_MATTE = 1;
+  MATERIAL_GLOSSY = 2;
+  MATERIAL_METAL = 3;
+  MATERIAL_GLASS = 4;
+  MATERIAL_EMISSIVE = 5;
+}
+
+// Why a request was refused.
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  // The frame could not be decoded, or the message is not valid at this point of the session.
+  ERROR_CODE_BAD_REQUEST = 1;
+  // Hello.protocol_version is not one the server speaks.
+  ERROR_CODE_UNSUPPORTED_VERSION = 2;
+  // The world needs a password and it was missing or wrong.
+  ERROR_CODE_AUTH_FAILED = 3;
+  // The token is unknown or revoked. Retry without it to join as a new user.
+  ERROR_CODE_INVALID_TOKEN = 4;
+  ERROR_CODE_BANNED = 5;
+  ERROR_CODE_WORLD_FULL = 6;
+  // The role does not allow this, or the object is locked by someone else.
+  ERROR_CODE_PERMISSION_DENIED = 7;
+  // No such object, avatar or user.
+  ERROR_CODE_NOT_FOUND = 8;
+  // A field is missing or out of range (bad shape, scale, name length, ...).
+  ERROR_CODE_INVALID_ARGUMENT = 9;
+  // The position lies outside the world bounds.
+  ERROR_CODE_OUT_OF_BOUNDS = 10;
+  // A world limit was reached (object count, ...).
+  ERROR_CODE_LIMIT_EXCEEDED = 11;
+  // Too many messages of this type; slow down.
+  ERROR_CODE_RATE_LIMITED = 12;
+  ERROR_CODE_INTERNAL = 13;
+}
+
+// How an avatar looks. Until real models arrive only body_color is drawn.
+message Appearance {
+  // Colour of the placeholder body.
+  Color body_color = 1;
+  // Name of a body preset shipped with the client; empty means the default.
+  string body_preset = 2;
+  Color skin_color = 3;
+  Color hair_color = 4;
+  // Name of a hair style shipped with the client; empty means the default.
+  string hair_style = 5;
+  Color top_color = 6;
+  Color bottom_color = 7;
+}
+
+// Where an avatar is and how it is moving.
+message AvatarTransform {
+  // Position of the avatar's feet.
+  Vec3 position = 1;
+  // Heading in degrees, clockwise seen from above, 0 = facing +Z.
+  float yaw = 2;
+  // Metres per second, world space. Used by clients to extrapolate.
+  Vec3 velocity = 3;
+  MoveMode move_mode = 4;
+  // Free-form animation hint such as "idle", "walk", "run", "fly". May be empty.
+  string animation = 5;
+}
+
+// Everything about one avatar that is present in the world.
+message AvatarInfo {
+  // Entity id of the avatar; unique for the lifetime of the world, never reused.
+  uint64 id = 1;
+  // UUID of the user behind it; stable across sessions.
+  string user_id = 2;
+  // Display name.
+  string name = 3;
+  ClientKind kind = 4;
+  Role role = 5;
+  Appearance appearance = 6;
+  AvatarTransform transform = 7;
+}
+
+// The editable properties of a primitive object.
+message ObjectSpec {
+  // Optional label, at most Limits.max_name_chars characters.
+  string name = 1;
+  Shape shape = 2;
+  // Centre of the object.
+  Vec3 position = 3;
+  Quat rotation = 4;
+  // Size per axis in metres, each within Limits.min_scale..max_scale.
+  Vec3 scale = 5;
+  Color color = 6;
+  Material material = 7;
+  // Avatars collide with it.
+  bool solid = 8;
+  // Only the owner of the object and world owners may edit or delete it.
+  bool locked = 9;
+}
+
+// An object that exists in the world.
+message ObjectInfo {
+  // Entity id; unique for the lifetime of the world, never reused.
+  uint64 id = 1;
+  // User id of the creator.
+  string owner_id = 2;
+  ObjectSpec spec = 3;
+}
+
+// One line of chat.
+message ChatEntry {
+  // Avatar that spoke. May no longer be present when read from history.
+  uint64 sender_avatar_id = 1;
+  string sender_user_id = 2;
+  string sender_name = 3;
+  ClientKind sender_kind = 4;
+  ChatChannel channel = 5;
+  string text = 6;
+  int64 timestamp_ms = 7;
+}
+
+// Static description of the world, sent once in Welcome.
+message WorldInfo {
+  string name = 1;
+  string description = 2;
+  // Axis-aligned box that everything must stay inside.
+  Vec3 bounds_min = 3;
+  Vec3 bounds_max = 4;
+  // Where new avatars appear.
+  Vec3 spawn_point = 5;
+  // Side length in metres of the square ground plane, centred on the origin at y = 0.
+  float ground_size = 6;
+  // Name of a sky preset shipped with the client; empty means the default.
+  string sky = 7;
+  // Hour of the day, 0..24.
+  float time_of_day = 8;
+}
+
+// The limits the server enforces, so clients can validate before sending.
+message Limits {
+  uint32 max_message_bytes = 1;
+  uint32 max_chat_chars = 2;
+  uint32 max_name_chars = 3;
+  uint32 max_objects = 4;
+  float local_chat_radius = 5;
+  float min_scale = 6;
+  float max_scale = 7;
+  // Speed limits in metres per second.
+  float walk_speed = 8;
+  float run_speed = 9;
+  float fly_speed = 10;
+  // Largest radius accepted by Observe.
+  float max_observe_radius = 11;
+}

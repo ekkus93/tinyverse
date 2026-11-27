@@ -1,0 +1,181 @@
+// Tinyverse protocol v1 — messages sent by the server to a client.
+syntax = "proto3";
+
+package tinyverse.v1;
+
+import "tinyverse/v1/common.proto";
+
+option csharp_namespace = "Tinyverse.Proto";
+
+// The envelope of every server frame. Exactly one body is set.
+message ServerMessage {
+  // The ClientMessage.seq this is a direct response to, or 0 for an event
+  // that was not caused by a request of this client.
+  uint32 reply_to = 1;
+
+  oneof body {
+    Welcome welcome = 10;
+    Snapshot snapshot = 11;
+    AvatarJoined avatar_joined = 12;
+    AvatarLeft avatar_left = 13;
+    AvatarStates avatar_states = 14;
+    AvatarCorrection avatar_correction = 15;
+    AvatarUpdated avatar_updated = 16;
+    ChatMessage chat_message = 17;
+    ChatHistory chat_history = 18;
+    ObjectCreated object_created = 19;
+    ObjectUpdated object_updated = 20;
+    ObjectDeleted object_deleted = 21;
+    Observation observation = 22;
+    Error error = 23;
+    Kicked kicked = 24;
+    Pong pong = 25;
+    Ack ack = 26;
+  }
+}
+
+// The reply to a successful Hello. Followed by Snapshot chunks, then
+// ChatHistory, then live events.
+message Welcome {
+  uint32 protocol_version = 1;
+  // The user's stable id in this world.
+  string user_id = 2;
+  // The entity id of the avatar this connection controls.
+  uint64 avatar_id = 3;
+  Role role = 4;
+  // Present this as Hello.token next time to be recognised as the same user.
+  // Empty when the client logged in with a host-created agent token.
+  string session_token = 5;
+  WorldInfo world = 6;
+  Limits limits = 7;
+  // How often the server sends AvatarStates.
+  uint32 tick_rate_hz = 8;
+  int64 server_time_ms = 9;
+  string server_version = 10;
+  // The avatar's own starting state.
+  AvatarInfo avatar = 11;
+}
+
+// A chunk of the world as it is at join time. The joining avatar itself is
+// not included (it is in Welcome).
+message Snapshot {
+  repeated AvatarInfo avatars = 1;
+  repeated ObjectInfo objects = 2;
+  // True on the final chunk.
+  bool last = 3;
+}
+
+// Someone arrived.
+message AvatarJoined {
+  AvatarInfo avatar = 1;
+}
+
+// Someone left.
+message AvatarLeft {
+  uint64 avatar_id = 1;
+}
+
+// Transforms of the avatars that changed since the last tick. Never contains
+// the receiving client's own avatar unless the server is moving it (MoveTo).
+message AvatarStates {
+  int64 server_time_ms = 1;
+  repeated Entry states = 2;
+
+  message Entry {
+    uint64 avatar_id = 1;
+    AvatarTransform transform = 2;
+  }
+}
+
+// The server rejected the client's reported state. The client must snap its
+// own avatar to this transform.
+message AvatarCorrection {
+  AvatarTransform transform = 1;
+  // Human-readable, e.g. "too fast" or "out of bounds".
+  string reason = 2;
+}
+
+// An avatar's name, role or appearance changed. Carries the full new info.
+message AvatarUpdated {
+  AvatarInfo avatar = 1;
+}
+
+// A line of live chat.
+message ChatMessage {
+  ChatEntry entry = 1;
+}
+
+// Retained world chat, oldest first. Sent once after the snapshot on join and
+// in reply to ChatHistoryRequest.
+message ChatHistory {
+  repeated ChatEntry entries = 1;
+}
+
+message ObjectCreated {
+  ObjectInfo object = 1;
+  // Avatar that created it.
+  uint64 by_avatar_id = 2;
+}
+
+// Carries the full new state of the object, not just the changed fields.
+message ObjectUpdated {
+  ObjectInfo object = 1;
+  // Avatar that changed it.
+  uint64 by_avatar_id = 2;
+}
+
+message ObjectDeleted {
+  uint64 id = 1;
+  // Avatar that deleted it.
+  uint64 by_avatar_id = 2;
+}
+
+// The reply to Observe: what is around the avatar, nearest first.
+message Observation {
+  // The observer's own state.
+  AvatarInfo self = 1;
+  repeated SeenAvatar avatars = 2;
+  repeated SeenObject objects = 3;
+  // A short plain-text description of the above, ready for a model's context.
+  string summary = 4;
+  // True if the lists were cut short because too much is nearby.
+  bool truncated = 5;
+  // The radius actually used.
+  float radius = 6;
+
+  message SeenAvatar {
+    AvatarInfo avatar = 1;
+    // Metres from the observer.
+    float distance = 2;
+    // Degrees relative to the observer's heading: 0 = straight ahead,
+    // positive = to the right, range -180..180.
+    float bearing = 3;
+  }
+
+  message SeenObject {
+    ObjectInfo object = 1;
+    float distance = 2;
+    float bearing = 3;
+  }
+}
+
+// A request was refused.
+message Error {
+  ErrorCode code = 1;
+  // Human-readable explanation.
+  string message = 2;
+}
+
+// The server is about to close this connection.
+message Kicked {
+  string reason = 1;
+}
+
+message Pong {
+  // Echo of Ping.client_time_ms.
+  int64 client_time_ms = 1;
+  int64 server_time_ms = 2;
+}
+
+// A request succeeded and has no more specific reply.
+message Ack {}

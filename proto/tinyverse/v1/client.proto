@@ -1,0 +1,157 @@
+// Tinyverse protocol v1 — messages sent by a client (Unity or agent) to the server.
+syntax = "proto3";
+
+package tinyverse.v1;
+
+import "tinyverse/v1/common.proto";
+
+option csharp_namespace = "Tinyverse.Proto";
+
+// The envelope of every client frame. Exactly one body must be set.
+message ClientMessage {
+  // Chosen by the client, normally increasing from 1. The server echoes it as
+  // ServerMessage.reply_to on everything it sends back in direct response.
+  // 0 means "no reply correlation wanted".
+  uint32 seq = 1;
+
+  oneof body {
+    Hello hello = 10;
+    AvatarState avatar_state = 11;
+    MoveTo move_to = 12;
+    Stop stop = 13;
+    Chat chat = 14;
+    ChatHistoryRequest chat_history_request = 15;
+    ObjectCreate object_create = 16;
+    ObjectUpdate object_update = 17;
+    ObjectDelete object_delete = 18;
+    Observe observe = 19;
+    SetAppearance set_appearance = 20;
+    Admin admin = 21;
+    Ping ping = 22;
+  }
+}
+
+// Must be the first message on a connection. Answered by Welcome, or by Error
+// followed by the server closing the socket.
+message Hello {
+  // The protocol version the client speaks. Currently 1.
+  uint32 protocol_version = 1;
+  ClientKind kind = 2;
+  // Display name, 1..Limits.max_name_chars characters. Ignored when a token
+  // for an existing user is presented and name is empty.
+  string name = 3;
+  // The world's join password, if it has one. Not needed with a valid token.
+  string password = 4;
+  // Session token from an earlier Welcome, or an agent token created by the
+  // host. Empty on a first visit.
+  string token = 5;
+  Appearance appearance = 6;
+  // Name and version of the client software, for the host's log.
+  string client_name = 7;
+}
+
+// The client's own simulated avatar state. Sent at up to 15 Hz while moving
+// and about 1 Hz when idle. Cancels any MoveTo in progress. No reply unless
+// the server rejects it, in which case it sends AvatarCorrection.
+message AvatarState {
+  AvatarTransform transform = 1;
+}
+
+// Ask the server to move the avatar in a straight line to a point. Meant for
+// agents, which cannot stream AvatarState. Ignores obstacles in v1.
+message MoveTo {
+  Vec3 target = 1;
+  // WALK, RUN or FLY. UNSPECIFIED means WALK. WALK and RUN keep the avatar on
+  // the ground (target.y is ignored); FLY moves in three dimensions.
+  MoveMode mode = 2;
+}
+
+// Cancel a MoveTo in progress.
+message Stop {}
+
+// Say something.
+message Chat {
+  ChatChannel channel = 1;
+  // 1..Limits.max_chat_chars characters.
+  string text = 2;
+}
+
+// Ask for retained world chat. Answered by ChatHistory.
+message ChatHistoryRequest {
+  // Only messages newer than this timestamp; 0 means everything retained.
+  int64 since_ms = 1;
+  // At most this many, newest kept; 0 means no limit.
+  uint32 limit = 2;
+}
+
+// Create an object. Answered by ObjectCreated (sent to everyone, with
+// reply_to set on the creator's copy) or Error.
+message ObjectCreate {
+  ObjectSpec spec = 1;
+}
+
+// Change some properties of an object. Only fields that are present are
+// applied. Answered by ObjectUpdated (to everyone) or Error.
+message ObjectUpdate {
+  uint64 id = 1;
+  optional string name = 2;
+  optional Shape shape = 3;
+  Vec3 position = 4;
+  Quat rotation = 5;
+  Vec3 scale = 6;
+  Color color = 7;
+  optional Material material = 8;
+  optional bool solid = 9;
+  optional bool locked = 10;
+}
+
+// Remove an object. Answered by ObjectDeleted (to everyone) or Error.
+message ObjectDelete {
+  uint64 id = 1;
+}
+
+// Ask what is nearby. Answered by Observation.
+message Observe {
+  // Metres; 0 means the server default. Capped at Limits.max_observe_radius.
+  float radius = 1;
+}
+
+// Change the look of the own avatar. Announced to everyone as AvatarUpdated.
+message SetAppearance {
+  Appearance appearance = 1;
+}
+
+// Moderation. Owners only. Answered by Ack or Error.
+message Admin {
+  oneof action {
+    Kick kick = 1;
+    Ban ban = 2;
+    Unban unban = 3;
+    SetRole set_role = 4;
+  }
+
+  // Disconnect a user. They may rejoin.
+  message Kick {
+    string user_id = 1;
+    string reason = 2;
+  }
+  // Disconnect a user and refuse them from now on.
+  message Ban {
+    string user_id = 1;
+    string reason = 2;
+  }
+  message Unban {
+    string user_id = 1;
+  }
+  // Change a user's role, now and for future visits.
+  message SetRole {
+    string user_id = 1;
+    Role role = 2;
+  }
+}
+
+// Keepalive and latency probe. Answered by Pong. The server drops a
+// connection that sends nothing for 30 seconds.
+message Ping {
+  int64 client_time_ms = 1;
+}

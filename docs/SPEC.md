@@ -61,13 +61,15 @@ server/               Cargo workspace
   crates/tv-mcp/      binary: MCP bridge for AI agents (milestone 3)
 client/               Unity project
   Assets/Tinyverse/
-    Proto/            generated C# protobuf types
+    Proto/            generated C# protobuf types (Proto/Generated, do not edit)
     Net/              connection, message pump, typed events
-    World/            entity registry, object and avatar spawning
+    World/            ground, sky, object rendering and registry
     Avatar/           locomotion, camera, remote interpolation
     Build/            in-world building tools
     UI/               UI Toolkit screens and HUD
-    Bootstrap/        the single scene, startup wiring
+    Host/             launching the bundled server (milestone 4)
+    Bootstrap/        the single scene, and the session glue that wires the rest together
+    Editor/           build script
 agents/               example agents
 scripts/              codegen, checks, packaging
 ```
@@ -92,10 +94,17 @@ scripts/              codegen, checks, packaging
 
 - Units are metres and seconds. Coordinates are left-handed, Y up (Unity's
   convention), so the client needs no conversion. Rotations are quaternions
-  `x y z w`. Avatars carry yaw only.
+  `x y z w`. Avatars carry yaw only, in degrees, clockwise seen from above,
+  0 facing +Z. Colours are 0..1 floats. Timestamps are milliseconds since the
+  Unix epoch.
 - Entity ids are `uint64`, assigned by the server, never reused. User ids are
   UUID strings.
 - Every client message carries a `seq`. Replies and errors carry `reply_to`.
+  An event a client caused itself (for example `ObjectCreated`) carries
+  `reply_to` on that client's copy and 0 on everyone else's.
+- In JSON, field names are camelCase (snake_case is also accepted on input),
+  enums are their full names such as `MOVE_MODE_WALK`, 64-bit integers are
+  written as strings, and every field is written even when zero.
 - `protocol_version` is an integer checked in `Hello`. Fields are only added,
   never renumbered.
 
@@ -115,7 +124,7 @@ Client to server:
 | `ObjectDelete` | remove one object |
 | `Observe` | request a description of everything within a radius |
 | `SetAppearance` | change own avatar appearance |
-| `Admin` | kick, ban, set role (owner only; milestone 4) |
+| `Admin` | kick, ban, unban, set role (owner only; milestone 4) |
 | `Ping` | keepalive and latency |
 
 Server to client:
@@ -127,6 +136,7 @@ Server to client:
 | `AvatarJoined` / `AvatarLeft` | presence |
 | `AvatarStates` | batch of changed avatar transforms, sent each tick |
 | `AvatarCorrection` | server overrides the client's own position |
+| `AvatarUpdated` | an avatar's name, role or appearance changed |
 | `ChatMessage` | sender id, name, channel, text, timestamp |
 | `ChatHistory` | retained `world` messages, oldest first; sent after the snapshot on join and in reply to `ChatHistoryRequest` |
 | `ObjectCreated` / `ObjectUpdated` / `ObjectDeleted` | world edits, including the sender's own |
@@ -134,6 +144,7 @@ Server to client:
 | `Error` | code, human-readable message, `reply_to` |
 | `Kicked` | reason, then the server closes the socket |
 | `Pong` | keepalive |
+| `Ack` | a request succeeded and has no more specific reply |
 
 ### 4.4 Session flow
 
@@ -235,9 +246,13 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
 - Crates: `tokio`, `axum` (WebSocket and HTTP), `prost` with a proto3 JSON
   mapping, `rusqlite` (bundled SQLite), `glam`, `clap`, `tracing`.
 - `tv-world` is pure and synchronous:
-  `World::apply(actor, Command) -> Result<Vec<Event>, WorldError>` and
-  `World::tick(dt) -> Vec<Event>`. It holds all rules: validation, permissions,
-  limits. It has no knowledge of sockets or protobuf, so it is fully unit-tested.
+  `World::join(request, now_ms)`, `World::leave(avatar, now_ms)`,
+  `World::apply(actor, Command, now_ms) -> Result<Vec<Event>, WorldError>` and
+  `World::tick(dt, now_ms) -> Vec<Event>`. It holds all rules: validation,
+  permissions, limits. It has no knowledge of sockets, protobuf or the clock
+  (time is passed in), so it is fully unit-tested. Each `Event` names its
+  audience: everyone, everyone but one avatar, one avatar, a set, or the host
+  process itself (to persist a ban or a role change).
 - `tv-server` runs one world task that owns the `World`. Each connection is a
   task that decodes messages into commands, sends them over a channel, and
   receives events to encode. There are no locks around world state.
@@ -259,9 +274,12 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
 - Networking uses `System.Net.WebSockets.ClientWebSocket` and `Google.Protobuf`.
   No Netcode for GameObjects: the Rust server replaces it. Receive runs off the
   main thread and hands decoded messages to a main-thread queue.
-- One assembly definition per folder under `Assets/Tinyverse/`, with
-  dependencies pointing one way: `UI`, `Build`, `Avatar` → `World` → `Net` →
-  `Proto`. `Bootstrap` references all of them.
+- One assembly definition per folder under `Assets/Tinyverse/`. `Net`
+  references `Proto`; `Build` references `World`; `World`, `Avatar`, `UI` and
+  `Host` reference none of the others and expose plain C# types, events and
+  methods. `Bootstrap` references all of them and holds the session glue that
+  translates between protocol messages and the modules. Assemblies are
+  referenced by name, not GUID, so code can be added without the editor.
 - There is a single scene. It contains one bootstrap object. Everything else is
   created from code or from prefabs loaded by the bootstrap, which keeps scene
   files out of merge conflicts.
@@ -304,7 +322,7 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
 The plan in `TODO.md` assumes several agents working at once. The rules that
 make this safe:
 
-- M0 is done by one agent, serially. It freezes the three contracts: the proto
+- M0 is done first, before any parallel work. It freezes the three contracts: the proto
   schema, the `tv-world` command and event types, and the Unity assembly layout.
 - After M0 each task owns a set of directories and edits nothing outside them.
   A change to a contract goes through the coordinator, not a track.
@@ -312,6 +330,9 @@ make this safe:
 - Unity tracks write C#, UXML and USS only, inside their own folder. One Unity
   integrator owns the scene, prefabs, `ProjectSettings/`, `Packages/` and
   `.meta` files, and is the only one that opens the editor on the main checkout.
+  The protocol types `Color`, `Vec3`, `Quat`, `Material` and `Shape` share
+  names with Unity types, so only `Net` and `Bootstrap` touch `Tinyverse.Proto`
+  and the other modules stay on Unity types.
   Only one editor can open a project at a time, so a Unity track that needs to
   run tests uses its own git worktree.
 - Each milestone ends with one serial integration task that wires the tracks
