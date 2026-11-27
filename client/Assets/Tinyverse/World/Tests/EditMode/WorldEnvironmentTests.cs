@@ -48,7 +48,7 @@ namespace Tinyverse.World.Tests
             Assert.That(b.max.y, Is.EqualTo(0f).Within(1e-4f), "top of the ground is y = 0");
             Assert.That(Physics.Raycast(new Vector3(60, 5, -60), Vector3.down, out var hit, 10f), Is.True);
             Assert.That(hit.point.y, Is.EqualTo(0f).Within(1e-4f));
-            Assert.That(ground.GetComponent<MeshRenderer>().sharedMaterial.mainTexture, Is.Not.Null, "grid texture");
+            Assert.That(ground.GetComponent<MeshRenderer>().sharedMaterial.shader.name, Is.EqualTo(WorldEnvironment.GroundShaderName), "procedural grid");
         }
 
         [Test]
@@ -131,6 +131,11 @@ namespace Tinyverse.World.Tests
             Assert.That(RenderSettings.skybox.shader.name, Is.EqualTo("Skybox/Procedural"));
             Assert.That(RenderSettings.skybox, Is.Not.SameAs(Resources.Load<Material>(WorldEnvironment.SkyMaterialPath)), "the asset is never modified");
             Assert.That(RenderSettings.fog, Is.True);
+            // The shaders compute exponential-squared fog themselves (no FOG_* keywords).
+            Assert.That(RenderSettings.fogMode, Is.EqualTo(FogMode.ExponentialSquared));
+            Assert.That(RenderSettings.fogDensity, Is.EqualTo(WorldEnvironment.FogDensityFactor / 128f).Within(1e-6f));
+            // Haze matches the bright sky horizon by day, so the ground edge does not read as a line.
+            Assert.That(RenderSettings.fogColor.grayscale, Is.GreaterThan(0.75f));
             Assert.That(RenderSettings.ambientMode, Is.EqualTo(AmbientMode.Trilight));
             Color day = RenderSettings.ambientSkyColor;
             env.Apply(Settings(hour: 0f));

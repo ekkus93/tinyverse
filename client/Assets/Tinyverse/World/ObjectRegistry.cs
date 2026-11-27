@@ -35,6 +35,7 @@ namespace Tinyverse.World
             public ColliderKind Kind;
             public bool Local;
             public bool Highlighted;
+            public MeshFilter Outline; // child renderer of the selection outline, only while highlighted
 
             // Smoothing state; SmoothIndex is the position in the smoothing list, or -1.
             public int SmoothIndex = -1;
@@ -99,7 +100,10 @@ namespace Tinyverse.World
             e.Data = data;
 
             if (old.Shape != data.Shape)
+            {
                 e.Filter.sharedMesh = PrimMeshes.Get(data.Shape);
+                if (e.Outline != null) e.Outline.sharedMesh = e.Filter.sharedMesh;
+            }
             UpdateCollider(e, old.Shape != data.Shape);
             if (old.Solid != data.Solid)
                 e.Collider.isTrigger = !data.Solid;
@@ -184,7 +188,31 @@ namespace Tinyverse.World
             if (!entries.TryGetValue(id, out var e) || e.Highlighted == highlighted) return;
             e.Highlighted = highlighted;
             ApplyProperties(e);
+            if (highlighted)
+            {
+                var go = new GameObject("Outline");
+                go.transform.SetParent(e.Tf, false);
+                e.Outline = go.AddComponent<MeshFilter>();
+                e.Outline.sharedMesh = e.Filter.sharedMesh;
+                var r = go.AddComponent<MeshRenderer>();
+                // One submesh, three materials: Unity draws the mesh once per material
+                // (mask, bright band, dark inner line), ordered by their render queues.
+                r.sharedMaterials = PrimMaterials.GetOutlineMaterials();
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                r.lightProbeUsage = LightProbeUsage.Off;
+                r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            }
+            else
+            {
+                if (e.Outline != null) DestroyObject(e.Outline.gameObject);
+                e.Outline = null;
+            }
         }
+
+        /// <summary>The selection outline's renderer of a highlighted prim, or null.</summary>
+        public MeshRenderer GetOutlineRenderer(ulong id) =>
+            entries.TryGetValue(id, out var e) && e.Outline != null ? e.Outline.GetComponent<MeshRenderer>() : null;
 
         public bool IsHighlighted(ulong id) => entries.TryGetValue(id, out var e) && e.Highlighted;
 

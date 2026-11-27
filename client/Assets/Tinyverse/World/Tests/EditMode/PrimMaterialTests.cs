@@ -55,10 +55,43 @@ namespace Tinyverse.World.Tests
         {
             var ground = Resources.Load<Material>(WorldEnvironment.GroundMaterialPath);
             Assert.That(ground, Is.Not.Null);
-            Assert.That(ground.shader.name, Is.EqualTo("Universal Render Pipeline/Lit"));
+            Assert.That(ground.shader.name, Is.EqualTo(WorldEnvironment.GroundShaderName));
             var sky = Resources.Load<Material>(WorldEnvironment.SkyMaterialPath);
             Assert.That(sky, Is.Not.Null);
             Assert.That(sky.shader.name, Is.EqualTo("Skybox/Procedural"));
+        }
+
+        [Test]
+        public void OutlineMaterialsLoadFromResourcesInDrawOrder()
+        {
+            var mats = PrimMaterials.GetOutlineMaterials();
+            Assert.That(mats.Length, Is.EqualTo(3));
+            for (int i = 0; i < mats.Length; i++)
+            {
+                var layer = (PrimMaterials.OutlineLayer)i;
+                Assert.That(mats[i], Is.SameAs(Resources.Load<Material>(PrimMaterials.OutlineResourcePath(layer))), layer.ToString());
+                Assert.That(mats[i].shader.name, Is.EqualTo(PrimMaterials.OutlineShaderName));
+                Assert.That(mats[i].renderQueue, Is.GreaterThan((int)RenderQueue.Transparent), "after glass");
+                if (i > 0) Assert.That(mats[i].renderQueue, Is.GreaterThan(mats[i - 1].renderQueue), "mask, outer, inner");
+            }
+            var mask = mats[(int)PrimMaterials.OutlineLayer.Mask];
+            Assert.That(mask.GetFloat("_ColorMask"), Is.EqualTo(0));
+            Assert.That(mask.GetFloat("_Grow"), Is.EqualTo(0));
+            Assert.That(mask.GetFloat("_StencilPass"), Is.EqualTo((float)StencilOp.Replace));
+            var outer = mats[(int)PrimMaterials.OutlineLayer.Outer];
+            var inner = mats[(int)PrimMaterials.OutlineLayer.Inner];
+            Assert.That(outer.GetFloat("_StencilComp"), Is.EqualTo((float)CompareFunction.NotEqual));
+            Assert.That(inner.GetFloat("_StencilComp"), Is.EqualTo((float)CompareFunction.NotEqual));
+            Assert.That(inner.GetFloat("_Grow"), Is.InRange(0.1f, outer.GetFloat("_Grow") * 0.8f));
+            Assert.That(outer.GetColor("_OutlineColor").grayscale, Is.GreaterThan(0.5f), "bright band");
+            Assert.That(inner.GetColor("_OutlineColor").grayscale, Is.LessThan(0.1f), "dark line");
+        }
+
+        [Test]
+        public void HighlightBarelyTintsTheBody([ValueSource(nameof(AllPresets))] PrimMaterial preset)
+        {
+            // The prim's colour must stay readable while selected: the body only gets a faint pulse.
+            Assert.That(PrimMaterials.Get(preset).GetFloat("_HighlightFill"), Is.GreaterThan(0f).And.LessThanOrEqualTo(0.05f));
         }
 
         [Test]
@@ -72,16 +105,24 @@ namespace Tinyverse.World.Tests
 
         // -nographics never compiles shaders for a GPU, so compile the passes explicitly
         // for Vulkan / Linux with the keyword sets the materials and URP use.
-        [TestCase("ForwardLit", new string[0])]
-        [TestCase("ForwardLit", new[] { "_SURFACE_TYPE_TRANSPARENT", "_ALPHAPREMULTIPLY_ON" })]
-        [TestCase("ForwardLit", new[] { "_EMISSION", "INSTANCING_ON" })]
-        [TestCase("ForwardLit", new[] { "_MAIN_LIGHT_SHADOWS_CASCADE", "_ADDITIONAL_LIGHTS", "_CLUSTER_LIGHT_LOOP", "_SHADOWS_SOFT", "_SCREEN_SPACE_OCCLUSION", "FOG_EXP", "INSTANCING_ON" })]
-        [TestCase("ShadowCaster", new[] { "INSTANCING_ON" })]
-        [TestCase("DepthOnly", new[] { "INSTANCING_ON" })]
-        [TestCase("DepthNormals", new[] { "INSTANCING_ON" })]
-        public void PrimShaderPassCompilesForVulkan(string passName, string[] keywords)
+        [TestCase(PrimMaterials.ShaderName, "ForwardLit", new string[0])]
+        [TestCase(PrimMaterials.ShaderName, "ForwardLit", new[] { "_SURFACE_TYPE_TRANSPARENT", "_ALPHAPREMULTIPLY_ON" })]
+        [TestCase(PrimMaterials.ShaderName, "ForwardLit", new[] { "_EMISSION", "INSTANCING_ON" })]
+        [TestCase(PrimMaterials.ShaderName, "ForwardLit", new[] { "_MAIN_LIGHT_SHADOWS_CASCADE", "_ADDITIONAL_LIGHTS", "_CLUSTER_LIGHT_LOOP", "_SHADOWS_SOFT", "_SCREEN_SPACE_OCCLUSION", "INSTANCING_ON" })]
+        [TestCase(PrimMaterials.ShaderName, "ShadowCaster", new[] { "INSTANCING_ON" })]
+        [TestCase(PrimMaterials.ShaderName, "DepthOnly", new[] { "INSTANCING_ON" })]
+        [TestCase(PrimMaterials.ShaderName, "DepthNormals", new[] { "INSTANCING_ON" })]
+        [TestCase(PrimMaterials.OutlineShaderName, "Outline", new string[0])]
+        [TestCase(PrimMaterials.OutlineShaderName, "Outline", new[] { "INSTANCING_ON" })]
+        [TestCase(WorldEnvironment.GroundShaderName, "ForwardLit", new string[0])]
+        [TestCase(WorldEnvironment.GroundShaderName, "ForwardLit", new[] { "_MAIN_LIGHT_SHADOWS_CASCADE", "_ADDITIONAL_LIGHTS", "_CLUSTER_LIGHT_LOOP", "_SHADOWS_SOFT", "_SCREEN_SPACE_OCCLUSION" })]
+        [TestCase(WorldEnvironment.GroundShaderName, "DepthOnly", new string[0])]
+        [TestCase(WorldEnvironment.GroundShaderName, "DepthNormals", new string[0])]
+        public void ShaderPassCompilesForVulkan(string shaderName, string passName, string[] keywords)
         {
-            var shader = Shader.Find(PrimMaterials.ShaderName);
+            var shader = Shader.Find(shaderName);
+            Assert.That(shader, Is.Not.Null, shaderName);
+            Assert.That(ShaderUtil.ShaderHasError(shader), Is.False, shaderName);
             var data = ShaderUtil.GetShaderData(shader);
             var sub = data.GetSerializedSubshader(0);
             ShaderData.Pass pass = null;

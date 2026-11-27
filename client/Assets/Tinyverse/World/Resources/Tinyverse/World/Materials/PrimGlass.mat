@@ -34,6 +34,7 @@ Material:
     - _DstBlend: 10
     - _EmissionStrength: 0
     - _Highlight: 0
+    - _HighlightFill: 0.03
     - _Metallic: 0
     - _Opacity: 0.35
     - _Smoothness: 0.95
@@ -41,7 +42,7 @@ Material:
     - _Surface: 1
     - _ZWrite: 0
     m_Colors:
-    - _HighlightColor: {r: 0.34999996, g: 0.85, b: 1, a: 1}
+    - _HighlightColor: {r: 1, g: 0.72, b: 0.05, a: 1}
     - _PrimColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
