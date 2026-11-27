@@ -5,6 +5,14 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lib]
+name = "tv_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tv-cli"
+path = "src/main.rs"
+
 [dependencies]
 tv-proto.workspace = true
 anyhow.workspace = true
@@ -12,6 +20,7 @@ clap.workspace = true
 futures-util.workspace = true
 rand.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true
 tracing.workspace = true
