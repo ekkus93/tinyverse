@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Fake tinyverse-server for the Host tests. Implements the CLI contract:
+#   init <dir> [--name n] [--description d] [--password pw]
+#   run <dir> [--port p] [--bind b]
+#   password <dir> --set pw | --clear
+#
+# Switches (environment variables):
+#   FAKE_START_DELAY=<s>     run: wait this long before the ready line
+#   FAKE_MODE=port_in_use    run: fail at once with "Address already in use"
+#   FAKE_MODE=exit_early     run: fail at once with another error (exit 1)
+#   FAKE_MODE=never_ready    run: log, but never print the ready line
+#   FAKE_MODE=ignore_term    run: ignore SIGTERM (needs a hard kill)
+#   FAKE_CRASH_AFTER=<s>     run: exit 3 with a panic line this long after ready
+#   FAKE_CHATTY=<n>          run: print n numbered lines right after ready
+#   FAKE_READY_STREAM=stdout run: print the ready line on stdout (default stderr)
+#   FAKE_LEAK=1              print the password and owner token in log lines
+#   FAKE_INIT_FAIL=1         init: fail with an error on stderr
+# On a graceful SIGTERM/SIGINT, run writes "graceful" to <dir>/shutdown.marker and exits 0.
+set -u
+
+log() { echo "$(date +%H:%M:%S) INFO tinyverse_server: $*" >&2; }
+toml_escape() { local s=${1//\\/\\\\}; s=${s//\"/\\\"}; printf '%s' "$s"; }
+nap() { sleep "$1" & wait $!; }
+
+cmd=${1:-}; dir=${2:-}
+[ -n "$cmd" ] && [ -n "$dir" ] || { echo "usage: tinyverse-server <init|run|password> <dir> ..." >&2; exit 64; }
+shift 2
+
+case "$cmd" in
+  init)
+    name=""; desc=""; pw=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --name) name=$2; shift 2 ;;
+        --description) desc=$2; shift 2 ;;
+        --password) pw=$2; shift 2 ;;
+        *) echo "error: unexpected argument '$1'" >&2; exit 64 ;;
+      esac
+    done
+    if [ "${FAKE_INIT_FAIL:-}" = 1 ]; then
+      [ "${FAKE_LEAK:-}" = 1 ] && echo "debug: init called with password $pw" >&2
+      echo "Error: cannot create $dir: Permission denied (os error 13)" >&2
+      exit 1
+    fi
+    if [ -e "$dir/world.toml" ]; then
+      echo "Error: a world already exists in $dir; refusing to overwrite it" >&2
+      exit 2
+    fi
+    mkdir -p "$dir" || exit 1
+    {
+      echo "# Tinyverse world"
+      echo "name = \"$(toml_escape "$name")\""
+      echo "description = \"$(toml_escape "$desc")\""
+      if [ -n "$pw" ]; then echo "password_set = true"; else echo "password_set = false"; fi
+      echo "[spawn]"
+      echo "name = \"not the world name\""
+    } > "$dir/world.toml"
+    : > "$dir/world.db"
+    token="tvo_$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+    (umask 077; printf '%s\n' "$token" > "$dir/owner.token")
+    echo "Created world in $dir"
+    echo "Owner token: $token"
+    [ "${FAKE_LEAK:-}" = 1 ] && echo "debug: password was $pw" >&2
+    exit 0 ;;
+
+  password)
+    [ -e "$dir/world.toml" ] || { echo "Error: $dir is not a world" >&2; exit 2; }
+    case "${1:-}" in
+      --set) [ -n "${2:-}" ] || { echo "error: --set needs a value" >&2; exit 64; }
+             [ "${FAKE_LEAK:-}" = 1 ] && echo "debug: new password $2" >&2
+             sed -i 's/^password_set = .*/password_set = true/' "$dir/world.toml"; echo "Password set" ;;
+      --clear) sed -i 's/^password_set = .*/password_set = false/' "$dir/world.toml"; echo "Password cleared" ;;
+      *) echo "error: use --set <pw> or --clear" >&2; exit 64 ;;
+    esac
+    exit 0 ;;
+
+  run)
+    port=7878; bind=0.0.0.0
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --port) port=$2; shift 2 ;;
+        --bind) bind=$2; shift 2 ;;
+        *) echo "error: unexpected argument '$1'" >&2; exit 64 ;;
+      esac
+    done
+    [ -e "$dir/world.toml" ] || { echo "Error: $dir is not a world (no world.toml)" >&2; exit 2; }
+    echo $$ > "$dir/run.pid"
+    rm -f "$dir/shutdown.marker"
+
+    shutdown() {
+      log "shutting down, flushing world"
+      echo graceful > "$dir/shutdown.marker"
+      log "bye"
+      exit 0
+    }
+    trap shutdown TERM INT
+    [ "${FAKE_MODE:-}" = ignore_term ] && trap '' TERM
+
+    log "loading world from $dir"
+    if [ "${FAKE_LEAK:-}" = 1 ] && [ -f "$dir/owner.token" ]; then
+      t=$(cat "$dir/owner.token")
+      log "owner token=$t"
+      log "raw $t"
+    fi
+    case "${FAKE_MODE:-}" in
+      port_in_use)
+        echo "Error: failed to bind $bind:$port: Address already in use (os error 98)" >&2
+        exit 1 ;;
+      exit_early)
+        echo "Error: world.db is locked by another process" >&2
+        exit 1 ;;
+    esac
+    [ -n "${FAKE_START_DELAY:-}" ] && nap "$FAKE_START_DELAY"
+
+    if [ "${FAKE_MODE:-}" != never_ready ]; then
+      line="$(date +%H:%M:%S) INFO tinyverse_server: listening on ws://$bind:$port/ws"
+      if [ "${FAKE_READY_STREAM:-}" = stdout ]; then echo "$line"; else echo "$line" >&2; fi
+    fi
+    if [ -n "${FAKE_CHATTY:-}" ]; then
+      i=1; while [ "$i" -le "$FAKE_CHATTY" ]; do echo "chatty $i" >&2; i=$((i+1)); done
+    fi
+
+    start=$SECONDS; n=0
+    while :; do
+      nap 0.1
+      n=$((n+1))
+      [ $((n % 10)) -eq 0 ] && log "tick $((n / 10))"
+      if [ -n "${FAKE_CRASH_AFTER:-}" ] && [ $((SECONDS - start)) -ge "$FAKE_CRASH_AFTER" ]; then
+        echo "thread 'world' panicked at src/world.rs:42: something broke" >&2
+        exit 3
+      fi
+    done ;;
+
+  *)
+    echo "error: unknown command '$cmd'" >&2; exit 64 ;;
+esac
