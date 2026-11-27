@@ -114,9 +114,10 @@ pub enum Cmd {
 
 #[derive(Debug, Subcommand)]
 pub enum TlsCmd {
-    /// Write a self-signed cert.pem and key.pem (mode 0600) into the world
-    /// directory; `run` then serves wss:// with them. Clients must be told to
-    /// trust this certificate: compare the printed SHA-256 fingerprint.
+    /// Write a self-signed cert.pem (public, world-readable) and key.pem
+    /// (private, mode 0600) into the world directory; `run` then serves wss://
+    /// with them. Clients must be told to trust this certificate: compare the
+    /// printed SHA-256 fingerprint.
     SelfSigned {
         dir: PathBuf,
         /// A DNS name or IP address the certificate is valid for. Repeat for
@@ -299,12 +300,8 @@ pub fn execute_with(cli: Cli, inputs: &mut Inputs<'_>, out: &mut dyn Write) -> a
                 bail!("{} is not a world directory; create one with `init`", dir.display());
             }
             let made = tls::write_self_signed(&dir, &hosts, force)?;
-            writeln!(
-                out,
-                "wrote {} and {} (mode 0600)",
-                made.files.cert.display(),
-                made.files.key.display()
-            )?;
+            writeln!(out, "wrote {} (certificate, public)", made.files.cert.display())?;
+            writeln!(out, "wrote {} (private key, mode 0600)", made.files.key.display())?;
             writeln!(out, "valid for: {}", made.hosts.join(", "))?;
             writeln!(out, "SHA-256 fingerprint: {}", made.fingerprint)?;
             writeln!(out, "`run` now serves wss://; clients must trust this certificate.")?;

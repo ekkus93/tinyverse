@@ -187,3 +187,46 @@ async fn speeding_is_corrected() {
     assert!(c.transform.unwrap().position.unwrap().x < 100.0);
     server.shutdown().await.unwrap();
 }
+#[tokio::test]
+async fn unset_appearance_colours_reach_others_as_all_zero() {
+    let world = TestWorld::new();
+    let server = world.start().await;
+    let mut watcher = join_with(&server, Encoding::Binary, hello("watcher")).await;
+
+    // Hand-written JSON that sets only the body colour.
+    let mut client = Client::connect(&server, Encoding::Json).await;
+    client
+        .send_text(
+            r#"{"seq":1,"hello":{"protocolVersion":1,"name":"painter",
+                "appearance":{"bodyColor":{"r":0.25,"g":0.5,"b":0.75,"a":1}}}}"#,
+        )
+        .await;
+    let welcome = client.recv().await;
+    let Some(S::Welcome(w)) = welcome.body else { panic!("{welcome:?}") };
+    let painter = w.avatar_id;
+
+    let body = v1::Color { r: 0.25, g: 0.5, b: 0.75, a: 1.0 };
+    let zero = Some(v1::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 });
+    let check = |a: &v1::Appearance| {
+        assert_eq!(a.body_color, Some(body));
+        assert_eq!(
+            [a.skin_color, a.hair_color, a.top_color, a.bottom_color],
+            [zero, zero, zero, zero],
+            "{a:?}"
+        );
+    };
+    check(w.avatar.as_ref().unwrap().appearance.as_ref().unwrap());
+
+    let msg =
+        watcher.recv_where("AvatarJoined", |m| matches!(m.body, Some(S::AvatarJoined(_)))).await;
+    let Some(S::AvatarJoined(j)) = msg.body else { unreachable!() };
+    let info = j.avatar.unwrap();
+    assert_eq!(info.id, painter);
+    check(info.appearance.as_ref().unwrap());
+
+    // A latecomer's snapshot says the same.
+    let late = join(&server, "late").await;
+    let seen = late.snapshot_avatars().into_iter().find(|a| a.id == painter).unwrap();
+    check(seen.appearance.as_ref().unwrap());
+    server.shutdown().await.unwrap();
+}
