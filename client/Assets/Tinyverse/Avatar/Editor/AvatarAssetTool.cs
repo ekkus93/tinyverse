@@ -26,10 +26,12 @@ namespace Tinyverse.Avatars.Editor
         public const string MaterialsFolder = Root;
         public const string StagingFolder = "Assets/Tinyverse/Avatar/Staging";
 
-        /// <summary>Animation library clip name → saved clip name.</summary>
+        /// <summary>
+        /// Animation library clip name → saved clip name. The standing idle is not among them: the library's
+        /// <c>Idle_Loop</c> is a wide-legged ready stance, so <see cref="IdleClipAuthor"/> writes our own.
+        /// </summary>
         private static readonly (string source, string target)[] Clips =
         {
-            ("Idle_Loop", "Idle"),
             ("Walk_Loop", "Walk"),
             ("Jog_Fwd_Loop", "Jog"),
             ("Sprint_Loop", "Sprint"),
@@ -47,6 +49,7 @@ namespace Tinyverse.Avatars.Editor
             PrepareTextures(ArgValue("-avatarSource"));
             CreateMaterials();
             ExtractClips();
+            IdleClipAuthor.Author(); // calibrates on the freshly extracted walk
             Inspect();
         }
 

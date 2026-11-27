@@ -1,7 +1,8 @@
 # Third-party assets in the Avatar module
 
 The module has two sets of people. The default ("modern") set is generated from MakeHuman assets, see the
-second part. The "classic" set (`--avatar-style=classic`) and all seven animation clips are by Quaternius:
+second part. The "classic" set (`--avatar-style=classic`) and six of the seven animation clips are by Quaternius;
+the standing idle is our own, see the last part.
 
 ## Quaternius (classic figures and the animation clips)
 
@@ -28,8 +29,8 @@ unzipped packs (`-executeMethod Tinyverse.Avatars.Editor.AvatarAssetTool.Prepare
   `Base Characters/Unity/`. Unchanged files; at runtime only the head and neck, eyes and eyebrows are used.
 - `Models/Hair_SimpleParted.fbx`, `Hair_Buzzed.fbx`, `Hair_BuzzedFemale.fbx`, `Hair_Long.fbx`, `Hair_Buns.fbx`,
   `Hair_Beard.fbx` — Base Characters pack, `Hairstyles/Rigged to Head Bone/FBX (Unity)/`. Unchanged files.
-- `Animations/Idle.anim`, `Walk.anim`, `Jog.anim`, `Sprint.anim`, `Hover.anim`, `FlyForward.anim`, `Fall.anim` —
-  the clips `Idle_Loop`, `Walk_Loop`, `Jog_Fwd_Loop`, `Sprint_Loop`, `Swim_Idle_Loop`, `Swim_Fwd_Loop` and
+- `Animations/Walk.anim`, `Jog.anim`, `Sprint.anim`, `Hover.anim`, `FlyForward.anim`, `Fall.anim` —
+  the clips `Walk_Loop`, `Jog_Fwd_Loop`, `Sprint_Loop`, `Swim_Idle_Loop`, `Swim_Fwd_Loop` and
   `Jump_Loop` from the Animation Library's `Unity/UAL1_Standard.fbx`, imported as humanoid clips with the root
   baked into the pose and saved on their own. The 23 MB library file itself is not in the repository.
 - `Textures/Skin_Masculine.png`, `Skin_Feminine.png` — `T_Superhero_Male_Ligh.png` and
@@ -71,3 +72,13 @@ What was changed: the generator fits the clothes, hair and eyes to each body, po
 deletes the skin under the clothes, decimates every part, merges the parts into one mesh per material and packs
 greyscale versions of the textures into atlases (`Modern/Textures`), so that the client tints them. The `.mat`
 files in `Modern/Materials` are ours (plain URP Lit), made by `Editor/AvatarAssetTool.cs`.
+
+## Our own (the standing idle)
+
+`Animations/Idle.anim` is made by us, from no third-party material, and is under the project's own licence. The
+library's `Idle_Loop` (used until 2026-11-27) is a wide-legged, bent-knee "ready" stance with clenched fists, which
+looked odd on people in everyday clothes. `Editor/IdleClipAuthor.cs` writes the replacement as a humanoid muscle
+clip: an upright, relaxed pose (feet about hip-width apart, knees straight, arms hanging at the sides) with slow
+breathing and a slight shift of weight, 8 s long, its feet held in place by IK goals
+(`-executeMethod Tinyverse.Avatars.Editor.IdleClipAuthor.Author`; it measures the pose on the modern
+`Body_masculine` model and learns that body's IK goal frame from `Walk.anim`).

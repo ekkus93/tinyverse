@@ -27,7 +27,10 @@ writes the URP Lit materials from the manifests. The same inputs give byte-ident
 (the FBX exporter's time stamp and ids are pinned). Tested with Blender 4.3.2 (Debian package).
 
 `AvatarGallery.Render` (same way, without `-nographics`, with `-galleryOut DIR`) renders review images of every
-preset, skin tone, hair style and clip, next to the classic figures.
+preset, skin tone, hair style and clip, next to the classic figures. `AvatarGallery.RenderIdle` renders only the
+standing idle (every figure front and side, hands close up, walking to standing and back; with `-idleBefore DIR`
+also a before/after of the line-up). The idle clip itself is written by `IdleClipAuthor.Author` (see
+`client/Assets/Tinyverse/Avatar/THIRD_PARTY.md`).
 
 ## What a preset becomes
 

@@ -49,6 +49,142 @@ namespace Tinyverse.Avatars.Editor
             Debug.Log("[AvatarGallery] wrote " + outDir);
         }
 
+        /// <summary>
+        /// Review images of the standing idle only: every figure front and side, close-ups, and the change from
+        /// walking to standing still and back. With <c>-idleBefore DIR</c> (an earlier run's output) it also writes
+        /// <c>before-after.png</c>, that run's line-up above this one's.
+        /// <code>Unity -batchmode -projectPath client -executeMethod Tinyverse.Avatars.Editor.AvatarGallery.RenderIdle -galleryOut DIR [-idleBefore DIR]</code>
+        /// </summary>
+        public static void RenderIdle()
+        {
+            var args = Environment.GetCommandLineArgs();
+            int i = Array.IndexOf(args, "-galleryOut");
+            outDir = i >= 0 && i + 1 < args.Length ? args[i + 1] : "Logs/idle-review";
+            int b = Array.IndexOf(args, "-idleBefore");
+            string beforeDir = b >= 0 && b + 1 < args.Length ? args[b + 1] : null;
+            Directory.CreateDirectory(outDir);
+            var before = HumanCatalog.Style;
+            try
+            {
+                SetUpScene();
+                IdleShots();
+            }
+            finally
+            {
+                HumanCatalog.Style = before;
+                Clear();
+            }
+            Stack(Path.Combine(outDir, "lineup.png"), Path.Combine(outDir, "idle-lineup-front.png"), Path.Combine(outDir, "idle-lineup-side.png"));
+            if (beforeDir != null)
+                Stack(Path.Combine(outDir, "before-after.png"), Path.Combine(beforeDir, "idle-lineup-front.png"), Path.Combine(outDir, "idle-lineup-front.png"),
+                    Path.Combine(beforeDir, "idle-lineup-side.png"), Path.Combine(outDir, "idle-lineup-side.png"));
+            Debug.Log("[AvatarGallery] wrote " + outDir);
+        }
+
+        private static List<(AvatarStyle, string)> Everyone()
+        {
+            var all = new List<(AvatarStyle, string)>();
+            foreach (var p in HumanCatalog.ModernPresets) all.Add((AvatarStyle.Modern, p.Id));
+            foreach (var p in HumanCatalog.ClassicPresets) all.Add((AvatarStyle.Classic, p.Id));
+            return all;
+        }
+
+        private static void IdleShots()
+        {
+            var everyone = Everyone();
+            // Line-up, front and left side, after 2.5 s of standing.
+            for (int i = 0; i < everyone.Count; i++)
+                Pose(Figure(everyone[i].Item1, everyone[i].Item2, new Vector3((i - (everyone.Count - 1) * 0.5f) * 0.9f, 0f, 0f), 180f), "idle", 0f, 1.5f);
+            Shoot("idle-lineup-front", new Vector3(0f, 1.0f, -6.4f), new Vector3(0f, 0.88f, 0f), 26f, 1600, 800);
+            foreach (var go in spawned) go.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+            Shoot("idle-lineup-side", new Vector3(0f, 1.0f, -6.4f), new Vector3(0f, 0.88f, 0f), 26f, 1600, 800);
+            Clear();
+
+            // Each figure on its own, front, side and from above the shoulder (hands against the hips).
+            foreach (var (style, preset) in everyone)
+            {
+                var f = Figure(style, preset, Vector3.zero, 180f);
+                Pose(f, "idle", 0f, 1.5f);
+                string n = $"idle-{style}-{preset}";
+                Shoot(n + "-front", new Vector3(0f, 1.0f, -3.1f), new Vector3(0f, 0.92f, 0f), 38f, 720, 1000);
+                Shoot(n + "-side", new Vector3(-3.1f, 1.0f, 0f), new Vector3(0f, 0.92f, 0f), 38f, 720, 1000);
+                Shoot(n + "-hands", new Vector3(-0.9f, 1.25f, -1.3f), new Vector3(0f, 0.85f, 0f), 40f, 900, 900);
+                Stack(Path.Combine(outDir, n + ".png"), Horizontal, Path.Combine(outDir, n + "-front.png"), Path.Combine(outDir, n + "-side.png"), Path.Combine(outDir, n + "-hands.png"));
+                Clear();
+            }
+
+            // Walking, stopping and starting again, side view: frames at the given times after each change.
+            foreach (var (style, preset) in new[] { (AvatarStyle.Modern, HumanCatalog.Masculine), (AvatarStyle.Modern, HumanCatalog.Feminine), (AvatarStyle.Classic, HumanCatalog.Masculine) })
+            {
+                var f = Figure(style, preset, Vector3.zero, 90f);
+                var frames = new List<string>();
+                void Frame(string tag)
+                {
+                    string name = $"stop-{style}-{preset}-{frames.Count:00}-{tag}";
+                    Shoot(name, new Vector3(0f, 1.0f, -3.0f), new Vector3(0f, 0.9f, 0f), 40f, 480, 720);
+                    frames.Add(Path.Combine(outDir, name + ".png"));
+                }
+                Pose(f, "walk", 1.2f, 2.0f);
+                Frame("walking");
+                float done = 0f;
+                foreach (var t in new[] { 0.1f, 0.2f, 0.35f, 0.5f, 0.8f, 1.5f })
+                {
+                    Pose(f, "idle", 0f, t - done);
+                    done = t;
+                    Frame($"stopped-{t:0.00}s");
+                }
+                done = 0f;
+                foreach (var t in new[] { 0.15f, 0.35f, 0.7f })
+                {
+                    Pose(f, "walk", 1.2f, t - done);
+                    done = t;
+                    Frame($"walking-again-{t:0.00}s");
+                }
+                Stack(Path.Combine(outDir, $"stop-after-walk-{style}-{preset}.png"), Horizontal, frames.ToArray());
+                foreach (var p in frames) File.Delete(p);
+                Clear();
+            }
+        }
+
+        private const bool Horizontal = true;
+
+        private static void Stack(string target, params string[] sources) => Stack(target, false, sources);
+
+        /// <summary>Joins PNG images into one, top to bottom (or left to right), with a thin gap.</summary>
+        private static void Stack(string target, bool horizontal, params string[] sources)
+        {
+            var images = new List<Texture2D>();
+            foreach (var s in sources)
+            {
+                if (!File.Exists(s)) { Debug.LogWarning("[AvatarGallery] missing " + s); continue; }
+                var t = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                t.LoadImage(File.ReadAllBytes(s));
+                images.Add(t);
+            }
+            if (images.Count == 0) return;
+            const int gap = 6;
+            int w = 0, h = 0;
+            foreach (var t in images)
+            {
+                if (horizontal) { w += t.width + gap; h = Mathf.Max(h, t.height); }
+                else { h += t.height + gap; w = Mathf.Max(w, t.width); }
+            }
+            var result = new Texture2D(w, h, TextureFormat.RGB24, false);
+            var fill = new Color32[w * h];
+            for (int i = 0; i < fill.Length; i++) fill[i] = new Color32(30, 30, 30, 255);
+            result.SetPixels32(fill);
+            int x = 0, y = h;
+            foreach (var t in images)
+            {
+                if (horizontal) { result.SetPixels(x, h - t.height, t.width, t.height, t.GetPixels()); x += t.width + gap; }
+                else { y -= t.height; result.SetPixels(0, y, t.width, t.height, t.GetPixels()); y -= gap; }
+                Object.DestroyImmediate(t);
+            }
+            result.Apply();
+            File.WriteAllBytes(target, result.EncodeToPNG());
+            Object.DestroyImmediate(result);
+        }
+
         private static void SetUpScene()
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -127,6 +263,11 @@ namespace Tinyverse.Avatars.Editor
             cam.transform.position = from;
             cam.transform.LookAt(at);
             cam.fieldOfView = fov;
+            // Without a player loop the skinning is not redone after the bones move; ask for it on every render.
+            foreach (var go in spawned)
+                if (go != null)
+                    foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>())
+                        smr.forceMatrixRecalculationPerRender = true;
             var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
             cam.targetTexture = rt;
             cam.Render(); // the first render after a change sets up shadows and lights; keep the second
