@@ -124,6 +124,8 @@ enum ErrorCode {
 }
 
 // How an avatar looks. Until real models arrive only body_color is drawn.
+// A colour that is all zero (r = g = b = a = 0, which is also what a missing
+// colour becomes) means "not set": the client uses its own default for that part.
 message Appearance {
   // Colour of the placeholder body.
   Color body_color = 1;

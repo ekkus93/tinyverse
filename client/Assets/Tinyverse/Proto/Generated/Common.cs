@@ -1125,6 +1125,8 @@ namespace Tinyverse.Proto {
 
   /// <summary>
   /// How an avatar looks. Until real models arrive only body_color is drawn.
+  /// A colour that is all zero (r = g = b = a = 0, which is also what a missing
+  /// colour becomes) means "not set": the client uses its own default for that part.
   /// </summary>
   public sealed partial class Appearance : pb::IMessage<Appearance>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
