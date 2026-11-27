@@ -190,6 +190,68 @@ namespace Tinyverse.Avatars.Tests
             yield return null;
             Assert.That(tag.Alpha, Is.EqualTo(0f));
             Assert.That(tag.NameText.GetComponent<MeshRenderer>().enabled, Is.False);
+
+            // Near: never taller on screen than the cap, at any distance.
+            cam.transform.rotation = Quaternion.identity;
+            foreach (float d in new[] { 1.6f, 2.5f, 4f, 8f, 15f, 30f })
+            {
+                cam.transform.position = tag.transform.position + new Vector3(0f, 0f, -d);
+                yield return null;
+                Assert.That(tag.ScreenHeightPixels / cam.pixelHeight, Is.LessThanOrEqualTo(tag.MaxScreenFraction + 1e-4f), $"at {d} m");
+                Assert.That(tag.ScreenHeightPixels / cam.pixelHeight, Is.GreaterThan(0.01f), $"still readable at {d} m");
+                Assert.That(tag.IsShown, Is.True, $"shown at {d} m");
+            }
+
+            // Within about a metre of the camera it is gone.
+            cam.transform.position = tag.transform.position + new Vector3(0f, 0f, -0.8f);
+            yield return null;
+            Assert.That(tag.Alpha, Is.EqualTo(0f));
+            Assert.That(tag.IsShown, Is.False);
+            Assert.That(tag.NameText.GetComponent<MeshRenderer>().enabled, Is.False);
+
+            // Behind the camera it is not drawn.
+            cam.transform.position = tag.transform.position + new Vector3(0f, 0f, 5f);
+            yield return null;
+            Assert.That(tag.IsShown, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator OwnNameTagHiddenByDefaultAndInFirstPerson()
+        {
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            ground.transform.position = new Vector3(0f, -0.5f, 0f);
+            ground.transform.localScale = new Vector3(50f, 1f, 50f);
+            var local = LocalAvatar.Create("Me", AvatarLook.Default, MoveLimits.Default, new AvatarPose(Vector3.zero, 0f));
+            local.InputSource = new ScriptedAvatarInput();
+            var cam = scene.Track(OrbitCamera.Create());
+            cam.Follow(local);
+            NameTag.ViewCamera = cam.Camera;
+            try
+            {
+                yield return null;
+                yield return null;
+                Assert.That(local.ShowNameTag, Is.False);
+                Assert.That(local.Visual.NameTag.IsShown, Is.False, "own tag hidden in third person by default");
+                Assert.That(((PlaceholderAvatarVisual)local.Visual).Visible, Is.True, "body still drawn");
+
+                local.ShowNameTag = true;
+                yield return null;
+                Assert.That(local.Visual.NameTag.IsShown, Is.True);
+
+                cam.Distance = 0f;
+                for (int i = 0; i < 60; i++) yield return null;
+                Assert.That(cam.IsFirstPerson, Is.True);
+                Assert.That(local.Visual.NameTag.IsShown, Is.False, "hidden in first person even when enabled");
+
+                cam.Distance = 5f;
+                for (int i = 0; i < 60; i++) yield return null;
+                Assert.That(local.Visual.NameTag.IsShown, Is.True, "back in third person");
+            }
+            finally
+            {
+                Object.Destroy(local.gameObject);
+                Object.Destroy(ground);
+            }
         }
 
         [UnityTest]
