@@ -365,11 +365,134 @@ fn running_and_flying_move_to() {
     assert_eq!(t.animation, "fly");
     assert_eq!(t.move_mode, MoveMode::Fly);
 
-    // Walking from up there stays at the current height.
+    // Walking from up there comes down to the ground at 10 m/s.
     moving(&mut w, id, Vec3::new(-3.0, 0.0, -8.0), MoveMode::Walk);
     let t = states(&w.tick(1.0, T0 + 3000))[0].transform.clone();
-    assert_eq!(t.position, Vec3::new(-3.0, 16.0, -8.0));
+    assert_eq!(t.position, Vec3::new(-3.0, 6.0, -8.0));
     assert!(approx(t.yaw, 270.0), "facing -X is yaw 270");
+    let t = states(&w.tick(1.0, T0 + 4000))[0].transform.clone();
+    assert_eq!(t.position, Vec3::new(-3.0, 0.0, -8.0));
+    assert_eq!(t.animation, "idle");
+}
+
+#[test]
+fn walking_move_to_from_the_air_reaches_the_ground() {
+    let mut w = world_with(|c| c.spawn_point = Vec3::new(0.0, 5.0, 0.0));
+    let id = join(&mut w, "a", Role::Visitor);
+    // target.y is ignored; ground level is used instead.
+    moving(&mut w, id, Vec3::new(8.0, 5.0, 0.0), MoveMode::Walk);
+
+    // 0.1 s: 0.4 m forward, 1 m down; still well above ground, so "fall".
+    let u = states(&w.tick(0.1, T0 + 100))[0].clone();
+    assert!(u.server_driven);
+    assert!(approx_vec(u.transform.position, Vec3::new(0.4, 4.0, 0.0)));
+    assert!(approx_vec(u.transform.velocity, Vec3::new(4.0, -10.0, 0.0)));
+    assert_eq!(u.transform.animation, "fall");
+    assert!(approx(u.transform.yaw, 90.0));
+
+    // After 0.45 s in total it is 0.5 m up: no longer "fall".
+    let t = states(&w.tick(0.35, T0 + 450))[0].transform.clone();
+    assert!(approx(t.position.y, 0.5));
+    assert_eq!(t.animation, "walk");
+
+    // On the ground the vertical velocity is gone; walking continues.
+    let t = states(&w.tick(0.1, T0 + 550))[0].transform.clone();
+    assert_eq!(t.position.y, 0.0);
+    assert!(approx_vec(t.velocity, Vec3::new(4.0, 0.0, 0.0)));
+    assert_eq!(t.animation, "walk");
+
+    let t = states(&w.tick(2.0, T0 + 2550))[0].transform.clone();
+    assert_eq!(t.position, Vec3::new(8.0, 0.0, 0.0));
+    assert_eq!(t.velocity, Vec3::ZERO);
+    assert_eq!(t.animation, "idle");
+    assert!(w.avatars.get(&id).unwrap().move_to.is_none());
+}
+
+#[test]
+fn a_short_hop_from_high_up_keeps_descending_before_arriving() {
+    let mut w = world_with(|c| c.spawn_point = Vec3::new(0.0, 30.0, 0.0));
+    let id = join(&mut w, "a", Role::Visitor);
+    moving(&mut w, id, Vec3::new(0.0, 0.0, 1.0), MoveMode::Run);
+
+    // Horizontally there after the first tick, but 20 m still to fall.
+    let t = states(&w.tick(1.0, T0 + 1000))[0].transform.clone();
+    assert_eq!(t.position, Vec3::new(0.0, 20.0, 1.0));
+    assert_eq!(t.velocity, Vec3::new(0.0, -10.0, 0.0));
+    assert_eq!(t.animation, "fall");
+    assert!(w.avatars.get(&id).unwrap().move_to.is_some());
+
+    let t = states(&w.tick(1.0, T0 + 2000))[0].transform.clone();
+    assert_eq!(t.position, Vec3::new(0.0, 10.0, 1.0));
+    assert!(w.avatars.get(&id).unwrap().move_to.is_some());
+
+    let t = states(&w.tick(1.0, T0 + 3000))[0].transform.clone();
+    assert_eq!(t.position, Vec3::new(0.0, 0.0, 1.0));
+    assert_eq!(t.velocity, Vec3::ZERO);
+    assert_eq!(t.animation, "idle");
+    assert!(w.avatars.get(&id).unwrap().move_to.is_none());
+    assert!(w.tick(1.0, T0 + 4000).is_empty());
+}
+
+#[test]
+fn walking_move_to_from_below_ground_rises_to_it() {
+    let mut w = world_with(|c| c.spawn_point = Vec3::new(0.0, -2.0, 0.0));
+    let id = join(&mut w, "a", Role::Visitor);
+    moving(&mut w, id, Vec3::new(4.0, -2.0, 0.0), MoveMode::Walk);
+    let t = states(&w.tick(0.1, T0 + 100))[0].transform.clone();
+    assert!(approx_vec(t.position, Vec3::new(0.4, -1.0, 0.0)));
+    assert!(approx_vec(t.velocity, Vec3::new(4.0, 10.0, 0.0)));
+    assert_eq!(t.animation, "walk", "below ground is not falling");
+    let t = states(&w.tick(0.1, T0 + 200))[0].transform.clone();
+    assert!(approx_vec(t.position, Vec3::new(0.8, 0.0, 0.0)));
+    assert!(approx_vec(t.velocity, Vec3::new(4.0, 0.0, 0.0)));
+    let t = states(&w.tick(1.0, T0 + 1200))[0].transform.clone();
+    assert_eq!(t.position, Vec3::new(4.0, 0.0, 0.0));
+    assert_eq!(t.animation, "idle");
+}
+
+#[test]
+fn ground_level_is_clamped_into_the_bounds() {
+    let mut w = world_with(|c| {
+        c.bounds_min = Vec3::new(-50.0, 10.0, -50.0);
+        c.bounds_max = Vec3::new(50.0, 100.0, 50.0);
+        c.spawn_point = Vec3::new(0.0, 20.0, 0.0);
+    });
+    let id = join(&mut w, "a", Role::Visitor);
+    assert_eq!(w.ground_y(), 10.0);
+    moving(&mut w, id, Vec3::new(1.0, 0.0, 0.0), MoveMode::Walk);
+    w.tick(1.0, T0 + 1000);
+    assert_eq!(w.avatar(id).unwrap().transform.position, Vec3::new(1.0, 10.0, 0.0));
+    let w = world_with(|c| c.bounds_max.y = -5.0);
+    assert_eq!(w.ground_y(), -5.0);
+}
+
+#[test]
+fn walking_target_bounds_use_ground_level() {
+    // Bounds that exclude the avatar's current height but include y = 0.
+    let mut w = world_with(|c| c.bounds_max.y = 10.0);
+    let id = join(&mut w, "a", Role::Visitor);
+    place(&mut w, id, Vec3::new(0.0, 50.0, 0.0), 0.0);
+    moving(&mut w, id, Vec3::new(3.0, 50.0, 0.0), MoveMode::Walk);
+    // Flying to the same point is out of bounds.
+    assert!(matches!(
+        w.apply(id, Command::MoveTo { target: Vec3::new(3.0, 50.0, 0.0), mode: MoveMode::Fly }, T0),
+        Err(WorldError::OutOfBounds(_))
+    ));
+}
+
+#[test]
+fn stop_during_the_descent_leaves_the_avatar_in_the_air() {
+    let mut w = world_with(|c| c.spawn_point = Vec3::new(0.0, 30.0, 0.0));
+    let id = join(&mut w, "a", Role::Visitor);
+    moving(&mut w, id, Vec3::new(2.0, 0.0, 0.0), MoveMode::Walk);
+    w.tick(1.0, T0 + 1000);
+    only_ack(&w.apply(id, Command::Stop, T0 + 1000).unwrap(), id);
+    let t = states(&w.tick(1.0, T0 + 2000))[0].transform.clone();
+    assert_eq!(t.position, Vec3::new(2.0, 20.0, 0.0));
+    assert_eq!(t.velocity, Vec3::ZERO);
+    assert_eq!(t.animation, "idle");
+    assert!(w.tick(1.0, T0 + 3000).is_empty());
+    assert_eq!(w.avatar(id).unwrap().transform.position.y, 20.0);
 }
 
 #[test]
