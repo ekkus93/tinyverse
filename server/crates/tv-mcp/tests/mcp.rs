@@ -315,6 +315,8 @@ async fn move_to_waits_for_arrival() {
     assert_eq!((t.x, t.z), (10.0, 0.0));
     me_at(&conn, 4.0, 0.0, 8.0);
     me_at(&conn, 8.0, 0.0, 8.0);
+    // Close but still moving is not arrived; the server's last state is.
+    me_at(&conn, 9.7, 0.0, 8.0);
     tokio::time::sleep(Duration::from_millis(50)).await;
     me_at(&conn, 10.0, 0.0, 0.0);
     let (text, err) = c.finish_call(id).await;
@@ -358,7 +360,8 @@ async fn move_to_reports_a_timeout_and_an_early_stop() {
 
 #[tokio::test]
 async fn move_to_checks_arguments_and_reports_server_errors() {
-    let (_world, mut conn, mut c) = connected().await;
+    let (_world, mut conn, mut c) =
+        connected_with(Script { auto_reply: false, ..Script::default() }).await;
     let text = c.fails("move_to", json!({"x": 1})).await;
     assert!(text.contains("`z` is required"), "{text}");
     let text = c.fails("move_to", json!({"x": 1000, "z": 0})).await;
@@ -400,7 +403,8 @@ async fn stop_sends_stop() {
 
 #[tokio::test]
 async fn say_sends_chat_on_the_right_channel() {
-    let (_world, mut conn, mut c) = connected().await;
+    let (_world, mut conn, mut c) =
+        connected_with(Script { auto_reply: false, ..Script::default() }).await;
     let id = c.start_call("say", json!({"text": "  hello there "})).await;
     let msg = conn.recv().await;
     let Some(C::Chat(ch)) = &msg.body else { panic!("expected Chat, got {msg:?}") };
@@ -415,10 +419,22 @@ async fn say_sends_chat_on_the_right_channel() {
     assert!(!err);
     assert_eq!(text, "You said (heard within 20 m): hello there");
 
-    let text = c.ok("say", json!({"text": "hi all", "channel": "world"})).await;
-    assert!(text.contains("whole world"), "{text}");
-    let Some(C::Chat(ch)) = conn.recv().await.body else { panic!() };
+    let id = c.start_call("say", json!({"text": "hi all", "channel": "world"})).await;
+    let msg = conn.recv().await;
+    let Some(C::Chat(ch)) = &msg.body else { panic!("expected Chat, got {msg:?}") };
     assert_eq!(ch.channel, ChatChannel::World as i32);
+    conn.send(
+        msg.seq,
+        S::ChatMessage(ChatMessage { entry: Some(chat(ME, ME_USER, "Scout", 2, "hi all")) }),
+    );
+    let (text, err) = c.finish_call(id).await;
+    assert!(!err && text.contains("whole world"), "{text}");
+
+    // No answer at all is reported, not mistaken for success.
+    let id = c.start_call("say", json!({"text": "hello?"})).await;
+    conn.recv().await;
+    let (text, err) = c.finish_call(id).await;
+    assert!(err && text.contains("did not answer"), "{text}");
 
     let text = c.fails("say", json!({"text": "x".repeat(501)})).await;
     assert!(text.contains("at most 500"), "{text}");
