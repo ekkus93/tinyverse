@@ -97,10 +97,10 @@ owner and are locked, so visitors cannot take the place apart, but you can chang
 | `town` | A town square with a fountain, trees, benches and street lamps among houses and shops. |
 | `island` | A sandy island with palms, a thatched hut, a campfire and a jetty, in the sea. |
 
-![The room template: a living room with a sofa, a dining table, shelves and big windows](docs/images/template-room.png)
-![The house template: a small house with a pitched roof behind a garden fence](docs/images/template-house.png)
-![The town template: a square with a fountain among coloured houses and shops](docs/images/template-town.png)
-![The island template: a sandy island with palms and a hut, seen from the air](docs/images/template-island.png)
+![The room template: a living room with a sofa, a dining table, shelves and big windows](docs/images/template-room.jpg)
+![The house template: a small house with a pitched roof behind a garden fence](docs/images/template-house.jpg)
+![The town template: a square with a fountain among coloured houses and shops](docs/images/template-town.jpg)
+![The island template: a sandy island with palms and a hut, seen from the end of the jetty](docs/images/template-island.jpg)
 
 ## Join a world
 

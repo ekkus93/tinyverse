@@ -18,7 +18,7 @@ name = "town square"
 shape = "box"
 position = [0, 0.015, 8]
 scale = [30, 0.03, 30]
-color = "#cfc6b4"
+color = "#bcb19c"
 solid = false
 
 [[object]]
