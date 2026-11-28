@@ -27,11 +27,11 @@ Material:
     m_Floats:
     - _CellLine: 0.0
     - _CellSize: 8
-    - _Checker: 0.02
+    - _Checker: 0.015
     - _LineWidth: 1.1
     - _MetreLine: 0.0
-    - _Mottle: 0.22
-    - _MottleScale: 5
+    - _Mottle: 0.12
+    - _MottleScale: 9
     - _Smoothness: 0.04
     m_Colors:
     - _BaseColor: {r: 0.37, g: 0.49, b: 0.25, a: 1}

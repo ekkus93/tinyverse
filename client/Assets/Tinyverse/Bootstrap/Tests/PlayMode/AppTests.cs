@@ -225,7 +225,7 @@ namespace Tinyverse.Bootstrap.Tests
             string existing = Path.Combine(profile, "worlds", "old");
             Directory.CreateDirectory(existing);
             File.WriteAllText(Path.Combine(existing, "world.toml"), "name = \"Old\"\n");
-            var folderField = app.UI.RootElement.Q<UnityEngine.UIElements.TextField>("hostFolder");
+            var folderField = UnityEngine.UIElements.UQueryExtensions.Q<UnityEngine.UIElements.TextField>(app.UI.RootElement, "hostFolder");
             folderField.value = existing;
             Assert.IsTrue(host.IsExistingWorld);
             Assert.AreEqual(HostScreen.ExistingWorldNote, host.TemplateText);

@@ -8,6 +8,7 @@ name = "The Town"
 description = "A town square with a fountain."
 spawn_point = [0, 0, -11]
 ground = "grass"
+ground_size = 512
 time_of_day = 10.5
 
 # ---- Square and streets
