@@ -115,6 +115,24 @@ namespace Tinyverse.Avatars
             animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             animator.runtimeAnimatorController = null;
             player = new HumanAnimationPlayer(animator, name);
+            var head = animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
+            restHeadBone = head != null ? transform.localPosition.y + transform.InverseTransformPoint(head.position).y : Height;
+        }
+
+        private float restHeadBone;
+
+        /// <summary>
+        /// Top of the head (or hair) as posed now, metres above the avatar's position (the figure's parent): the head
+        /// bone's height plus how far the top was above it in the rest pose.
+        /// </summary>
+        public float CurrentHeadTop
+        {
+            get
+            {
+                var head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
+                if (head == null) return Height;
+                return transform.localPosition.y + transform.InverseTransformPoint(head.position).y + Height - restHeadBone;
+            }
         }
 
         private void Build(BodyPreset preset, GameObject headModel)
@@ -236,7 +254,21 @@ namespace Tinyverse.Avatars
             foreach (var r in hairRenderers) if (r != null) r.enabled = show;
         }
 
-        public void Animate(in AvatarPose pose, float dt) => player?.Update(HumanAnimationLogic.Choose(pose.Animation, pose.Velocity), dt);
+        /// <summary>
+        /// Poses the figure for <paramref name="pose"/>: in open water (see <see cref="AvatarWater"/>) and not flying
+        /// it swims, and the figure is lowered so the swimming clips sit at the depth they were authored at (the
+        /// flying clips share their assets, lifted clear of the position).
+        /// </summary>
+        public void Animate(in AvatarPose pose, float dt)
+        {
+            if (player == null) return;
+            bool water = pose.Animation != AvatarAnimations.Fly && AvatarWater.IsOpenWater(pose.Position);
+            player.Update(HumanAnimationLogic.Choose(pose.Animation, pose.Velocity, water), dt);
+            transform.localPosition = new Vector3(0f, player.SwimDrop * animator.humanScale, 0f);
+        }
+
+        /// <summary>The share of the swimming clips in the pose, 0..1.</summary>
+        public float SwimShare => player != null ? player.SwimShare : 0f;
 
         /// <summary>The colour a part is drawn with (for tests and tools).</summary>
         public Color ColorOf(HumanPart part) =>
@@ -250,6 +282,25 @@ namespace Tinyverse.Avatars
                 foreach (var r in bodyRenderers) if (r != null) yield return r;
                 foreach (var r in hairRenderers) if (r != null) yield return r;
             }
+        }
+
+        /// <summary>
+        /// The lowest point of the drawn figure (every skinned vertex of the body and hair, as posed now), metres
+        /// above the avatar's position (the origin of the figure's parent). For tests and tools: it bakes the skinned
+        /// meshes into <paramref name="scratch"/>, so outside the editor it needs readable meshes.
+        /// </summary>
+        public float LowestPoint(Mesh scratch)
+        {
+            float lowest = float.MaxValue;
+            var origin = transform.parent != null ? transform.parent.position.y : 0f;
+            foreach (var r in Renderers)
+            {
+                if (!(r is SkinnedMeshRenderer smr) || smr.sharedMesh == null) continue;
+                smr.BakeMesh(scratch, true);
+                var m = Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one);
+                foreach (var v in scratch.vertices) lowest = Mathf.Min(lowest, m.MultiplyPoint3x4(v).y);
+            }
+            return lowest == float.MaxValue ? 0f : lowest - origin;
         }
 
         private void OnDestroy()

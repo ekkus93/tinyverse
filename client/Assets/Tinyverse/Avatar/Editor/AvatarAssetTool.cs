@@ -28,7 +28,8 @@ namespace Tinyverse.Avatars.Editor
 
         /// <summary>
         /// Animation library clip name → saved clip name. The standing idle is not among them: the library's
-        /// <c>Idle_Loop</c> is a wide-legged ready stance, so <see cref="IdleClipAuthor"/> writes our own.
+        /// <c>Idle_Loop</c> is a wide-legged ready stance, so <see cref="IdleClipAuthor"/> writes our own. The two
+        /// swimming clips stand in for flying; <see cref="FlightClipLevels"/> lifts them after extraction.
         /// </summary>
         private static readonly (string source, string target)[] Clips =
         {
@@ -156,6 +157,8 @@ namespace Tinyverse.Avatars.Editor
                 Debug.Log($"[AvatarAssetTool] saved {target} ({clip.length:0.00} s, human {clip.humanMotion})");
             }
             AssetDatabase.SaveAssets();
+            // The swimming clips are authored low in the water; lift them clear of the avatar's position.
+            FlightClipLevels.Apply();
             MeasureRootMotion();
         }
 

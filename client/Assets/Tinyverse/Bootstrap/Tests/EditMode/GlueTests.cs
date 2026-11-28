@@ -269,7 +269,7 @@ namespace Tinyverse.Bootstrap.Tests
             var c = CommandLine.Parse(new[]
             {
                 "player", "-logFile", "x.log", "--connect", "192.168.1.5", "--name", "Ann", "--password=pw",
-                "--screenshot-dir", "/tmp/s", "--screenshot-every", "2.5", "--quit-after", "30", "--demo-walk", "--demo-build",
+                "--screenshot-dir", "/tmp/s", "--screenshot-every", "2.5", "--quit-after", "30", "--demo-walk", "--demo-build", "--demo-swim",
                 "--fresh-profile", "/tmp/p", "--screenshot-tour",
             }, skipFirst: true);
             CollectionAssert.IsEmpty(c.Errors);
@@ -281,6 +281,7 @@ namespace Tinyverse.Bootstrap.Tests
             Assert.AreEqual(30f, c.QuitAfter);
             Assert.IsTrue(c.DemoWalk);
             Assert.IsTrue(c.DemoBuild);
+            Assert.IsTrue(c.DemoSwim);
             Assert.IsTrue(c.ScreenshotTour);
             Assert.AreEqual("/tmp/p", c.ProfileDirectory);
             Assert.IsNull(c.HostWorldDirectory);
@@ -324,6 +325,7 @@ namespace Tinyverse.Bootstrap.Tests
             var c = CommandLine.Parse(new string[0]);
             CollectionAssert.IsEmpty(c.Errors);
             Assert.IsFalse(c.DemoWalk);
+            Assert.IsFalse(c.DemoSwim);
         }
     }
 

@@ -81,6 +81,88 @@ namespace Tinyverse.Avatars.Editor
             Debug.Log("[AvatarGallery] wrote " + outDir);
         }
 
+        /// <summary>
+        /// Review images of flying at ground level: every figure standing, hovering and flying forward (two moments of
+        /// each loop) side by side on the ground (<c>flight-lineup.png</c>), and taking off, flying off, stopping
+        /// and landing frame by frame (<c>flight-transition-*.png</c>).
+        /// <code>Unity -batchmode -projectPath client -executeMethod Tinyverse.Avatars.Editor.AvatarGallery.RenderFlight -galleryOut DIR</code>
+        /// </summary>
+        public static void RenderFlight()
+        {
+            var args = Environment.GetCommandLineArgs();
+            int i = Array.IndexOf(args, "-galleryOut");
+            outDir = i >= 0 && i + 1 < args.Length ? args[i + 1] : "Logs/flight-review";
+            Directory.CreateDirectory(outDir);
+            var before = HumanCatalog.Style;
+            try
+            {
+                SetUpScene();
+                FlightShots();
+            }
+            finally
+            {
+                HumanCatalog.Style = before;
+                Clear();
+            }
+            Debug.Log("[AvatarGallery] wrote " + outDir);
+        }
+
+        private static void FlightShots()
+        {
+            // Each figure, side view from low down so any gap under the body (or limbs through the ground) shows.
+            var rows = new List<string>();
+            var poses = new (string hint, float speed, float seconds)[]
+            {
+                ("idle", 0f, 1.5f), ("fly", 0f, 1.5f), ("fly", 0f, 3.1f), ("fly", 12f, 1.5f), ("fly", 12f, 1.8f),
+            };
+            var spots = new[] { -5.2f, -3.4f, -1.6f, 1.2f, 4.4f }; // the flying ones lie a body length apart
+            foreach (var (style, preset) in Everyone())
+            {
+                for (int k = 0; k < poses.Length; k++)
+                {
+                    var f = Figure(style, preset, new Vector3(spots[k], 0f, 0f), 90f);
+                    Pose(f, poses[k].hint, poses[k].speed, poses[k].seconds);
+                }
+                string name = $"flight-{style}-{preset}";
+                Shoot(name, new Vector3(0f, 0.75f, -9.5f), new Vector3(0f, 0.85f, 0f), 36f, 1600, 560);
+                rows.Add(Path.Combine(outDir, name + ".png"));
+                Clear();
+            }
+            Stack(Path.Combine(outDir, "flight-lineup.png"), rows.ToArray());
+
+            // Taking off from standing, flying off, stopping and landing: frames at the given times after each change.
+            foreach (var (style, preset) in new[] { (AvatarStyle.Modern, HumanCatalog.Masculine), (AvatarStyle.Modern, HumanCatalog.FeminineSlim), (AvatarStyle.Classic, HumanCatalog.Feminine) })
+            {
+                var f = Figure(style, preset, Vector3.zero, 90f);
+                var frames = new List<string>();
+                void Frame(string tag)
+                {
+                    string name = $"takeoff-{style}-{preset}-{frames.Count:00}-{tag}";
+                    Shoot(name, new Vector3(0f, 0.85f, -3.6f), new Vector3(0f, 0.85f, 0f), 40f, 360, 620);
+                    frames.Add(Path.Combine(outDir, name + ".png"));
+                }
+                Pose(f, "idle", 0f, 1.5f);
+                Frame("standing");
+                void Steps(string hint, float speed, string tag, params float[] times)
+                {
+                    float done = 0f;
+                    foreach (var t in times)
+                    {
+                        Pose(f, hint, speed, t - done);
+                        done = t;
+                        Frame($"{tag}-{t:0.00}s");
+                    }
+                }
+                Steps("fly", 0f, "hover", 0.1f, 0.25f, 0.5f, 1.2f);
+                Steps("fly", 12f, "fly", 0.1f, 0.25f, 0.6f);
+                Steps("fly", 0f, "stop", 0.15f, 0.4f, 1.0f);
+                Steps("idle", 0f, "land", 0.1f, 0.25f, 0.8f);
+                Stack(Path.Combine(outDir, $"flight-transition-{style}-{preset}.png"), Horizontal, frames.ToArray());
+                foreach (var p in frames) File.Delete(p);
+                Clear();
+            }
+        }
+
         private static List<(AvatarStyle, string)> Everyone()
         {
             var all = new List<(AvatarStyle, string)>();
@@ -342,7 +424,7 @@ namespace Tinyverse.Avatars.Editor
                 {
                     for (int i = 0; i < clips.Length; i++)
                     {
-                        float y = clips[i].hint == "fly" || clips[i].hint == "fall" ? 0.6f : 0f;
+                        float y = clips[i].hint == "fall" ? 0.6f : 0f; // flying is drawn above its position
                         var f = Figure(style, preset, new Vector3((i - 3f) * 1.25f, y, 0f), 90f);
                         Pose(f, clips[i].hint, clips[i].speed, 1.5f + phase);
                     }

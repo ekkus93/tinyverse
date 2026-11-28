@@ -408,6 +408,7 @@ namespace Tinyverse.Bootstrap
             Session = new WorldSession(conn, UI, Camera, new SessionOptions
             {
                 DemoWalk = args.DemoWalk,
+                DemoSwim = args.DemoSwim,
                 DemoBuild = args.DemoBuild,
                 Hosted = hosted,
             });

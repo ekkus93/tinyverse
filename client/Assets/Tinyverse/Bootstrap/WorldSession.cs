@@ -16,6 +16,8 @@ namespace Tinyverse.Bootstrap
         public ILocalAvatarInput Input;
         /// <summary>Walk a small figure (<c>--demo-walk</c>).</summary>
         public bool DemoWalk;
+        /// <summary>Swim off the shore, fly low and hover (<c>--demo-swim</c>; wins over <see cref="DemoWalk"/>).</summary>
+        public bool DemoSwim;
         /// <summary>Replaces mouse and keyboard for the build tools (tests); null keeps them.</summary>
         public Tinyverse.Building.IBuildInput BuildInput;
         /// <summary>Show off build mode (<c>--demo-build</c>).</summary>
@@ -42,6 +44,7 @@ namespace Tinyverse.Bootstrap
         readonly Dictionary<ulong, P.AvatarInfo> people = new Dictionary<ulong, P.AvatarInfo>();
         readonly DemoWalk demo;
         readonly DemoBuild demoBuild;
+        Func<Vector3, bool> waterTest;
 
         GameObject root;
         Transform avatarsRoot;
@@ -85,7 +88,7 @@ namespace Tinyverse.Bootstrap
             this.ui = ui;
             this.camera = camera;
             this.options = options ?? new SessionOptions();
-            if (this.options.DemoWalk) demo = new DemoWalk();
+            if (this.options.DemoWalk || this.options.DemoSwim) demo = new DemoWalk(this.options.DemoSwim);
             if (this.options.DemoBuild)
             {
                 demoBuild = new DemoBuild(this);
@@ -150,7 +153,11 @@ namespace Tinyverse.Bootstrap
             remotes.Clear();
             people.Clear();
 
-            Environment.Apply(ProtoConvert.ToEnvironment(w.World));
+            var environment = ProtoConvert.ToEnvironment(w.World);
+            Environment.Apply(environment);
+            // Avatars swim in a sea of a ground (every avatar, from its position: bots report "walk").
+            waterTest = OpenWater.For(environment.Ground, Objects);
+            AvatarWater.Test = waterTest;
             SetUpLocalAvatar(w);
             if (w.Avatar != null) people[w.Avatar.Id] = w.Avatar;
 
@@ -406,6 +413,8 @@ namespace Tinyverse.Bootstrap
             HudDispose();
             Objects.Clear();
             Environment.Clear();
+            if (waterTest != null && AvatarWater.Test == waterTest) AvatarWater.Test = null;
+            waterTest = null;
             if (Orbit != null)
             {
                 Orbit.Follow(null);

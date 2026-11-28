@@ -6,12 +6,14 @@ description = "A sandy island in a calm sea: palm trees, rocks, a thatched hut w
 [world]
 name = "The Island"
 description = "A small island in the sea."
-spawn_point = [1.5, 0, -11]
+spawn_point = [1.5, 0.04, -11]
 ground = "water"
 ground_size = 1024
 time_of_day = 16
 
-# ---- Sand and shallow water (thin discs, a few centimetres above the sea)
+# ---- Sand and shallow water (thin discs, a few centimetres above the sea). The sand, grass, hut
+# floor and jetty deck are solid, so avatars walk on them; the shallows are not, so they are open
+# water where avatars swim.
 
 [[object]]
 name = "shallows"
@@ -28,7 +30,6 @@ shape = "cylinder"
 position = [0, 0.011, 2]
 scale = [46, 0.022, 38]
 color = "#cbb486"
-solid = false
 
 [[object]]
 name = "beach"
@@ -36,7 +37,6 @@ shape = "cylinder"
 position = [0, 0.017, 2.5]
 scale = [42, 0.034, 34]
 color = "#e6d3a3"
-solid = false
 
 [[object]]
 name = "grass patch"
@@ -44,7 +44,6 @@ shape = "cylinder"
 position = [-4, 0.029, 9.5]
 scale = [14, 0.058, 10]
 color = "#9cae5c"
-solid = false
 
 [[object]]
 name = "grass patch"
@@ -52,7 +51,6 @@ shape = "cylinder"
 position = [-9.5, 0.035, 11.5]
 scale = [7, 0.07, 5]
 color = "#8aa152"
-solid = false
 
 [[object]]
 name = "sandbar"
@@ -61,7 +59,6 @@ position = [17, 0.011, 21]
 rotation = [0, 35, 0]
 scale = [8, 0.022, 4]
 color = "#e6d3a3"
-solid = false
 
 # ---- Palm trees
 
@@ -851,7 +848,6 @@ shape = "box"
 position = [-3, 0.04, 6]
 scale = [4.6, 0.08, 3.8]
 color = "#a07a50"
-solid = false
 
 [[object]]
 name = "hut veranda"
@@ -859,7 +855,6 @@ shape = "box"
 position = [-3, 0.037, 3.35]
 scale = [4.6, 0.075, 1.5]
 color = "#9a744b"
-solid = false
 
 [[object]]
 name = "hut wall"
@@ -1186,7 +1181,6 @@ shape = "box"
 position = [1.5, 0.03, -22.25]
 scale = [2, 0.06, 15.5]
 color = "#9c7a52"
-solid = false
 
 [[object]]
 name = "jetty plank line"

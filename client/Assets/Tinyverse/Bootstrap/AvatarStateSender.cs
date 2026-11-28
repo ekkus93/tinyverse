@@ -63,13 +63,25 @@ namespace Tinyverse.Bootstrap
     public sealed class DemoWalk
     {
         public readonly ScriptedAvatarInput Input = new ScriptedAvatarInput();
+        readonly bool swim;
         float t;
         int phase = -1;
+
+        /// <param name="swim">
+        /// <c>--demo-swim</c> instead: from a shore facing -Z (the island template's spawn), stand, walk into the
+        /// sea and swim, tread water, take off and fly low over the water, fly back and hover over the beach, land.
+        /// </param>
+        public DemoWalk(bool swim = false) => this.swim = swim;
 
         /// <summary>Advances the script; call once per frame before the avatar updates.</summary>
         public void Tick(float dt, bool isFlying)
         {
             t += dt;
+            if (swim)
+            {
+                TickSwim(isFlying);
+                return;
+            }
             // A 30 s cycle: walk a circle, run a circle, jump twice, fly up and along, stop flying in
             // mid-air and drop, fly up again and descend to land.
             float c = t % 30f;
@@ -87,6 +99,26 @@ namespace Tinyverse.Bootstrap
                 phase = p;
             }
             if (p == 2 && Mathf.Abs(c - 15.5f) < dt) Input.Jump();
+        }
+
+        void TickSwim(bool isFlying)
+        {
+            // A 30 s cycle (seconds): 0 stand, 3 walk out to sea (away from the island's jetty, which runs out
+            // along -Z from the spawn point), 8 tread water, 12 swim along the shore, 15 take off and hover at
+            // the surface, 17 fly low along the shore, 18.5 fly back to the beach, 21.5 hover over the sand,
+            // 26 descend and land.
+            float c = t % 30f;
+            int p = c < 3f ? 0 : c < 8f ? 1 : c < 12f ? 2 : c < 15f ? 3 : c < 17f ? 4 : c < 18.5f ? 5 : c < 21.5f ? 6 : c < 26f ? 7 : 8;
+            Input.Move = p == 1 ? new Vector2(-0.6f, -0.8f) : p == 3 || p == 5 ? Vector2.left : p == 6 ? new Vector2(0.8f, 0.6f) : Vector2.zero;
+            Input.Run = false;
+            Input.Up = false;
+            Input.Down = p == 8;
+            if (p != phase)
+            {
+                if (p == 4 && !isFlying) Input.ToggleFly();
+                if (p < 4 && isFlying) Input.ToggleFly();
+                phase = p;
+            }
         }
     }
 }

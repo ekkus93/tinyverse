@@ -4,7 +4,8 @@ using UnityEngine;
 namespace Tinyverse.Avatars
 {
     /// <summary>
-    /// The player's own avatar: a <see cref="CharacterController"/> that walks, runs, jumps and flies, moving
+    /// The player's own avatar: a <see cref="CharacterController"/> that walks, runs, jumps, swims (in open water,
+    /// see <see cref="AvatarWater"/>) and flies, moving
     /// relative to the view heading, keeping to <see cref="MoveLimits"/> and the world bounds. Knows nothing about
     /// networking; the owner samples <see cref="CurrentPose"/> (or listens to <see cref="PoseChanged"/>) and calls
     /// <see cref="Teleport"/> for spawns and server corrections.
@@ -60,6 +61,9 @@ namespace Tinyverse.Avatars
         public bool IsFlying => flying;
         public bool IsGrounded => grounded;
 
+        /// <summary>Standing or moving in open water (see <see cref="AvatarWater"/>), not flying.</summary>
+        public bool IsSwimming => swimming;
+
         /// <summary>True while moving or in the air; a sender can drop to a low report rate when false.</summary>
         public bool IsMoving => velocity.sqrMagnitude > 0.0025f || (!grounded && !flying);
 
@@ -107,6 +111,7 @@ namespace Tinyverse.Avatars
         private float yaw;
         private bool flying;
         private bool grounded;
+        private bool swimming;
         private bool hasRaised;
         private AvatarPose lastRaised;
 
@@ -244,6 +249,9 @@ namespace Tinyverse.Avatars
             }
 
             if (toggleFly) SetFlying(!flying);
+            // In the water: slower, and no jumping (F still takes off).
+            swimming = !flying && grounded && AvatarWater.IsOpenWater(transform.position);
+            if (swimming) jump = false;
 
             float viewYaw = CurrentViewYaw();
             Vector3 desiredHorizontal;
@@ -257,7 +265,7 @@ namespace Tinyverse.Avatars
             }
             else
             {
-                desiredHorizontal = AvatarMotion.GroundVelocity(move, viewYaw, run, limits);
+                desiredHorizontal = AvatarMotion.GroundVelocity(move, viewYaw, run, swimming ? SwimLimits(limits) : limits);
                 var horizontal = new Vector3(velocity.x, 0f, velocity.z);
                 float accel = grounded ? GroundAcceleration : AirAcceleration;
                 float decel = grounded ? GroundDeceleration : AirAcceleration;
@@ -319,10 +327,19 @@ namespace Tinyverse.Avatars
                 transform.rotation = Quaternion.Euler(0f, yaw, 0f);
             }
 
+            swimming = !flying && grounded && AvatarWater.IsOpenWater(end);
             var actual = (end - start) / dt;
             CurrentPose = MakePose(actual, run);
             Visual.UpdatePose(CurrentPose, dt);
             RaisePoseChanged(force: false);
+        }
+
+        /// <summary><paramref name="l"/> with the walking and running speeds cut to the swimming speeds.</summary>
+        private static MoveLimits SwimLimits(MoveLimits l)
+        {
+            l.WalkSpeed = Mathf.Min(l.WalkSpeed, AvatarWater.SwimSpeed);
+            l.RunSpeed = Mathf.Min(l.RunSpeed, AvatarWater.SwimRunSpeed);
+            return l;
         }
 
         private float CurrentViewYaw()
@@ -348,7 +365,7 @@ namespace Tinyverse.Avatars
                 Yaw = yaw,
                 Velocity = v,
                 Mode = AvatarMotion.ClassifyMode(horizontalSpeed, flying, running, limits),
-                Animation = AvatarMotion.AnimationFor(flying, grounded, horizontalSpeed, limits),
+                Animation = AvatarMotion.AnimationFor(flying, grounded, horizontalSpeed, limits, swimming),
             };
         }
 

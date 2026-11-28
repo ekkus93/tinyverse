@@ -24,7 +24,7 @@ namespace Tinyverse.Avatars
 
         public MoveKind Mode;
 
-        /// <summary>"idle", "walk", "run", "fly" or "fall". May be null or empty (treated as idle).</summary>
+        /// <summary>"idle", "walk", "run", "fly", "fall" or "swim". May be null or empty (treated as idle).</summary>
         public string Animation;
 
         public AvatarPose(Vector3 position, float yaw, Vector3 velocity = default, MoveKind mode = MoveKind.Walk, string animation = AvatarAnimations.Idle)
@@ -47,6 +47,8 @@ namespace Tinyverse.Avatars
         public const string Run = "run";
         public const string Fly = "fly";
         public const string Fall = "fall";
+        /// <summary>Swimming (or treading water) in open water; see <see cref="AvatarWater"/>.</summary>
+        public const string Swim = "swim";
     }
 
     /// <summary>How an avatar looks. The placeholder visual draws only <see cref="BodyColor"/>.</summary>

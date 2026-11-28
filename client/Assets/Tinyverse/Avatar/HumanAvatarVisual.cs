@@ -92,7 +92,14 @@ namespace Tinyverse.Avatars
         public void UpdatePose(in AvatarPose pose, float deltaTime)
         {
             lastPose = pose;
-            if (figure != null) figure.Animate(pose, deltaTime);
+            if (figure != null)
+            {
+                figure.Animate(pose, deltaTime);
+                // Hovering lifts the head above its standing height; the tag rises with it, never below its
+                // standing place (flying forward the head is lower). Swimming, the tag comes down with the head.
+                float head = figure.CurrentHeadTop;
+                nameTag.AnchorHeight = head + (1f - figure.SwimShare) * Mathf.Max(0f, Height - head) + TagGap;
+            }
             else if (placeholder != null) placeholder.UpdatePose(pose, deltaTime);
         }
 

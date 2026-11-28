@@ -223,6 +223,13 @@ of y = 0, because neither the server nor `MoveTo` knows any other floor.
   characters. Until milestone 4 a coloured capsule with a name tag stands in.
   Milestone 4 adds rigged human models with idle, walk, run and fly animation
   and an appearance editor (body preset, skin tone, hair, clothing colours).
+- Swimming: where the ground preset is `water`, an avatar that is not flying
+  and stands on the ground plane (not on a solid object) swims: slower (2 m/s,
+  3 m/s with run, inside the walk limit), no jumping, drawn treading water or
+  swimming with the body in the sea; `F` still takes off. Every client decides
+  this for every avatar from its position (the local avatar reports the hint
+  `swim`, but bots and agents report `walk`), so the server knows nothing of
+  it. Flying is always drawn above the avatar's position.
   The models must be licensed for redistribution with the client; MakeHuman
   exports (CC0) are the first candidate.
 
@@ -343,7 +350,7 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
   that already holds a world it is disabled, with a note that the world opens as
   it is.
 - Controls: WASD and mouse-look in third person, shift to run, `F` toggles fly,
-  space and ctrl go up and down while flying, `Enter` focuses chat, `B` toggles
+  space jumps (not while swimming), space and ctrl go up and down while flying, `Enter` focuses chat, `B` toggles
   build mode.
 - Build mode: pick a shape and place it in front of the avatar or on a surface;
   select; move, rotate and scale gizmos with grid snapping; colour and material

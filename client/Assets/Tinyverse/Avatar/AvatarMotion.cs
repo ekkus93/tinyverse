@@ -96,9 +96,10 @@ namespace Tinyverse.Avatars
         }
 
         /// <summary>The animation hint for the local avatar's state.</summary>
-        public static string AnimationFor(bool flying, bool grounded, float horizontalSpeed, in MoveLimits limits)
+        public static string AnimationFor(bool flying, bool grounded, float horizontalSpeed, in MoveLimits limits, bool swimming = false)
         {
             if (flying) return AvatarAnimations.Fly;
+            if (swimming) return AvatarAnimations.Swim;
             if (!grounded) return AvatarAnimations.Fall;
             if (horizontalSpeed > limits.WalkSpeed + 0.25f) return AvatarAnimations.Run;
             if (horizontalSpeed > 0.2f) return AvatarAnimations.Walk;

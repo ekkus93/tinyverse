@@ -95,7 +95,7 @@ owner and are locked, so visitors cannot take the place apart, but you can chang
 | `room` | A furnished living room with big windows and a terrace. |
 | `house` | A small house with four rooms under a pitched roof, in a fenced garden with a pond and trees. |
 | `town` | A town square with a fountain, trees, benches and street lamps among houses and shops. |
-| `island` | A sandy island with palms, a thatched hut, a campfire and a jetty, in the sea. |
+| `island` | A sandy island with palms, a thatched hut, a campfire and a jetty, in the sea: walk out past the sand and you swim. |
 
 ![The room template: a living room with a sofa, a dining table, shelves and big windows](docs/images/template-room.jpg)
 ![The house template: a small house with a pitched roof behind a garden fence](docs/images/template-house.jpg)
@@ -136,13 +136,16 @@ tinyverse-server token create <world-dir> --name Scout --role builder
 | W A S D or arrows | move |
 | Shift | run (full speed while flying) |
 | F | fly on or off |
-| Space | jump; up while flying |
+| Space | jump (not while swimming); up while flying |
 | Ctrl or C | down while flying |
 | right mouse drag | look around; mouse wheel zooms (all the way in is first person) |
 | Enter | chat (Tab switches local / world) |
 | B | build mode: 1–5 pick place, select, move, rotate, scale; G snap; Delete; Ctrl+D duplicate; Ctrl+Z / Ctrl+Y undo and redo |
 | P | people present (owners can kick, ban and change roles there) |
 | Esc | menu: settings, appearance, leave, quit |
+
+In a world whose ground is water (the `island` template), stepping off the sand or the jetty into the
+sea makes you swim, more slowly than you walk; `F` takes off from the water as from the ground.
 
 ## Current limitations
 
