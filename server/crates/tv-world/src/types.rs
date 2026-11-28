@@ -315,6 +315,8 @@ pub struct WorldConfig {
     pub spawn_point: Vec3,
     /// Side length of the square ground plane, centred on the origin at y = 0.
     pub ground_size: f32,
+    /// Name of a ground preset shipped with the client; empty means the default.
+    pub ground: String,
     /// Name of a sky preset shipped with the client.
     pub sky: String,
     /// Hour of the day, 0..24.
@@ -335,6 +337,7 @@ impl Default for WorldConfig {
             bounds_max: Vec3::new(128.0, 256.0, 128.0),
             spawn_point: Vec3::ZERO,
             ground_size: 256.0,
+            ground: String::new(),
             sky: "day".to_owned(),
             time_of_day: 12.0,
             limits: Limits::default(),

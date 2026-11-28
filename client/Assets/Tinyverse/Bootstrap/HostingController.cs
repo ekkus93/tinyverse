@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -109,6 +110,21 @@ namespace Tinyverse.Bootstrap
 
         public void Tick() => process?.Pump();
 
+        /// <summary>
+        /// The templates of the server binary <see cref="StartAsync"/> would run, from its
+        /// <c>template list --json</c>. Throws <see cref="HostException"/> when there is no binary or it fails.
+        /// </summary>
+        public Task<IReadOnlyList<WorldTemplate>> ListTemplatesAsync()
+        {
+            var location = ServerLocator.Locate(ServerBinaryOverride);
+            if (!location.Found) throw new HostException(HostErrorKind.LaunchFailed, location.Explanation);
+            return WorldTemplates.ListAsync(location.Path);
+        }
+
+        /// <summary>The Host screen's view of the server's templates.</summary>
+        public static UI.WorldTemplateChoice[] ToChoices(IEnumerable<WorldTemplate> templates) =>
+            (templates ?? Enumerable.Empty<WorldTemplate>()).Select(t => new UI.WorldTemplateChoice(t.Name, t.Title, t.Description)).ToArray();
+
         /// <summary>Asks the server to stop (it saves the world) and waits up to <see cref="StopTimeout"/>.</summary>
         public async Task<StopResult> StopAsync()
         {
@@ -178,6 +194,8 @@ namespace Tinyverse.Bootstrap
                 Description = s.Description,
                 Port = s.Port > 0 ? s.Port : HostSettings.DefaultPort,
                 // TLS unless asked not to: a self-signed certificate is made on first start.
+                // A template only shapes a new world; an existing one opens as it is.
+                Template = exists || string.IsNullOrWhiteSpace(s.Template) ? null : s.Template.Trim(),
                 DisableTls = s.Unencrypted,
                 CreateCertificate = !s.Unencrypted,
                 // For an existing world an empty field keeps its password rather than silently clearing it.

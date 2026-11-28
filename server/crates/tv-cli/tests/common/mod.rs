@@ -192,6 +192,7 @@ pub fn welcome(id: u64, spawn: Vec3) -> Welcome {
             ground_size: 256.0,
             sky: String::new(),
             time_of_day: 12.0,
+            ground: String::new(),
         }),
         limits: Some(limits()),
         tick_rate_hz: 20,

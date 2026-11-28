@@ -21,6 +21,9 @@
                         <ui:Label text="World folder" class="tv-field-label" />
                         <ui:TextField name="hostFolder" />
                         <ui:Label text="The world and everything built in it is saved here. An empty folder creates a new world." class="tv-hint-text" />
+                        <ui:Label text="Start from" class="tv-field-label" />
+                        <ui:DropdownField name="hostTemplate" class="tv-host__template" />
+                        <ui:Label name="hostTemplateDescription" class="tv-hint-text tv-host__template-text" />
                         <ui:VisualElement class="tv-row tv-host__pair">
                             <ui:VisualElement class="tv-host__port">
                                 <ui:Label text="Port" class="tv-field-label" />

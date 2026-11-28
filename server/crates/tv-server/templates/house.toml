@@ -1,0 +1,1230 @@
+# The house template: a small house with four rooms in a fenced garden.
+# The format is described in src/template.rs.
+title = "House"
+description = "A small house in a fenced garden: living room, kitchen, bedroom and bathroom under a pitched roof, with a path to the door, flower beds, a pond and trees."
+
+[world]
+name = "The House"
+description = "A small house with a garden."
+spawn_point = [0, 0, -5.5]
+ground = "grass"
+time_of_day = 14
+
+# ---- Floors (just above the ground, not solid)
+
+[[object]]
+name = "living room floor"
+shape = "box"
+position = [-2, 0.015, 6]
+scale = [6, 0.03, 4]
+color = "#a87a4d"
+solid = false
+
+[[object]]
+name = "kitchen floor"
+shape = "box"
+position = [3, 0.015, 6]
+scale = [4, 0.03, 4]
+color = "#d9d4c7"
+solid = false
+
+[[object]]
+name = "bedroom floor"
+shape = "box"
+position = [-2, 0.015, 9.5]
+scale = [6, 0.03, 3]
+color = "#9c8f84"
+solid = false
+
+[[object]]
+name = "bathroom floor"
+shape = "box"
+position = [3, 0.015, 9.5]
+scale = [4, 0.03, 3]
+color = "#b9cfd6"
+solid = false
+
+[[object]]
+name = "doorstep"
+shape = "box"
+position = [0, 0.03, 3.7]
+scale = [1.5, 0.06, 0.4]
+color = "#9a948a"
+solid = false
+
+# ---- Outer walls
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [-4.55, 1.35, 4]
+scale = [1.1, 2.7, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [-3.2, 0.45, 4]
+scale = [1.6, 0.9, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [-3.2, 2.45, 4]
+scale = [1.6, 0.5, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "front window"
+shape = "box"
+position = [-3.2, 1.55, 4]
+scale = [1.6, 1.3, 0.04]
+color = "#bfe3f2"
+material = "glass"
+
+[[object]]
+name = "front sill"
+shape = "box"
+position = [-3.2, 0.875, 4]
+scale = [1.7, 0.05, 0.32]
+color = "#ffffff"
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [-1.5, 1.35, 4]
+scale = [1.8, 2.7, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [0, 2.475, 4]
+scale = [1.2, 0.45, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [1.4, 1.35, 4]
+scale = [1.6, 2.7, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [3, 0.45, 4]
+scale = [1.6, 0.9, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [3, 2.45, 4]
+scale = [1.6, 0.5, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "front window"
+shape = "box"
+position = [3, 1.55, 4]
+scale = [1.6, 1.3, 0.04]
+color = "#bfe3f2"
+material = "glass"
+
+[[object]]
+name = "front sill"
+shape = "box"
+position = [3, 0.875, 4]
+scale = [1.7, 0.05, 0.32]
+color = "#ffffff"
+
+[[object]]
+name = "front wall"
+shape = "box"
+position = [4.45, 1.35, 4]
+scale = [1.3, 2.7, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "back wall"
+shape = "box"
+position = [-4.45, 1.35, 11]
+scale = [1.3, 2.7, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "back wall"
+shape = "box"
+position = [-3, 0.45, 11]
+scale = [1.6, 0.9, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "back wall"
+shape = "box"
+position = [-3, 2.45, 11]
+scale = [1.6, 0.5, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "back window"
+shape = "box"
+position = [-3, 1.55, 11]
+scale = [1.6, 1.3, 0.04]
+color = "#bfe3f2"
+material = "glass"
+
+[[object]]
+name = "back sill"
+shape = "box"
+position = [-3, 0.875, 11]
+scale = [1.7, 0.05, 0.32]
+color = "#ffffff"
+
+[[object]]
+name = "back wall"
+shape = "box"
+position = [0.2, 1.35, 11]
+scale = [4.8, 2.7, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "back wall"
+shape = "box"
+position = [3.1, 0.7, 11]
+scale = [1, 1.4, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "back wall"
+shape = "box"
+position = [3.1, 2.4, 11]
+scale = [1, 0.6, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "back window"
+shape = "box"
+position = [3.1, 1.75, 11]
+scale = [1, 0.7, 0.04]
+color = "#bfe3f2"
+material = "glass"
+
+[[object]]
+name = "back sill"
+shape = "box"
+position = [3.1, 1.375, 11]
+scale = [1.1, 0.05, 0.32]
+color = "#ffffff"
+
+[[object]]
+name = "back wall"
+shape = "box"
+position = [4.35, 1.35, 11]
+scale = [1.5, 2.7, 0.2]
+color = "#efe6d6"
+
+[[object]]
+name = "left wall"
+shape = "box"
+position = [-5, 1.35, 4.75]
+scale = [0.2, 2.7, 1.3]
+color = "#efe6d6"
+
+[[object]]
+name = "left wall"
+shape = "box"
+position = [-5, 0.45, 6.1]
+scale = [0.2, 0.9, 1.4]
+color = "#efe6d6"
+
+[[object]]
+name = "left wall"
+shape = "box"
+position = [-5, 2.45, 6.1]
+scale = [0.2, 0.5, 1.4]
+color = "#efe6d6"
+
+[[object]]
+name = "left window"
+shape = "box"
+position = [-5, 1.55, 6.1]
+scale = [0.04, 1.3, 1.4]
+color = "#bfe3f2"
+material = "glass"
+
+[[object]]
+name = "left sill"
+shape = "box"
+position = [-5, 0.875, 6.1]
+scale = [0.32, 0.05, 1.5]
+color = "#ffffff"
+
+[[object]]
+name = "left wall"
+shape = "box"
+position = [-5, 1.35, 7.85]
+scale = [0.2, 2.7, 2.1]
+color = "#efe6d6"
+
+[[object]]
+name = "left wall"
+shape = "box"
+position = [-5, 0.45, 9.55]
+scale = [0.2, 0.9, 1.3]
+color = "#efe6d6"
+
+[[object]]
+name = "left wall"
+shape = "box"
+position = [-5, 2.45, 9.55]
+scale = [0.2, 0.5, 1.3]
+color = "#efe6d6"
+
+[[object]]
+name = "left window"
+shape = "box"
+position = [-5, 1.55, 9.55]
+scale = [0.04, 1.3, 1.3]
+color = "#bfe3f2"
+material = "glass"
+
+[[object]]
+name = "left sill"
+shape = "box"
+position = [-5, 0.875, 9.55]
+scale = [0.32, 0.05, 1.4]
+color = "#ffffff"
+
+[[object]]
+name = "left wall"
+shape = "box"
+position = [-5, 1.35, 10.55]
+scale = [0.2, 2.7, 0.7]
+color = "#efe6d6"
+
+[[object]]
+name = "right wall"
+shape = "box"
+position = [5, 1.35, 4.75]
+scale = [0.2, 2.7, 1.3]
+color = "#efe6d6"
+
+[[object]]
+name = "right wall"
+shape = "box"
+position = [5, 0.45, 6.1]
+scale = [0.2, 0.9, 1.4]
+color = "#efe6d6"
+
+[[object]]
+name = "right wall"
+shape = "box"
+position = [5, 2.45, 6.1]
+scale = [0.2, 0.5, 1.4]
+color = "#efe6d6"
+
+[[object]]
+name = "right window"
+shape = "box"
+position = [5, 1.55, 6.1]
+scale = [0.04, 1.3, 1.4]
+color = "#bfe3f2"
+material = "glass"
+
+[[object]]
+name = "right sill"
+shape = "box"
+position = [5, 0.875, 6.1]
+scale = [0.32, 0.05, 1.5]
+color = "#ffffff"
+
+[[object]]
+name = "right wall"
+shape = "box"
+position = [5, 1.35, 8.85]
+scale = [0.2, 2.7, 4.1]
+color = "#efe6d6"
+
+# ---- Inner walls with doorways
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [1, 1.35, 4.85]
+scale = [0.12, 2.7, 1.5]
+color = "#f6f1e7"
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [1, 2.475, 6.2]
+scale = [0.12, 0.45, 1.2]
+color = "#f6f1e7"
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [1, 1.35, 7.37]
+scale = [0.12, 2.7, 1.14]
+color = "#f6f1e7"
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [1, 1.35, 9.48]
+scale = [0.12, 2.7, 2.84]
+color = "#f6f1e7"
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [-4.25, 1.35, 8]
+scale = [1.3, 2.7, 0.12]
+color = "#f6f1e7"
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [-3, 2.475, 8]
+scale = [1.2, 0.45, 0.12]
+color = "#f6f1e7"
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [-0.05, 1.35, 8]
+scale = [4.7, 2.7, 0.12]
+color = "#f6f1e7"
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [2.9, 2.475, 8]
+scale = [1.2, 0.45, 0.12]
+color = "#f6f1e7"
+
+[[object]]
+name = "inner wall"
+shape = "box"
+position = [4.2, 1.35, 8]
+scale = [1.4, 2.7, 0.12]
+color = "#f6f1e7"
+
+[[object]]
+name = "front door"
+shape = "box"
+position = [-0.57, 1.1, 4.62]
+scale = [0.05, 2.2, 1.15]
+color = "#3d5a73"
+solid = false
+
+[[object]]
+name = "door knob"
+shape = "sphere"
+position = [-0.52, 1, 5.1]
+scale = [0.06, 0.06, 0.06]
+color = "#c9a227"
+material = "metal"
+solid = false
+
+# ---- Roof: attic wedges (the ceiling) under tiled slopes, and a chimney
+
+[[object]]
+name = "roof attic"
+shape = "wedge"
+position = [0, 3.7, 5.7]
+rotation = [0, 180, 0]
+scale = [10.2, 2, 3.6]
+color = "#e8dcc6"
+
+[[object]]
+name = "roof attic"
+shape = "wedge"
+position = [0, 3.7, 9.3]
+scale = [10.2, 2, 3.6]
+color = "#e8dcc6"
+
+[[object]]
+name = "roof"
+shape = "box"
+position = [0, 3.627, 5.446]
+rotation = [-29.055, 0, 0]
+scale = [11.1, 0.12, 4.713]
+color = "#9b3d2c"
+
+[[object]]
+name = "roof"
+shape = "box"
+position = [0, 3.627, 9.554]
+rotation = [29.055, 0, 0]
+scale = [11.1, 0.12, 4.713]
+color = "#9b3d2c"
+
+[[object]]
+name = "chimney"
+shape = "box"
+position = [2.95, 4.5, 9.35]
+scale = [0.7, 2.2, 0.7]
+color = "#8c5a44"
+
+[[object]]
+name = "chimney cap"
+shape = "box"
+position = [2.95, 5.65, 9.35]
+scale = [0.9, 0.1, 0.9]
+color = "#5b5b5b"
+
+# ---- Ceiling lights
+
+[[object]]
+name = "ceiling light"
+shape = "cylinder"
+at = [[-2, 2.68, 6], [3, 2.68, 6], [-2, 2.68, 9.5], [3, 2.68, 9.5]]
+scale = [0.45, 0.03, 0.45]
+color = "#fff3d6"
+material = "emissive"
+solid = false
+
+# ---- Living room
+
+[[object]]
+name = "rug"
+shape = "box"
+position = [-2.6, 0.022, 6.2]
+scale = [2.8, 0.045, 2.4]
+color = "#3f6680"
+solid = false
+
+[[object]]
+name = "sofa"
+shape = "box"
+position = [-4.45, 0.21, 6.2]
+scale = [0.8, 0.42, 2.4]
+color = "#7b4b3a"
+
+[[object]]
+name = "sofa back"
+shape = "box"
+position = [-4.725, 0.66, 6.2]
+scale = [0.25, 0.48, 2.4]
+color = "#7b4b3a"
+
+[[object]]
+name = "sofa cushion"
+shape = "box"
+position = [-4.34, 0.46, 6.2]
+scale = [0.52, 0.08, 2.3]
+color = "#8d5a47"
+
+[[object]]
+name = "coffee table"
+shape = "box"
+position = [-2.7, 0.385, 6.2]
+scale = [1, 0.05, 1.2]
+color = "#d8c7a8"
+
+[[object]]
+name = "coffee table leg"
+shape = "box"
+at = [[-3.15, 0.18, 5.65], [-2.25, 0.18, 5.65], [-3.15, 0.18, 6.75], [-2.25, 0.18, 6.75]]
+scale = [0.05, 0.36, 0.05]
+color = "#6e4e33"
+
+[[object]]
+name = "tv stand"
+shape = "box"
+position = [0.375, 0.25, 6.2]
+scale = [0.95, 0.5, 1.6]
+color = "#5a4636"
+
+[[object]]
+name = "tv"
+shape = "box"
+position = [0.33, 0.925, 6.2]
+scale = [0.06, 0.75, 1.4]
+color = "#1c1f24"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "bookcase"
+shape = "box"
+position = [-4.025, 0.95, 7.74]
+scale = [1.65, 1.9, 0.28]
+color = "#7a5638"
+
+[[object]]
+name = "books"
+shape = "box"
+at = [[-4.4, 0.75, 7.72], [-3.7, 1.35, 7.72]]
+scale = [0.7, 0.3, 0.22]
+color = "#8e3b46"
+solid = false
+
+[[object]]
+name = "plant pot"
+shape = "cylinder"
+position = [0.55, 0.2, 4.5]
+scale = [0.4, 0.4, 0.4]
+color = "#b5643c"
+
+[[object]]
+name = "plant"
+shape = "sphere"
+position = [0.55, 0.75, 4.5]
+scale = [0.7, 0.8, 0.7]
+color = "#4e7f3b"
+solid = false
+
+# ---- Kitchen
+
+[[object]]
+name = "kitchen counter"
+shape = "box"
+position = [4.575, 0.44, 6.05]
+scale = [0.65, 0.88, 3.5]
+color = "#f2efe8"
+
+[[object]]
+name = "worktop"
+shape = "box"
+position = [4.55, 0.9, 6.05]
+scale = [0.7, 0.04, 3.6]
+color = "#4a4a4a"
+material = "glossy"
+
+[[object]]
+name = "stove"
+shape = "box"
+position = [4.575, 0.93, 6.3]
+scale = [0.55, 0.02, 0.6]
+color = "#111111"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "sink"
+shape = "box"
+position = [4.575, 0.915, 5.1]
+scale = [0.45, 0.03, 0.6]
+color = "#c8ccd0"
+material = "metal"
+solid = false
+
+[[object]]
+name = "wall cabinets"
+shape = "box"
+position = [4.7, 1.85, 7.35]
+scale = [0.4, 0.7, 0.9]
+color = "#7fa79a"
+
+[[object]]
+name = "fridge"
+shape = "box"
+position = [1.5, 0.925, 7.5]
+scale = [0.7, 1.85, 0.7]
+color = "#e9ecef"
+material = "glossy"
+
+[[object]]
+name = "kitchen table"
+shape = "box"
+position = [2.6, 0.74, 5.75]
+scale = [1.4, 0.04, 0.9]
+color = "#c9a77c"
+
+[[object]]
+name = "kitchen table leg"
+shape = "box"
+at = [[1.95, 0.36, 5.35], [3.25, 0.36, 5.35], [1.95, 0.36, 6.15], [3.25, 0.36, 6.15]]
+scale = [0.05, 0.72, 0.05]
+color = "#8a6a4a"
+
+[[object]]
+name = "kitchen chair"
+shape = "box"
+position = [2.2, 0.44, 4.75]
+scale = [0.4, 0.04, 0.4]
+color = "#c0392b"
+
+[[object]]
+name = "kitchen chair back"
+shape = "box"
+position = [2.2, 0.68, 4.55]
+scale = [0.4, 0.44, 0.04]
+color = "#c0392b"
+
+[[object]]
+name = "chair leg"
+shape = "box"
+at = [[2.03, 0.21, 4.6], [2.37, 0.21, 4.6], [2.03, 0.21, 4.9], [2.37, 0.21, 4.9]]
+scale = [0.035, 0.42, 0.035]
+color = "#333333"
+
+[[object]]
+name = "kitchen chair"
+shape = "box"
+position = [3, 0.44, 4.75]
+scale = [0.4, 0.04, 0.4]
+color = "#c0392b"
+
+[[object]]
+name = "kitchen chair back"
+shape = "box"
+position = [3, 0.68, 4.55]
+scale = [0.4, 0.44, 0.04]
+color = "#c0392b"
+
+[[object]]
+name = "chair leg"
+shape = "box"
+at = [[2.83, 0.21, 4.6], [3.17, 0.21, 4.6], [2.83, 0.21, 4.9], [3.17, 0.21, 4.9]]
+scale = [0.035, 0.42, 0.035]
+color = "#333333"
+
+# ---- Bedroom
+
+[[object]]
+name = "bed frame"
+shape = "box"
+position = [-3.85, 0.175, 9.875]
+scale = [2, 0.35, 1.95]
+color = "#6e4e33"
+
+[[object]]
+name = "mattress"
+shape = "box"
+position = [-3.85, 0.45, 9.875]
+scale = [1.9, 0.2, 1.85]
+color = "#f4f1ea"
+
+[[object]]
+name = "blanket"
+shape = "box"
+position = [-3.85, 0.54, 9.525]
+scale = [1.94, 0.08, 1.15]
+color = "#c77d4a"
+
+[[object]]
+name = "pillow"
+shape = "box"
+position = [-3.85, 0.615, 10.5]
+scale = [1.5, 0.13, 0.4]
+color = "#ffffff"
+
+[[object]]
+name = "headboard"
+shape = "box"
+position = [-3.85, 0.525, 10.84]
+scale = [2, 1.05, 0.08]
+color = "#5a3f29"
+
+[[object]]
+name = "nightstand"
+shape = "box"
+position = [-2.475, 0.25, 10.6]
+scale = [0.45, 0.5, 0.5]
+color = "#8a6a4a"
+
+[[object]]
+name = "bedside lamp"
+shape = "sphere"
+position = [-2.48, 0.65, 10.6]
+scale = [0.26, 0.26, 0.26]
+color = "#ffe2a8"
+material = "emissive"
+solid = false
+
+[[object]]
+name = "wardrobe"
+shape = "box"
+position = [-0.05, 1.05, 10.59]
+scale = [1.9, 2.1, 0.58]
+color = "#9a7b5a"
+
+# ---- Bathroom
+
+[[object]]
+name = "bathtub"
+shape = "box"
+position = [4.1, 0.275, 10]
+scale = [1.6, 0.55, 1.8]
+color = "#f8f8f8"
+material = "glossy"
+
+[[object]]
+name = "bath water"
+shape = "box"
+position = [4.1, 0.505, 10]
+scale = [1.4, 0.11, 1.6]
+color = "#7fb8d6"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "washbasin"
+shape = "box"
+position = [1.375, 0.85, 9.7]
+scale = [0.45, 0.1, 0.6]
+color = "#f8f8f8"
+material = "glossy"
+
+[[object]]
+name = "washbasin stand"
+shape = "cylinder"
+position = [1.38, 0.4, 9.7]
+scale = [0.14, 0.8, 0.14]
+color = "#f8f8f8"
+
+[[object]]
+name = "mirror"
+shape = "box"
+position = [1.07, 1.55, 9.7]
+scale = [0.02, 0.7, 0.7]
+color = "#d6e4ea"
+material = "metal"
+solid = false
+
+# ---- Garden: path, flower beds, pond
+
+[[object]]
+name = "garden path"
+shape = "box"
+position = [0, 0.018, 1.25]
+scale = [1.3, 0.035, 4.5]
+color = "#b9b2a5"
+solid = false
+
+[[object]]
+name = "path edging"
+shape = "box"
+position = [-0.7, 0.035, 1.25]
+scale = [0.1, 0.07, 4.5]
+color = "#8f877b"
+solid = false
+
+[[object]]
+name = "path edging"
+shape = "box"
+position = [0.7, 0.035, 1.25]
+scale = [0.1, 0.07, 4.5]
+color = "#8f877b"
+solid = false
+
+[[object]]
+name = "flower bed"
+shape = "box"
+position = [-2.8, 0.025, 3.1]
+scale = [3.6, 0.05, 0.9]
+color = "#5b4332"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[-4.3, 0.22, 2.95], [-2.2, 0.28, 3.28]]
+scale = [0.32, 0.28, 0.32]
+color = "#e74c3c"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[-3.88, 0.28, 3.28], [-1.78, 0.22, 2.95]]
+scale = [0.32, 0.28, 0.32]
+color = "#f1c40f"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[-3.46, 0.22, 2.95], [-1.36, 0.28, 3.28]]
+scale = [0.32, 0.28, 0.32]
+color = "#9b59b6"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[-3.04, 0.28, 3.28]]
+scale = [0.32, 0.28, 0.32]
+color = "#ffffff"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[-2.62, 0.22, 2.95]]
+scale = [0.32, 0.28, 0.32]
+color = "#e67e22"
+solid = false
+
+[[object]]
+name = "leaves"
+shape = "sphere"
+at = [[-4.1, 0.13, 2.95], [-3.26, 0.13, 2.95], [-2.42, 0.13, 2.95], [-1.58, 0.13, 2.95]]
+scale = [0.4, 0.24, 0.4]
+color = "#4c7a3a"
+solid = false
+
+[[object]]
+name = "flower bed"
+shape = "box"
+position = [2.8, 0.025, 3.1]
+scale = [3.6, 0.05, 0.9]
+color = "#5b4332"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[1.3, 0.22, 2.95], [3.4, 0.28, 3.28]]
+scale = [0.32, 0.28, 0.32]
+color = "#e74c3c"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[1.72, 0.28, 3.28], [3.82, 0.22, 2.95]]
+scale = [0.32, 0.28, 0.32]
+color = "#f1c40f"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[2.14, 0.22, 2.95], [4.24, 0.28, 3.28]]
+scale = [0.32, 0.28, 0.32]
+color = "#9b59b6"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[2.56, 0.28, 3.28]]
+scale = [0.32, 0.28, 0.32]
+color = "#ffffff"
+solid = false
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[2.98, 0.22, 2.95]]
+scale = [0.32, 0.28, 0.32]
+color = "#e67e22"
+solid = false
+
+[[object]]
+name = "leaves"
+shape = "sphere"
+at = [[1.5, 0.13, 2.95], [2.34, 0.13, 2.95], [3.18, 0.13, 2.95], [4.02, 0.13, 2.95]]
+scale = [0.4, 0.24, 0.4]
+color = "#4c7a3a"
+solid = false
+
+[[object]]
+name = "pond"
+shape = "cylinder"
+position = [-7.7, 0.025, 9]
+scale = [3.6, 0.05, 2.8]
+color = "#3f7f9c"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "pond edge"
+shape = "cylinder"
+position = [-7.7, 0.01, 9]
+scale = [4.2, 0.02, 3.4]
+color = "#8f877b"
+solid = false
+
+[[object]]
+name = "pond stone"
+shape = "sphere"
+at = [[-9.6, 0.1, 8.4], [-5.8, 0.1, 9.7], [-7, 0.1, 10.5], [-8.9, 0.08, 10.2]]
+scale = [0.6, 0.3, 0.45]
+color = "#8a8680"
+
+[[object]]
+name = "lily pad"
+shape = "cylinder"
+at = [[-7.1, 0.055, 8.6], [-8.2, 0.055, 9.3]]
+scale = [0.4, 0.01, 0.4]
+color = "#4c8a3a"
+solid = false
+
+# ---- Fence with a gate in front
+
+[[object]]
+name = "fence post"
+shape = "box"
+at = [[-11, 0.5, -1], [-11, 0.5, 1], [-11, 0.5, 3], [-11, 0.5, 5], [-11, 0.5, 7], [-11, 0.5, 9], [-11, 0.5, 11], [-11, 0.5, 13], [-11, 0.5, 15], [-11, 0.5, 17], [-11, 0.5, 18], [-9, 0.5, -1], [-9, 0.5, 18], [-7, 0.5, -1], [-7, 0.5, 18], [-5, 0.5, -1], [-5, 0.5, 18], [-3, 0.5, -1], [-3, 0.5, 18], [-1, 0.5, -1], [-1, 0.5, 18], [1, 0.5, -1], [1, 0.5, 18], [3, 0.5, -1], [3, 0.5, 18], [5, 0.5, -1], [5, 0.5, 18], [7, 0.5, -1], [7, 0.5, 18], [9, 0.5, -1], [9, 0.5, 18], [11, 0.5, -1], [11, 0.5, 1], [11, 0.5, 3], [11, 0.5, 5], [11, 0.5, 7], [11, 0.5, 9], [11, 0.5, 11], [11, 0.5, 13], [11, 0.5, 15], [11, 0.5, 17], [11, 0.5, 18]]
+scale = [0.12, 1, 0.12]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [-6, 0.35, -1]
+scale = [10, 0.08, 0.06]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [6, 0.35, -1]
+scale = [10, 0.08, 0.06]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [0, 0.35, 18]
+scale = [22, 0.08, 0.06]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [-11, 0.35, 8.5]
+scale = [0.06, 0.08, 19]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [11, 0.35, 8.5]
+scale = [0.06, 0.08, 19]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [-6, 0.8, -1]
+scale = [10, 0.08, 0.06]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [6, 0.8, -1]
+scale = [10, 0.08, 0.06]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [0, 0.8, 18]
+scale = [22, 0.08, 0.06]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [-11, 0.8, 8.5]
+scale = [0.06, 0.08, 19]
+color = "#f2eee4"
+
+[[object]]
+name = "fence rail"
+shape = "box"
+position = [11, 0.8, 8.5]
+scale = [0.06, 0.08, 19]
+color = "#f2eee4"
+
+[[object]]
+name = "gate"
+shape = "box"
+position = [0.97, 0.55, -1.95]
+scale = [0.05, 0.9, 1.85]
+color = "#f2eee4"
+solid = false
+
+[[object]]
+name = "mailbox"
+shape = "box"
+position = [1.7, 1.05, -1.25]
+scale = [0.3, 0.3, 0.45]
+color = "#b03a2e"
+
+[[object]]
+name = "mailbox post"
+shape = "box"
+position = [1.7, 0.45, -1.25]
+scale = [0.08, 0.9, 0.08]
+color = "#5a3f29"
+
+# ---- Trees, a bench and a shed
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [-7.5, 1.3, 2.5]
+scale = [0.28, 2.6, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-7.5, 3.5, 2.5]
+scale = [2.6, 2.4, 2.6]
+color = "#5a8a3c"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-7, 4.2, 2.2]
+scale = [1.7, 1.6, 1.7]
+color = "#5a8a3c"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [7.5, 1.2, 12.5]
+scale = [0.28, 2.4, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [7.5, 3.3, 12.5]
+scale = [2.6, 2.4, 2.6]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [8, 4, 12.2]
+scale = [1.7, 1.6, 1.7]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "fir trunk"
+shape = "cylinder"
+position = [-8.5, 0.6, 15]
+scale = [0.3, 1.2, 0.3]
+color = "#6b4b32"
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [-8.5, 2.8, 15]
+scale = [2.6, 3.4, 2.6]
+color = "#2f5a37"
+solid = false
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [-8.5, 4.2, 15]
+scale = [1.8, 2.4, 1.8]
+color = "#2f5a37"
+solid = false
+
+[[object]]
+name = "fir trunk"
+shape = "cylinder"
+position = [8.5, 0.6, 1.5]
+scale = [0.3, 1.2, 0.3]
+color = "#6b4b32"
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [8.5, 2.8, 1.5]
+scale = [2.6, 3.4, 2.6]
+color = "#36603b"
+solid = false
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [8.5, 4.2, 1.5]
+scale = [1.8, 2.4, 1.8]
+color = "#36603b"
+solid = false
+
+[[object]]
+name = "apple"
+shape = "sphere"
+at = [[-8.2, 2.9, 2], [-6.9, 3.2, 3.2], [-7.4, 3.6, 1.6]]
+scale = [0.12, 0.12, 0.12]
+color = "#c0392b"
+solid = false
+
+[[object]]
+name = "bench seat"
+shape = "box"
+position = [6.625, 0.445, 6.4]
+scale = [0.45, 0.05, 1.8]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench back"
+shape = "box"
+position = [6.825, 0.685, 6.4]
+scale = [0.05, 0.43, 1.8]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench leg"
+shape = "box"
+at = [[6.62, 0.21, 5.6], [6.62, 0.21, 7.2]]
+scale = [0.4, 0.42, 0.06]
+color = "#333333"
+material = "metal"
+
+[[object]]
+name = "shed"
+shape = "box"
+position = [8, 1.1, 15.75]
+scale = [3, 2.2, 2.5]
+color = "#7d8f6a"
+
+[[object]]
+name = "shed door"
+shape = "box"
+position = [7.9, 0.975, 14.485]
+scale = [1, 1.95, 0.03]
+color = "#5a4636"
+solid = false
+
+[[object]]
+name = "shed roof attic"
+shape = "wedge"
+position = [8, 2.6, 15.125]
+rotation = [0, 180, 0]
+scale = [3, 0.8, 1.25]
+color = "#7d8f6a"
+
+[[object]]
+name = "shed roof attic"
+shape = "wedge"
+position = [8, 2.6, 16.375]
+scale = [3, 0.8, 1.25]
+color = "#7d8f6a"
+
+[[object]]
+name = "shed roof"
+shape = "box"
+position = [8, 2.587, 14.993]
+rotation = [-32.619, 0, 0]
+scale = [3.4, 0.12, 1.802]
+color = "#4b4b4b"
+
+[[object]]
+name = "shed roof"
+shape = "box"
+position = [8, 2.587, 16.507]
+rotation = [32.619, 0, 0]
+scale = [3.4, 0.12, 1.802]
+color = "#4b4b4b"

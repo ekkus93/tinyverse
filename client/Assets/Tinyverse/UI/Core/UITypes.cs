@@ -75,6 +75,29 @@ namespace Tinyverse.UI
         /// self-signed certificate that guests trust by its fingerprint.
         /// </summary>
         public bool Unencrypted;
+
+        /// <summary>
+        /// Name of the template a new world starts from (see <see cref="WorldTemplateChoice"/>); empty for the
+        /// server's default. The Host screen leaves it empty when the folder already holds a world.
+        /// </summary>
+        public string Template;
+    }
+
+    /// <summary>A template the Host screen offers for a new world. The glue fills the list from the server.</summary>
+    public struct WorldTemplateChoice
+    {
+        /// <summary>What the server calls it, such as "island".</summary>
+        public string Name;
+        /// <summary>What the dropdown shows, such as "Island".</summary>
+        public string Title;
+        public string Description;
+
+        public WorldTemplateChoice(string name, string title, string description)
+        {
+            Name = name;
+            Title = title;
+            Description = description;
+        }
     }
 
     /// <summary>One chat line. For <see cref="ChatChannel.System"/> the sender is ignored.</summary>

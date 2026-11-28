@@ -1,0 +1,2148 @@
+# The town template: a square with a fountain among houses and shops.
+# The format is described in src/template.rs.
+title = "Town"
+description = "A small town square with a fountain, trees, benches and street lamps, surrounded by houses and shops of different sizes and colours, with streets leading away."
+
+[world]
+name = "The Town"
+description = "A town square with a fountain."
+spawn_point = [0, 0, -11]
+ground = "grass"
+time_of_day = 10.5
+
+# ---- Square and streets
+
+[[object]]
+name = "town square"
+shape = "box"
+position = [0, 0.015, 8]
+scale = [30, 0.03, 30]
+color = "#cfc6b4"
+solid = false
+
+[[object]]
+name = "square border"
+shape = "box"
+at = [[0, 0.025, -7.1], [0, 0.025, 23.1]]
+scale = [30.4, 0.05, 0.2]
+color = "#9d9484"
+solid = false
+
+[[object]]
+name = "square border"
+shape = "box"
+at = [[-15.1, 0.025, 8], [15.1, 0.025, 8]]
+scale = [0.2, 0.05, 30.4]
+color = "#9d9484"
+solid = false
+
+[[object]]
+name = "north street"
+shape = "box"
+position = [0, 0.01, 55.1]
+scale = [6, 0.02, 63.8]
+color = "#4b4e52"
+solid = false
+
+[[object]]
+name = "north street"
+shape = "box"
+position = [0, 0.01, 107]
+scale = [6, 0.02, 40]
+color = "#4b4e52"
+solid = false
+
+[[object]]
+name = "south street"
+shape = "box"
+position = [0, 0.01, -39.1]
+scale = [6, 0.02, 63.8]
+color = "#4b4e52"
+solid = false
+
+[[object]]
+name = "south street"
+shape = "box"
+position = [0, 0.01, -99]
+scale = [6, 0.02, 56]
+color = "#4b4e52"
+solid = false
+
+[[object]]
+name = "west street"
+shape = "box"
+position = [-47.1, 0.01, 8]
+scale = [63.8, 0.02, 6]
+color = "#4b4e52"
+solid = false
+
+[[object]]
+name = "west street"
+shape = "box"
+position = [-103, 0.01, 8]
+scale = [48, 0.02, 6]
+color = "#4b4e52"
+solid = false
+
+[[object]]
+name = "east street"
+shape = "box"
+position = [47.1, 0.01, 8]
+scale = [63.8, 0.02, 6]
+color = "#4b4e52"
+solid = false
+
+[[object]]
+name = "east street"
+shape = "box"
+position = [103, 0.01, 8]
+scale = [48, 0.02, 6]
+color = "#4b4e52"
+solid = false
+
+[[object]]
+name = "lane marking"
+shape = "box"
+position = [0, 0.025, 27]
+scale = [0.15, 0.01, 2]
+color = "#e8e4d8"
+solid = false
+repeat = 12
+step = [0, 0, 5]
+
+[[object]]
+name = "lane marking"
+shape = "box"
+position = [0, 0.025, -11]
+scale = [0.15, 0.01, 2]
+color = "#e8e4d8"
+solid = false
+repeat = 11
+step = [0, 0, -5]
+
+[[object]]
+name = "lane marking"
+shape = "box"
+position = [-19, 0.025, 8]
+scale = [2, 0.01, 0.15]
+color = "#e8e4d8"
+solid = false
+repeat = 11
+step = [-5, 0, 0]
+
+[[object]]
+name = "lane marking"
+shape = "box"
+position = [19, 0.025, 8]
+scale = [2, 0.01, 0.15]
+color = "#e8e4d8"
+solid = false
+repeat = 11
+step = [5, 0, 0]
+
+# ---- bakery
+
+[[object]]
+name = "bakery"
+shape = "box"
+position = [-9, 3.5, -12]
+scale = [12, 7, 10]
+color = "#c9b28f"
+
+[[object]]
+name = "bakery window"
+shape = "box"
+at = [[-4.6, 4.25, -6.98], [-6.8, 4.25, -6.98], [-9, 4.25, -6.98], [-11.2, 4.25, -6.98], [-13.4, 4.25, -6.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "bakery sill"
+shape = "box"
+at = [[-4.6, 3.47, -6.93], [-6.8, 3.47, -6.93], [-9, 3.47, -6.93], [-11.2, 3.47, -6.93], [-13.4, 3.47, -6.93]]
+scale = [1.2, 0.08, 0.14]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "bakery lintel"
+shape = "box"
+at = [[-4.6, 5.03, -6.96], [-6.8, 5.03, -6.96], [-9, 5.03, -6.96], [-11.2, 5.03, -6.96], [-13.4, 5.03, -6.96]]
+scale = [1.15, 0.1, 0.08]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "bakery door"
+shape = "box"
+position = [-6, 1.1, -6.97]
+scale = [1.2, 2.2, 0.06]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "bakery door frame"
+shape = "box"
+position = [-6, 2.28, -6.95]
+scale = [1.5, 0.16, 0.1]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "bakery shop window"
+shape = "box"
+position = [-10.44, 1.35, -6.97]
+scale = [5, 1.9, 0.06]
+color = "#a9c8d8"
+material = "glass"
+solid = false
+
+[[object]]
+name = "bakery shop window frame"
+shape = "box"
+position = [-10.44, 0.3, -6.94]
+scale = [5.3, 0.6, 0.12]
+color = "#3b3b3b"
+solid = false
+
+[[object]]
+name = "bakery shop sign"
+shape = "box"
+position = [-9, 3.2, -6.94]
+scale = [8.4, 0.4, 0.1]
+color = "#7b4a2a"
+solid = false
+
+[[object]]
+name = "bakery awning"
+shape = "wedge"
+position = [-10.44, 2.65, -6.4]
+scale = [5.6, 0.5, 1.2]
+color = "#c0392b"
+solid = false
+
+[[object]]
+name = "bakery cornice"
+shape = "box"
+position = [-9, 7.08, -12]
+scale = [12.3, 0.16, 10.3]
+color = "#7a3b2e"
+
+[[object]]
+name = "bakery roof attic"
+shape = "wedge"
+position = [-9, 8.26, -14.5]
+rotation = [0, 180, 0]
+scale = [12, 2.2, 5]
+color = "#c9b28f"
+
+[[object]]
+name = "bakery roof attic"
+shape = "wedge"
+position = [-9, 8.26, -9.5]
+scale = [12, 2.2, 5]
+color = "#c9b28f"
+
+[[object]]
+name = "bakery roof"
+shape = "box"
+position = [-9, 8.249, -14.674]
+rotation = [-23.749, 0, 0]
+scale = [12.6, 0.12, 5.87]
+color = "#7a3b2e"
+
+[[object]]
+name = "bakery roof"
+shape = "box"
+position = [-9, 8.249, -9.326]
+rotation = [23.749, 0, 0]
+scale = [12.6, 0.12, 5.87]
+color = "#7a3b2e"
+
+[[object]]
+name = "bakery window"
+shape = "box"
+at = [[-2.98, 4.25, -15.333], [-2.98, 4.25, -12], [-2.98, 4.25, -8.667]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+# ---- bookshop
+
+[[object]]
+name = "bookshop"
+shape = "box"
+position = [9, 4.25, -12]
+scale = [12, 8.5, 10]
+color = "#9fb6c4"
+
+[[object]]
+name = "bookshop window"
+shape = "box"
+at = [[13.4, 4.25, -6.98], [11.2, 4.25, -6.98], [9, 4.25, -6.98], [6.8, 4.25, -6.98], [4.6, 4.25, -6.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "bookshop sill"
+shape = "box"
+at = [[13.4, 3.47, -6.93], [11.2, 3.47, -6.93], [9, 3.47, -6.93], [6.8, 3.47, -6.93], [4.6, 3.47, -6.93]]
+scale = [1.2, 0.08, 0.14]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "bookshop lintel"
+shape = "box"
+at = [[13.4, 5.03, -6.96], [11.2, 5.03, -6.96], [9, 5.03, -6.96], [6.8, 5.03, -6.96], [4.6, 5.03, -6.96]]
+scale = [1.15, 0.1, 0.08]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "bookshop door"
+shape = "box"
+position = [12, 1.1, -6.97]
+scale = [1.2, 2.2, 0.06]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "bookshop door frame"
+shape = "box"
+position = [12, 2.28, -6.95]
+scale = [1.5, 0.16, 0.1]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "bookshop shop window"
+shape = "box"
+position = [7.56, 1.35, -6.97]
+scale = [5, 1.9, 0.06]
+color = "#a9c8d8"
+material = "glass"
+solid = false
+
+[[object]]
+name = "bookshop shop window frame"
+shape = "box"
+position = [7.56, 0.3, -6.94]
+scale = [5.3, 0.6, 0.12]
+color = "#3b3b3b"
+solid = false
+
+[[object]]
+name = "bookshop shop sign"
+shape = "box"
+position = [9, 3.2, -6.94]
+scale = [8.4, 0.4, 0.1]
+color = "#2c4a63"
+solid = false
+
+[[object]]
+name = "bookshop awning"
+shape = "wedge"
+position = [7.56, 2.65, -6.4]
+scale = [5.6, 0.5, 1.2]
+color = "#2e7d6b"
+solid = false
+
+[[object]]
+name = "bookshop cornice"
+shape = "box"
+position = [9, 8.58, -12]
+scale = [12.3, 0.16, 10.3]
+color = "#f4f0e6"
+
+[[object]]
+name = "bookshop parapet"
+shape = "box"
+position = [9, 8.93, -16.875]
+scale = [12, 0.54, 0.25]
+color = "#9fb6c4"
+
+[[object]]
+name = "bookshop parapet"
+shape = "box"
+position = [9, 8.93, -7.125]
+scale = [12, 0.54, 0.25]
+color = "#9fb6c4"
+
+[[object]]
+name = "bookshop parapet"
+shape = "box"
+position = [3.125, 8.93, -12]
+scale = [0.25, 0.54, 9.5]
+color = "#9fb6c4"
+
+[[object]]
+name = "bookshop parapet"
+shape = "box"
+position = [14.875, 8.93, -12]
+scale = [0.25, 0.54, 9.5]
+color = "#9fb6c4"
+
+[[object]]
+name = "bookshop window"
+shape = "box"
+at = [[2.98, 4.25, -8.667], [2.98, 4.25, -12], [2.98, 4.25, -15.333]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+# ---- town hall
+
+[[object]]
+name = "town hall"
+shape = "box"
+position = [-6, 6.25, 29]
+scale = [6, 12.5, 12]
+color = "#c8693f"
+
+[[object]]
+name = "town hall window"
+shape = "box"
+at = [[-7.1, 4.25, 22.98], [-4.9, 4.25, 22.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "town hall sill"
+shape = "box"
+at = [[-7.1, 3.47, 22.93], [-4.9, 3.47, 22.93]]
+scale = [1.2, 0.08, 0.14]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "town hall lintel"
+shape = "box"
+at = [[-7.1, 5.03, 22.96], [-4.9, 5.03, 22.96]]
+scale = [1.15, 0.1, 0.08]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "town hall window"
+shape = "box"
+at = [[-7.1, 7.25, 22.98], [-4.9, 7.25, 22.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "town hall sill"
+shape = "box"
+at = [[-7.1, 6.47, 22.93], [-4.9, 6.47, 22.93]]
+scale = [1.2, 0.08, 0.14]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "town hall lintel"
+shape = "box"
+at = [[-7.1, 8.03, 22.96], [-4.9, 8.03, 22.96]]
+scale = [1.15, 0.1, 0.08]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "town hall door"
+shape = "box"
+position = [-6, 1.1, 22.97]
+scale = [1.2, 2.2, 0.06]
+color = "#3b2418"
+solid = false
+
+[[object]]
+name = "town hall door frame"
+shape = "box"
+position = [-6, 2.28, 22.95]
+scale = [1.5, 0.16, 0.1]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "town hall cornice"
+shape = "box"
+position = [-6, 12.58, 29]
+scale = [6.3, 0.16, 12.3]
+color = "#5a2e24"
+
+[[object]]
+name = "town hall roof attic"
+shape = "wedge"
+position = [-6, 13.46, 26]
+rotation = [0, 180, 0]
+scale = [6, 1.6, 6]
+color = "#c8693f"
+
+[[object]]
+name = "town hall roof attic"
+shape = "wedge"
+position = [-6, 13.46, 32]
+scale = [6, 1.6, 6]
+color = "#c8693f"
+
+[[object]]
+name = "town hall roof"
+shape = "box"
+position = [-6, 13.478, 25.835]
+rotation = [-14.931, 0, 0]
+scale = [6.6, 0.12, 6.6]
+color = "#5a2e24"
+
+[[object]]
+name = "town hall roof"
+shape = "box"
+position = [-6, 13.478, 32.165]
+rotation = [14.931, 0, 0]
+scale = [6.6, 0.12, 6.6]
+color = "#5a2e24"
+
+[[object]]
+name = "town hall window"
+shape = "box"
+at = [[-2.98, 4.25, 24.5], [-2.98, 4.25, 27.5], [-2.98, 4.25, 30.5], [-2.98, 4.25, 33.5]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "town hall window"
+shape = "box"
+at = [[-2.98, 7.25, 24.5], [-2.98, 7.25, 27.5], [-2.98, 7.25, 30.5], [-2.98, 7.25, 33.5]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+# ---- blue house
+
+[[object]]
+name = "blue house"
+shape = "box"
+position = [6, 3.75, 28]
+scale = [6, 7.5, 10]
+color = "#a9c6d6"
+
+[[object]]
+name = "blue house window"
+shape = "box"
+at = [[4.9, 4.25, 22.98], [7.1, 4.25, 22.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "blue house sill"
+shape = "box"
+at = [[4.9, 3.47, 22.93], [7.1, 3.47, 22.93]]
+scale = [1.2, 0.08, 0.14]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "blue house lintel"
+shape = "box"
+at = [[4.9, 5.03, 22.96], [7.1, 5.03, 22.96]]
+scale = [1.15, 0.1, 0.08]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "blue house door"
+shape = "box"
+position = [6, 1.1, 22.97]
+scale = [1.2, 2.2, 0.06]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "blue house door frame"
+shape = "box"
+position = [6, 2.28, 22.95]
+scale = [1.5, 0.16, 0.1]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "blue house cornice"
+shape = "box"
+position = [6, 7.58, 28]
+scale = [6.3, 0.16, 10.3]
+color = "#4a5560"
+
+[[object]]
+name = "blue house roof attic"
+shape = "wedge"
+position = [6, 8.46, 25.5]
+rotation = [0, 180, 0]
+scale = [6, 1.6, 5]
+color = "#a9c6d6"
+
+[[object]]
+name = "blue house roof attic"
+shape = "wedge"
+position = [6, 8.46, 30.5]
+scale = [6, 1.6, 5]
+color = "#a9c6d6"
+
+[[object]]
+name = "blue house roof"
+shape = "box"
+position = [6, 8.469, 25.332]
+rotation = [-17.745, 0, 0]
+scale = [6.6, 0.12, 5.645]
+color = "#4a5560"
+
+[[object]]
+name = "blue house roof"
+shape = "box"
+position = [6, 8.469, 30.668]
+rotation = [17.745, 0, 0]
+scale = [6.6, 0.12, 5.645]
+color = "#4a5560"
+
+[[object]]
+name = "blue house window"
+shape = "box"
+at = [[2.98, 4.25, 31.333], [2.98, 4.25, 28], [2.98, 4.25, 24.667]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+# ---- cream house
+
+[[object]]
+name = "cream house"
+shape = "box"
+position = [12, 5, 28]
+scale = [6, 10, 10]
+color = "#efe3c4"
+
+[[object]]
+name = "cream house window"
+shape = "box"
+at = [[10.9, 4.25, 22.98], [13.1, 4.25, 22.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "cream house sill"
+shape = "box"
+at = [[10.9, 3.47, 22.93], [13.1, 3.47, 22.93]]
+scale = [1.2, 0.08, 0.14]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "cream house lintel"
+shape = "box"
+at = [[10.9, 5.03, 22.96], [13.1, 5.03, 22.96]]
+scale = [1.15, 0.1, 0.08]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "cream house window"
+shape = "box"
+at = [[10.9, 7.25, 22.98], [13.1, 7.25, 22.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "cream house sill"
+shape = "box"
+at = [[10.9, 6.47, 22.93], [13.1, 6.47, 22.93]]
+scale = [1.2, 0.08, 0.14]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "cream house lintel"
+shape = "box"
+at = [[10.9, 8.03, 22.96], [13.1, 8.03, 22.96]]
+scale = [1.15, 0.1, 0.08]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "cream house door"
+shape = "box"
+position = [10.5, 1.1, 22.97]
+scale = [1.2, 2.2, 0.06]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "cream house door frame"
+shape = "box"
+position = [10.5, 2.28, 22.95]
+scale = [1.5, 0.16, 0.1]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "cream house shop window"
+shape = "box"
+position = [12.72, 1.35, 22.97]
+scale = [2, 1.9, 0.06]
+color = "#a9c8d8"
+material = "glass"
+solid = false
+
+[[object]]
+name = "cream house shop window frame"
+shape = "box"
+position = [12.72, 0.3, 22.94]
+scale = [2.3, 0.6, 0.12]
+color = "#3b3b3b"
+solid = false
+
+[[object]]
+name = "cream house shop sign"
+shape = "box"
+position = [12, 3.2, 22.94]
+scale = [4.2, 0.4, 0.1]
+color = "#6b2d4b"
+solid = false
+
+[[object]]
+name = "cream house awning"
+shape = "wedge"
+position = [12.72, 2.65, 22.4]
+rotation = [0, 180, 0]
+scale = [2.6, 0.5, 1.2]
+color = "#d4a017"
+solid = false
+
+[[object]]
+name = "cream house cornice"
+shape = "box"
+position = [12, 10.08, 28]
+scale = [6.3, 0.16, 10.3]
+color = "#f4f0e6"
+
+[[object]]
+name = "cream house parapet"
+shape = "box"
+position = [12, 10.43, 23.125]
+scale = [6, 0.54, 0.25]
+color = "#efe3c4"
+
+[[object]]
+name = "cream house parapet"
+shape = "box"
+position = [12, 10.43, 32.875]
+scale = [6, 0.54, 0.25]
+color = "#efe3c4"
+
+[[object]]
+name = "cream house parapet"
+shape = "box"
+position = [9.125, 10.43, 28]
+scale = [0.25, 0.54, 9.5]
+color = "#efe3c4"
+
+[[object]]
+name = "cream house parapet"
+shape = "box"
+position = [14.875, 10.43, 28]
+scale = [0.25, 0.54, 9.5]
+color = "#efe3c4"
+
+# ---- ochre house
+
+[[object]]
+name = "ochre house"
+shape = "box"
+position = [-12, 4.5, 28]
+scale = [6, 9, 10]
+color = "#d9a441"
+
+[[object]]
+name = "ochre house window"
+shape = "box"
+at = [[-13.1, 4.25, 22.98], [-10.9, 4.25, 22.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "ochre house sill"
+shape = "box"
+at = [[-13.1, 3.47, 22.93], [-10.9, 3.47, 22.93]]
+scale = [1.2, 0.08, 0.14]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "ochre house lintel"
+shape = "box"
+at = [[-13.1, 5.03, 22.96], [-10.9, 5.03, 22.96]]
+scale = [1.15, 0.1, 0.08]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "ochre house door"
+shape = "box"
+position = [-12, 1.1, 22.97]
+scale = [1.2, 2.2, 0.06]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "ochre house door frame"
+shape = "box"
+position = [-12, 2.28, 22.95]
+scale = [1.5, 0.16, 0.1]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "ochre house cornice"
+shape = "box"
+position = [-12, 9.08, 28]
+scale = [6.3, 0.16, 10.3]
+color = "#7a3b2e"
+
+[[object]]
+name = "ochre house roof attic"
+shape = "wedge"
+position = [-12, 9.96, 25.5]
+rotation = [0, 180, 0]
+scale = [6, 1.6, 5]
+color = "#d9a441"
+
+[[object]]
+name = "ochre house roof attic"
+shape = "wedge"
+position = [-12, 9.96, 30.5]
+scale = [6, 1.6, 5]
+color = "#d9a441"
+
+[[object]]
+name = "ochre house roof"
+shape = "box"
+position = [-12, 9.969, 25.332]
+rotation = [-17.745, 0, 0]
+scale = [6.6, 0.12, 5.645]
+color = "#7a3b2e"
+
+[[object]]
+name = "ochre house roof"
+shape = "box"
+position = [-12, 9.969, 30.668]
+rotation = [17.745, 0, 0]
+scale = [6.6, 0.12, 5.645]
+color = "#7a3b2e"
+
+# ---- cafe
+
+[[object]]
+name = "cafe"
+shape = "box"
+position = [-20, 4, -1]
+scale = [10, 8, 12]
+color = "#d99a9a"
+
+[[object]]
+name = "cafe window"
+shape = "box"
+at = [[-14.98, 4.25, -5.4], [-14.98, 4.25, -3.2], [-14.98, 4.25, -1], [-14.98, 4.25, 1.2], [-14.98, 4.25, 3.4]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "cafe sill"
+shape = "box"
+at = [[-14.93, 3.47, -5.4], [-14.93, 3.47, -3.2], [-14.93, 3.47, -1], [-14.93, 3.47, 1.2], [-14.93, 3.47, 3.4]]
+scale = [0.14, 0.08, 1.2]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "cafe lintel"
+shape = "box"
+at = [[-14.96, 5.03, -5.4], [-14.96, 5.03, -3.2], [-14.96, 5.03, -1], [-14.96, 5.03, 1.2], [-14.96, 5.03, 3.4]]
+scale = [0.08, 0.1, 1.15]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "cafe door"
+shape = "box"
+position = [-14.97, 1.1, -4]
+scale = [0.06, 2.2, 1.2]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "cafe door frame"
+shape = "box"
+position = [-14.95, 2.28, -4]
+scale = [0.1, 0.16, 1.5]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "cafe shop window"
+shape = "box"
+position = [-14.97, 1.35, 0.44]
+scale = [0.06, 1.9, 5]
+color = "#a9c8d8"
+material = "glass"
+solid = false
+
+[[object]]
+name = "cafe shop window frame"
+shape = "box"
+position = [-14.94, 0.3, 0.44]
+scale = [0.12, 0.6, 5.3]
+color = "#3b3b3b"
+solid = false
+
+[[object]]
+name = "cafe shop sign"
+shape = "box"
+position = [-14.94, 3.2, -1]
+scale = [0.1, 0.4, 8.4]
+color = "#4a2c2a"
+solid = false
+
+[[object]]
+name = "cafe awning"
+shape = "wedge"
+position = [-14.4, 2.65, 0.44]
+rotation = [0, 90, 0]
+scale = [5.6, 0.5, 1.2]
+color = "#f2efe6"
+solid = false
+
+[[object]]
+name = "cafe cornice"
+shape = "box"
+position = [-20, 8.08, -1]
+scale = [10.3, 0.16, 12.3]
+color = "#6e3b35"
+
+[[object]]
+name = "cafe roof attic"
+shape = "wedge"
+position = [-22.5, 9.26, -1]
+rotation = [0, -90, 0]
+scale = [12, 2.2, 5]
+color = "#d99a9a"
+
+[[object]]
+name = "cafe roof attic"
+shape = "wedge"
+position = [-17.5, 9.26, -1]
+rotation = [0, 90, 0]
+scale = [12, 2.2, 5]
+color = "#d99a9a"
+
+[[object]]
+name = "cafe roof"
+shape = "box"
+position = [-22.674, 9.249, -1]
+rotation = [0, 0, 23.749]
+scale = [5.87, 0.12, 12.6]
+color = "#6e3b35"
+
+[[object]]
+name = "cafe roof"
+shape = "box"
+position = [-17.326, 9.249, -1]
+rotation = [0, 0, -23.749]
+scale = [5.87, 0.12, 12.6]
+color = "#6e3b35"
+
+[[object]]
+name = "cafe window"
+shape = "box"
+at = [[-16.667, 4.25, 5.02], [-20, 4.25, 5.02], [-23.333, 4.25, 5.02]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+# ---- green house
+
+[[object]]
+name = "green house"
+shape = "box"
+position = [-20, 5.5, 17]
+scale = [10, 11, 12]
+color = "#a3b48f"
+
+[[object]]
+name = "green house window"
+shape = "box"
+at = [[-14.98, 4.25, 12.6], [-14.98, 4.25, 14.8], [-14.98, 4.25, 17], [-14.98, 4.25, 19.2], [-14.98, 4.25, 21.4]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "green house sill"
+shape = "box"
+at = [[-14.93, 3.47, 12.6], [-14.93, 3.47, 14.8], [-14.93, 3.47, 17], [-14.93, 3.47, 19.2], [-14.93, 3.47, 21.4]]
+scale = [0.14, 0.08, 1.2]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "green house lintel"
+shape = "box"
+at = [[-14.96, 5.03, 12.6], [-14.96, 5.03, 14.8], [-14.96, 5.03, 17], [-14.96, 5.03, 19.2], [-14.96, 5.03, 21.4]]
+scale = [0.08, 0.1, 1.15]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "green house window"
+shape = "box"
+at = [[-14.98, 7.25, 12.6], [-14.98, 7.25, 14.8], [-14.98, 7.25, 17], [-14.98, 7.25, 19.2], [-14.98, 7.25, 21.4]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "green house sill"
+shape = "box"
+at = [[-14.93, 6.47, 12.6], [-14.93, 6.47, 14.8], [-14.93, 6.47, 17], [-14.93, 6.47, 19.2], [-14.93, 6.47, 21.4]]
+scale = [0.14, 0.08, 1.2]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "green house lintel"
+shape = "box"
+at = [[-14.96, 8.03, 12.6], [-14.96, 8.03, 14.8], [-14.96, 8.03, 17], [-14.96, 8.03, 19.2], [-14.96, 8.03, 21.4]]
+scale = [0.08, 0.1, 1.15]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "green house door"
+shape = "box"
+position = [-14.97, 1.1, 17]
+scale = [0.06, 2.2, 1.2]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "green house door frame"
+shape = "box"
+position = [-14.95, 2.28, 17]
+scale = [0.1, 0.16, 1.5]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "green house cornice"
+shape = "box"
+position = [-20, 11.08, 17]
+scale = [10.3, 0.16, 12.3]
+color = "#f4f0e6"
+
+[[object]]
+name = "green house parapet"
+shape = "box"
+position = [-20, 11.43, 11.125]
+scale = [10, 0.54, 0.25]
+color = "#a3b48f"
+
+[[object]]
+name = "green house parapet"
+shape = "box"
+position = [-20, 11.43, 22.875]
+scale = [10, 0.54, 0.25]
+color = "#a3b48f"
+
+[[object]]
+name = "green house parapet"
+shape = "box"
+position = [-24.875, 11.43, 17]
+scale = [0.25, 0.54, 11.5]
+color = "#a3b48f"
+
+[[object]]
+name = "green house parapet"
+shape = "box"
+position = [-15.125, 11.43, 17]
+scale = [0.25, 0.54, 11.5]
+color = "#a3b48f"
+
+[[object]]
+name = "green house window"
+shape = "box"
+at = [[-23.333, 4.25, 10.98], [-20, 4.25, 10.98], [-16.667, 4.25, 10.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "green house window"
+shape = "box"
+at = [[-23.333, 7.25, 10.98], [-20, 7.25, 10.98], [-16.667, 7.25, 10.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+# ---- yellow house
+
+[[object]]
+name = "yellow house"
+shape = "box"
+position = [20, 3.25, -1]
+scale = [10, 6.5, 12]
+color = "#e8cf6a"
+
+[[object]]
+name = "yellow house door"
+shape = "box"
+position = [14.97, 1.1, -1]
+scale = [0.06, 2.2, 1.2]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "yellow house door frame"
+shape = "box"
+position = [14.95, 2.28, -1]
+scale = [0.1, 0.16, 1.5]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "yellow house cornice"
+shape = "box"
+position = [20, 6.58, -1]
+scale = [10.3, 0.16, 12.3]
+color = "#7a3b2e"
+
+[[object]]
+name = "yellow house roof attic"
+shape = "wedge"
+position = [17.5, 7.76, -1]
+rotation = [0, -90, 0]
+scale = [12, 2.2, 5]
+color = "#e8cf6a"
+
+[[object]]
+name = "yellow house roof attic"
+shape = "wedge"
+position = [22.5, 7.76, -1]
+rotation = [0, 90, 0]
+scale = [12, 2.2, 5]
+color = "#e8cf6a"
+
+[[object]]
+name = "yellow house roof"
+shape = "box"
+position = [17.326, 7.749, -1]
+rotation = [0, 0, 23.749]
+scale = [5.87, 0.12, 12.6]
+color = "#7a3b2e"
+
+[[object]]
+name = "yellow house roof"
+shape = "box"
+position = [22.674, 7.749, -1]
+rotation = [0, 0, -23.749]
+scale = [5.87, 0.12, 12.6]
+color = "#7a3b2e"
+
+# ---- grocer
+
+[[object]]
+name = "grocer"
+shape = "box"
+position = [20, 4.5, 17]
+scale = [10, 9, 12]
+color = "#a5543e"
+
+[[object]]
+name = "grocer window"
+shape = "box"
+at = [[14.98, 4.25, 21.4], [14.98, 4.25, 19.2], [14.98, 4.25, 17], [14.98, 4.25, 14.8], [14.98, 4.25, 12.6]]
+scale = [0.06, 1.45, 1]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "grocer sill"
+shape = "box"
+at = [[14.93, 3.47, 21.4], [14.93, 3.47, 19.2], [14.93, 3.47, 17], [14.93, 3.47, 14.8], [14.93, 3.47, 12.6]]
+scale = [0.14, 0.08, 1.2]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "grocer lintel"
+shape = "box"
+at = [[14.96, 5.03, 21.4], [14.96, 5.03, 19.2], [14.96, 5.03, 17], [14.96, 5.03, 14.8], [14.96, 5.03, 12.6]]
+scale = [0.08, 0.1, 1.15]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "grocer door"
+shape = "box"
+position = [14.97, 1.1, 20]
+scale = [0.06, 2.2, 1.2]
+color = "#4a3426"
+solid = false
+
+[[object]]
+name = "grocer door frame"
+shape = "box"
+position = [14.95, 2.28, 20]
+scale = [0.1, 0.16, 1.5]
+color = "#f4f0e6"
+solid = false
+
+[[object]]
+name = "grocer shop window"
+shape = "box"
+position = [14.97, 1.35, 15.56]
+scale = [0.06, 1.9, 5]
+color = "#a9c8d8"
+material = "glass"
+solid = false
+
+[[object]]
+name = "grocer shop window frame"
+shape = "box"
+position = [14.94, 0.3, 15.56]
+scale = [0.12, 0.6, 5.3]
+color = "#3b3b3b"
+solid = false
+
+[[object]]
+name = "grocer shop sign"
+shape = "box"
+position = [14.94, 3.2, 17]
+scale = [0.1, 0.4, 8.4]
+color = "#2f5d3a"
+solid = false
+
+[[object]]
+name = "grocer awning"
+shape = "wedge"
+position = [14.4, 2.65, 15.56]
+rotation = [0, -90, 0]
+scale = [5.6, 0.5, 1.2]
+color = "#3f8f4a"
+solid = false
+
+[[object]]
+name = "grocer cornice"
+shape = "box"
+position = [20, 9.08, 17]
+scale = [10.3, 0.16, 12.3]
+color = "#4a4a4a"
+
+[[object]]
+name = "grocer roof attic"
+shape = "wedge"
+position = [17.5, 10.26, 17]
+rotation = [0, -90, 0]
+scale = [12, 2.2, 5]
+color = "#a5543e"
+
+[[object]]
+name = "grocer roof attic"
+shape = "wedge"
+position = [22.5, 10.26, 17]
+rotation = [0, 90, 0]
+scale = [12, 2.2, 5]
+color = "#a5543e"
+
+[[object]]
+name = "grocer roof"
+shape = "box"
+position = [17.326, 10.249, 17]
+rotation = [0, 0, 23.749]
+scale = [5.87, 0.12, 12.6]
+color = "#4a4a4a"
+
+[[object]]
+name = "grocer roof"
+shape = "box"
+position = [22.674, 10.249, 17]
+rotation = [0, 0, -23.749]
+scale = [5.87, 0.12, 12.6]
+color = "#4a4a4a"
+
+[[object]]
+name = "grocer window"
+shape = "box"
+at = [[16.667, 4.25, 10.98], [20, 4.25, 10.98], [23.333, 4.25, 10.98]]
+scale = [1, 1.45, 0.06]
+color = "#33475b"
+material = "glossy"
+solid = false
+
+# ---- Clock on the town hall
+
+[[object]]
+name = "clock face"
+shape = "cylinder"
+position = [-6, 10, 22.9]
+rotation = [90, 0, 0]
+scale = [1.5, 0.08, 1.5]
+color = "#f7f3e8"
+solid = false
+
+[[object]]
+name = "clock rim"
+shape = "cylinder"
+position = [-6, 10, 22.94]
+rotation = [90, 0, 0]
+scale = [1.7, 0.06, 1.7]
+color = "#2b2b2b"
+solid = false
+
+[[object]]
+name = "clock hand"
+shape = "box"
+position = [-6, 10.3, 22.84]
+scale = [0.08, 0.6, 0.03]
+color = "#1a1a1a"
+solid = false
+
+[[object]]
+name = "clock hand"
+shape = "box"
+position = [-5.8, 10, 22.84]
+scale = [0.45, 0.07, 0.03]
+color = "#1a1a1a"
+solid = false
+
+[[object]]
+name = "flag pole"
+shape = "cylinder"
+position = [-6, 16, 29]
+scale = [0.08, 3, 0.08]
+color = "#cccccc"
+material = "metal"
+
+[[object]]
+name = "flag"
+shape = "box"
+position = [-5.3, 16.9, 29]
+scale = [1.3, 0.8, 0.03]
+color = "#2b6cb0"
+solid = false
+
+# ---- Fountain
+
+[[object]]
+name = "fountain basin"
+shape = "cylinder"
+position = [0, 0.25, 8]
+scale = [7, 0.5, 7]
+color = "#bdb6a8"
+
+[[object]]
+name = "fountain water"
+shape = "cylinder"
+position = [0, 0.505, 8]
+scale = [6.3, 0.03, 6.3]
+color = "#4f8fb3"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "fountain pillar"
+shape = "cylinder"
+position = [0, 1.1, 8]
+scale = [0.9, 1.2, 0.9]
+color = "#bdb6a8"
+
+[[object]]
+name = "fountain bowl"
+shape = "cylinder"
+position = [0, 1.85, 8]
+scale = [2.8, 0.3, 2.8]
+color = "#bdb6a8"
+
+[[object]]
+name = "fountain bowl water"
+shape = "cylinder"
+position = [0, 2.015, 8]
+scale = [2.5, 0.03, 2.5]
+color = "#4f8fb3"
+material = "glossy"
+solid = false
+
+[[object]]
+name = "water curtain"
+shape = "cylinder"
+position = [0, 1.25, 8]
+scale = [2.6, 1.5, 2.6]
+color = "#cfe8f5"
+material = "glass"
+solid = false
+
+[[object]]
+name = "fountain top"
+shape = "cylinder"
+position = [0, 2.45, 8]
+scale = [0.4, 0.8, 0.4]
+color = "#bdb6a8"
+
+[[object]]
+name = "fountain jet"
+shape = "cone"
+position = [0, 3.3, 8]
+scale = [0.5, 0.9, 0.5]
+color = "#d8eef8"
+material = "glass"
+solid = false
+
+[[object]]
+name = "fountain ball"
+shape = "sphere"
+position = [0, 2.95, 8]
+scale = [0.5, 0.5, 0.5]
+color = "#b08d57"
+material = "metal"
+
+# ---- Trees in planters
+
+[[object]]
+name = "planter"
+shape = "cylinder"
+position = [-10, 0.3, -2.5]
+scale = [2, 0.6, 2]
+color = "#9d9484"
+
+[[object]]
+name = "soil"
+shape = "cylinder"
+position = [-10, 0.605, -2.5]
+scale = [1.8, 0.02, 1.8]
+color = "#5b4332"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [-10, 1.6, -2.5]
+scale = [0.28, 3.2, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-10, 4.1, -2.5]
+scale = [2.6, 2.4, 2.6]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-9.5, 4.8, -2.8]
+scale = [1.7, 1.6, 1.7]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "planter"
+shape = "cylinder"
+position = [10, 0.3, -2.5]
+scale = [2, 0.6, 2]
+color = "#9d9484"
+
+[[object]]
+name = "soil"
+shape = "cylinder"
+position = [10, 0.605, -2.5]
+scale = [1.8, 0.02, 1.8]
+color = "#5b4332"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [10, 1.6, -2.5]
+scale = [0.28, 3.2, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [10, 4.1, -2.5]
+scale = [2.6, 2.4, 2.6]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [10.5, 4.8, -2.8]
+scale = [1.7, 1.6, 1.7]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "planter"
+shape = "cylinder"
+position = [-10, 0.3, 18.5]
+scale = [2, 0.6, 2]
+color = "#9d9484"
+
+[[object]]
+name = "soil"
+shape = "cylinder"
+position = [-10, 0.605, 18.5]
+scale = [1.8, 0.02, 1.8]
+color = "#5b4332"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [-10, 1.6, 18.5]
+scale = [0.28, 3.2, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-10, 4.1, 18.5]
+scale = [2.6, 2.4, 2.6]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-9.5, 4.8, 18.2]
+scale = [1.7, 1.6, 1.7]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "planter"
+shape = "cylinder"
+position = [10, 0.3, 18.5]
+scale = [2, 0.6, 2]
+color = "#9d9484"
+
+[[object]]
+name = "soil"
+shape = "cylinder"
+position = [10, 0.605, 18.5]
+scale = [1.8, 0.02, 1.8]
+color = "#5b4332"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [10, 1.6, 18.5]
+scale = [0.28, 3.2, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [10, 4.1, 18.5]
+scale = [2.6, 2.4, 2.6]
+color = "#4f7d3a"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [10.5, 4.8, 18.2]
+scale = [1.7, 1.6, 1.7]
+color = "#4f7d3a"
+solid = false
+
+# ---- Benches facing the fountain
+
+[[object]]
+name = "bench seat"
+shape = "box"
+position = [-6.5, 0.45, 8]
+rotation = [0, 90, 0]
+scale = [1.8, 0.06, 0.45]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench back"
+shape = "box"
+position = [-6.72, 0.75, 8]
+rotation = [-8, 90, 0]
+scale = [1.8, 0.4, 0.05]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench leg"
+shape = "box"
+at = [[-6.5, 0.22, 7.25], [-6.5, 0.22, 8.75]]
+rotation = [0, 90, 0]
+scale = [0.06, 0.44, 0.45]
+color = "#2f2f2f"
+material = "metal"
+
+[[object]]
+name = "bench seat"
+shape = "box"
+position = [6.5, 0.45, 8]
+rotation = [0, -90, 0]
+scale = [1.8, 0.06, 0.45]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench back"
+shape = "box"
+position = [6.72, 0.75, 8]
+rotation = [-8, -90, 0]
+scale = [1.8, 0.4, 0.05]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench leg"
+shape = "box"
+at = [[6.5, 0.22, 8.75], [6.5, 0.22, 7.25]]
+rotation = [0, -90, 0]
+scale = [0.06, 0.44, 0.45]
+color = "#2f2f2f"
+material = "metal"
+
+[[object]]
+name = "bench seat"
+shape = "box"
+position = [0, 0.45, 14.5]
+rotation = [0, 180, 0]
+scale = [1.8, 0.06, 0.45]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench back"
+shape = "box"
+position = [0, 0.75, 14.72]
+rotation = [-8, 180, 0]
+scale = [1.8, 0.4, 0.05]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench leg"
+shape = "box"
+at = [[-0.75, 0.22, 14.5], [0.75, 0.22, 14.5]]
+rotation = [0, 180, 0]
+scale = [0.06, 0.44, 0.45]
+color = "#2f2f2f"
+material = "metal"
+
+[[object]]
+name = "bench seat"
+shape = "box"
+position = [-4.6, 0.45, 3.4]
+rotation = [0, 45, 0]
+scale = [1.8, 0.06, 0.45]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench back"
+shape = "box"
+position = [-4.756, 0.75, 3.244]
+rotation = [-8, 45, 0]
+scale = [1.8, 0.4, 0.05]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench leg"
+shape = "box"
+at = [[-4.07, 0.22, 2.87], [-5.13, 0.22, 3.93]]
+rotation = [0, 45, 0]
+scale = [0.06, 0.44, 0.45]
+color = "#2f2f2f"
+material = "metal"
+
+[[object]]
+name = "bench seat"
+shape = "box"
+position = [4.6, 0.45, 3.4]
+rotation = [0, -45, 0]
+scale = [1.8, 0.06, 0.45]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench back"
+shape = "box"
+position = [4.756, 0.75, 3.244]
+rotation = [-8, -45, 0]
+scale = [1.8, 0.4, 0.05]
+color = "#8a6a4a"
+
+[[object]]
+name = "bench leg"
+shape = "box"
+at = [[5.13, 0.22, 3.93], [4.07, 0.22, 2.87]]
+rotation = [0, -45, 0]
+scale = [0.06, 0.44, 0.45]
+color = "#2f2f2f"
+material = "metal"
+
+# ---- Street lamps
+
+[[object]]
+name = "lamp post"
+shape = "cylinder"
+at = [[-13.5, 2, -5.5], [13.5, 2, -5.5], [-13.5, 2, 21.5], [13.5, 2, 21.5], [-4, 2, 21.5], [4, 2, 21.5], [-4, 2, -5.5], [4, 2, -5.5], [-13.5, 2, 8], [13.5, 2, 8]]
+scale = [0.14, 4, 0.14]
+color = "#2b2f33"
+material = "metal"
+
+[[object]]
+name = "lamp post base"
+shape = "cylinder"
+at = [[-13.5, 0.2, -5.5], [13.5, 0.2, -5.5], [-13.5, 0.2, 21.5], [13.5, 0.2, 21.5], [-4, 0.2, 21.5], [4, 0.2, 21.5], [-4, 0.2, -5.5], [4, 0.2, -5.5], [-13.5, 0.2, 8], [13.5, 0.2, 8]]
+scale = [0.32, 0.4, 0.32]
+color = "#2b2f33"
+material = "metal"
+
+[[object]]
+name = "lamp"
+shape = "sphere"
+at = [[-13.5, 4.2, -5.5], [13.5, 4.2, -5.5], [-13.5, 4.2, 21.5], [13.5, 4.2, 21.5], [-4, 4.2, 21.5], [4, 4.2, 21.5], [-4, 4.2, -5.5], [4, 4.2, -5.5], [-13.5, 4.2, 8], [13.5, 4.2, 8]]
+scale = [0.5, 0.5, 0.5]
+color = "#fff1c9"
+material = "emissive"
+solid = false
+
+[[object]]
+name = "lamp cap"
+shape = "cone"
+at = [[-13.5, 4.55, -5.5], [13.5, 4.55, -5.5], [-13.5, 4.55, 21.5], [13.5, 4.55, 21.5], [-4, 4.55, 21.5], [4, 4.55, 21.5], [-4, 4.55, -5.5], [4, 4.55, -5.5], [-13.5, 4.55, 8], [13.5, 4.55, 8]]
+scale = [0.6, 0.3, 0.6]
+color = "#2b2f33"
+material = "metal"
+solid = false
+
+# ---- Market stalls
+
+[[object]]
+name = "stall counter"
+shape = "box"
+position = [-9, 0.45, 13]
+scale = [2.8, 0.9, 1.2]
+color = "#a67c52"
+
+[[object]]
+name = "stall post"
+shape = "box"
+at = [[-10.35, 1.25, 12.45], [-7.65, 1.25, 12.45], [-10.35, 1.25, 13.55], [-7.65, 1.25, 13.55]]
+scale = [0.08, 2.5, 0.08]
+color = "#6e4e33"
+
+[[object]]
+name = "stall canopy"
+shape = "wedge"
+position = [-9, 2.7, 13]
+rotation = [0, 180, 0]
+scale = [3.2, 0.4, 1.6]
+color = "#c0392b"
+solid = false
+
+[[object]]
+name = "fruit crate"
+shape = "box"
+at = [[-9.8, 0.98, 13], [-9, 0.98, 13], [-8.2, 0.98, 13]]
+scale = [0.6, 0.16, 0.5]
+color = "#c8a46e"
+solid = false
+
+[[object]]
+name = "fruit"
+shape = "sphere"
+position = [-9.8, 1.08, 13]
+scale = [0.5, 0.12, 0.4]
+color = "#e67e22"
+solid = false
+
+[[object]]
+name = "fruit"
+shape = "sphere"
+position = [-9, 1.08, 13]
+scale = [0.5, 0.12, 0.4]
+color = "#c0392b"
+solid = false
+
+[[object]]
+name = "fruit"
+shape = "sphere"
+position = [-8.2, 1.08, 13]
+scale = [0.5, 0.12, 0.4]
+color = "#7fb03f"
+solid = false
+
+[[object]]
+name = "stall counter"
+shape = "box"
+position = [9, 0.45, 13]
+scale = [2.8, 0.9, 1.2]
+color = "#a67c52"
+
+[[object]]
+name = "stall post"
+shape = "box"
+at = [[7.65, 1.25, 12.45], [10.35, 1.25, 12.45], [7.65, 1.25, 13.55], [10.35, 1.25, 13.55]]
+scale = [0.08, 2.5, 0.08]
+color = "#6e4e33"
+
+[[object]]
+name = "stall canopy"
+shape = "wedge"
+position = [9, 2.7, 13]
+rotation = [0, 180, 0]
+scale = [3.2, 0.4, 1.6]
+color = "#2e86de"
+solid = false
+
+[[object]]
+name = "fruit crate"
+shape = "box"
+at = [[8.2, 0.98, 13], [9, 0.98, 13], [9.8, 0.98, 13]]
+scale = [0.6, 0.16, 0.5]
+color = "#c8a46e"
+solid = false
+
+[[object]]
+name = "fruit"
+shape = "sphere"
+position = [8.2, 1.08, 13]
+scale = [0.5, 0.12, 0.4]
+color = "#e67e22"
+solid = false
+
+[[object]]
+name = "fruit"
+shape = "sphere"
+position = [9, 1.08, 13]
+scale = [0.5, 0.12, 0.4]
+color = "#c0392b"
+solid = false
+
+[[object]]
+name = "fruit"
+shape = "sphere"
+position = [9.8, 1.08, 13]
+scale = [0.5, 0.12, 0.4]
+color = "#7fb03f"
+solid = false
+
+# ---- Odds and ends
+
+[[object]]
+name = "bollard"
+shape = "cylinder"
+at = [[-2.5, 0.45, 23.6], [2.5, 0.45, 23.6], [-15.6, 0.45, 5.5], [-15.6, 0.45, 10.5], [15.6, 0.45, 5.5], [15.6, 0.45, 10.5]]
+scale = [0.25, 0.9, 0.25]
+color = "#3b3b3b"
+
+[[object]]
+name = "phone box"
+shape = "box"
+position = [13.1, 1.2, 1.5]
+scale = [1, 2.4, 1]
+color = "#b52a22"
+
+[[object]]
+name = "phone box glass"
+shape = "box"
+position = [13.1, 1.35, 1.5]
+scale = [1.1, 1.5, 0.8]
+color = "#d6e6ee"
+material = "glass"
+solid = false
+
+[[object]]
+name = "bin"
+shape = "cylinder"
+at = [[-7.5, 0.45, -5.8], [7.5, 0.45, -5.8]]
+scale = [0.5, 0.9, 0.5]
+color = "#3d5a45"
+
+[[object]]
+name = "flower tub"
+shape = "cylinder"
+at = [[-3.6, 0.3, 1.6], [3.6, 0.3, 1.6], [-3.6, 0.3, 14.4], [3.6, 0.3, 14.4]]
+scale = [0.9, 0.6, 0.9]
+color = "#a0522d"
+
+[[object]]
+name = "flowers"
+shape = "sphere"
+at = [[-3.6, 0.7, 1.6], [3.6, 0.7, 1.6], [-3.6, 0.7, 14.4], [3.6, 0.7, 14.4]]
+scale = [0.85, 0.45, 0.85]
+color = "#d9576b"
+solid = false
+
+# ---- Trees along the streets out of town
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [-5.5, 1.5, 40]
+scale = [0.28, 3, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-5.5, 3.9, 40]
+scale = [2.6, 2.4, 2.6]
+color = "#4a7a39"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-5, 4.6, 39.7]
+scale = [1.7, 1.6, 1.7]
+color = "#4a7a39"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [5.5, 1.5, 46]
+scale = [0.28, 3, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [5.5, 3.9, 46]
+scale = [2.6, 2.4, 2.6]
+color = "#557f3c"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [6, 4.6, 45.7]
+scale = [1.7, 1.6, 1.7]
+color = "#557f3c"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [-5.5, 1.5, 52]
+scale = [0.28, 3, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-5.5, 3.9, 52]
+scale = [2.6, 2.4, 2.6]
+color = "#4a7a39"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-5, 4.6, 51.7]
+scale = [1.7, 1.6, 1.7]
+color = "#4a7a39"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [5.5, 1.5, 58]
+scale = [0.28, 3, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [5.5, 3.9, 58]
+scale = [2.6, 2.4, 2.6]
+color = "#557f3c"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [6, 4.6, 57.7]
+scale = [1.7, 1.6, 1.7]
+color = "#557f3c"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [-5.5, 1.5, 64]
+scale = [0.28, 3, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-5.5, 3.9, 64]
+scale = [2.6, 2.4, 2.6]
+color = "#4a7a39"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [-5, 4.6, 63.7]
+scale = [1.7, 1.6, 1.7]
+color = "#4a7a39"
+solid = false
+
+[[object]]
+name = "tree trunk"
+shape = "cylinder"
+position = [5.5, 1.5, 70]
+scale = [0.28, 3, 0.28]
+color = "#6b4b32"
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [5.5, 3.9, 70]
+scale = [2.6, 2.4, 2.6]
+color = "#557f3c"
+solid = false
+
+[[object]]
+name = "tree crown"
+shape = "sphere"
+position = [6, 4.6, 69.7]
+scale = [1.7, 1.6, 1.7]
+color = "#557f3c"
+solid = false
+
+[[object]]
+name = "fir trunk"
+shape = "cylinder"
+position = [-5.5, 0.6, -26]
+scale = [0.3, 1.2, 0.3]
+color = "#6b4b32"
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [-5.5, 2.8, -26]
+scale = [2.6, 3.4, 2.6]
+color = "#2f5a37"
+solid = false
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [-5.5, 4.2, -26]
+scale = [1.8, 2.4, 1.8]
+color = "#2f5a37"
+solid = false
+
+[[object]]
+name = "fir trunk"
+shape = "cylinder"
+position = [5.5, 0.6, -32]
+scale = [0.3, 1.2, 0.3]
+color = "#6b4b32"
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [5.5, 2.8, -32]
+scale = [2.6, 3.4, 2.6]
+color = "#36603b"
+solid = false
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [5.5, 4.2, -32]
+scale = [1.8, 2.4, 1.8]
+color = "#36603b"
+solid = false
+
+[[object]]
+name = "fir trunk"
+shape = "cylinder"
+position = [-5.5, 0.6, -38]
+scale = [0.3, 1.2, 0.3]
+color = "#6b4b32"
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [-5.5, 2.8, -38]
+scale = [2.6, 3.4, 2.6]
+color = "#2f5a37"
+solid = false
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [-5.5, 4.2, -38]
+scale = [1.8, 2.4, 1.8]
+color = "#2f5a37"
+solid = false
+
+[[object]]
+name = "fir trunk"
+shape = "cylinder"
+position = [5.5, 0.6, -44]
+scale = [0.3, 1.2, 0.3]
+color = "#6b4b32"
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [5.5, 2.8, -44]
+scale = [2.6, 3.4, 2.6]
+color = "#36603b"
+solid = false
+
+[[object]]
+name = "fir"
+shape = "cone"
+position = [5.5, 4.2, -44]
+scale = [1.8, 2.4, 1.8]
+color = "#36603b"
+solid = false

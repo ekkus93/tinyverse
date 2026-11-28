@@ -532,6 +532,7 @@ async fn connection(world: Arc<Mutex<World>>, stream: TcpStream) {
                 ground_size: 200.0,
                 sky: String::new(),
                 time_of_day: 12.0,
+                ground: String::new(),
             }),
             limits: Some(Limits {
                 max_message_bytes: 65536,

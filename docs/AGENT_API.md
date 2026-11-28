@@ -321,7 +321,8 @@ are already in the world; this is the full output):
       "spawnPoint": {"x": 0.0, "y": 0.0, "z": 0.0},
       "groundSize": 256.0,
       "sky": "day",
-      "timeOfDay": 12.0
+      "timeOfDay": 12.0,
+      "ground": ""
     },
     "limits": {
       "maxMessageBytes": 65536,
@@ -1319,6 +1320,7 @@ Materials (the client decides the look): `MATERIAL_MATTE`, `MATERIAL_GLOSSY`,
 | `groundSize` | float | Side of the square ground plane at y = 0, centred on the origin. |
 | `sky` | string | Sky preset name. |
 | `timeOfDay` | float | Hour, 0..24. |
+| `ground` | string | Ground preset name: how the ground looks (`grass`, `sand`, `water`, `paving`; empty is the default grid). Only the look: the ground is a plane at y = 0 whatever it shows, and avatars walk on `water` too. |
 
 ### Limits
 

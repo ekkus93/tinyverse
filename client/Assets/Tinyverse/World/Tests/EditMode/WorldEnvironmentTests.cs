@@ -78,6 +78,35 @@ namespace Tinyverse.World.Tests
         }
 
         [Test]
+        public void GroundPresetsSwapTheGroundMaterial()
+        {
+            env.Apply(Settings());
+            var renderer = env.Ground.GetComponent<MeshRenderer>();
+            var grid = Resources.Load<Material>(WorldEnvironment.GroundMaterialPath);
+            Assert.That(env.Current.Ground, Is.EqualTo("grid"), "empty means the grid");
+            Assert.That(renderer.sharedMaterial, Is.SameAs(grid));
+            foreach (string preset in WorldEnvironment.GroundPresets)
+            {
+                var s = Settings();
+                s.Ground = " " + preset.ToUpperInvariant() + " ";
+                env.Apply(s);
+                Assert.That(env.Current.Ground, Is.EqualTo(preset));
+                var expected = Resources.Load<Material>(WorldEnvironment.GroundMaterialPathFor(preset));
+                Assert.That(expected, Is.Not.Null, preset + " has a material asset under Resources");
+                Assert.That(renderer.sharedMaterial, Is.SameAs(expected), preset);
+                Assert.That(renderer.sharedMaterial.shader.name, Is.EqualTo(WorldEnvironment.GroundShaderName), preset);
+            }
+            Assert.That(WorldEnvironment.GroundMaterialPathFor("water"), Is.EqualTo("Tinyverse/World/Materials/GroundWater"));
+            var lava = Settings();
+            lava.Ground = "lava";
+            env.Apply(lava);
+            Assert.That(env.Current.Ground, Is.EqualTo("grid"), "unknown presets fall back to the grid");
+            Assert.That(renderer.sharedMaterial, Is.SameAs(grid));
+            Physics.SyncTransforms();
+            Assert.That(env.Ground.GetComponent<BoxCollider>().bounds.max.y, Is.EqualTo(0f).Within(1e-4f), "still a plane at y = 0");
+        }
+
+        [Test]
         public void UnknownSkyFallsBackToDay()
         {
             env.Apply(Settings(sky: "lava-planet"));

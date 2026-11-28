@@ -11,6 +11,7 @@ use tv_store::{Store, UserRecord};
 use tv_world::{ClientKind, UserId};
 
 use crate::config::{RoleName, WorldDir, WorldFile, edit_password_hash, world_exists};
+use crate::template;
 use crate::tls::{self, TlsFiles};
 use crate::{Tuning, auth, now_ms};
 
@@ -59,6 +60,15 @@ pub enum Cmd {
         /// Read the join password from the first line of stdin.
         #[arg(long)]
         password_stdin: bool,
+        /// Start from a ready-made place (see `template list`). Its name and
+        /// description are used unless --name or --description is given.
+        #[arg(long, value_name = "NAME", default_value = template::DEFAULT_TEMPLATE)]
+        template: String,
+    },
+    /// The ready-made places `init --template` can start a world from.
+    Template {
+        #[command(subcommand)]
+        command: TemplateCmd,
     },
     /// Serve a world until SIGINT or SIGTERM, then save it and exit 0.
     #[command(after_help = RUN_NOTE)]
@@ -116,6 +126,17 @@ pub enum Cmd {
         /// Set the password to the value of TINYVERSE_PASSWORD.
         #[arg(long, group = "action")]
         set_from_env: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum TemplateCmd {
+    /// Print each template's name and description.
+    List {
+        /// Print JSON instead: `{"templates": [{"name", "title", "description",
+        /// "objects"}, ...]}`, in display order.
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -298,15 +319,16 @@ pub fn execute(cli: Cli, out: &mut dyn Write) -> anyhow::Result<()> {
 /// Runs one command, reading passwords from `inputs` only.
 pub fn execute_with(cli: Cli, inputs: &mut Inputs<'_>, out: &mut dyn Write) -> anyhow::Result<()> {
     match cli.command {
-        Cmd::Init { dir, name, description, password, password_stdin } => {
+        Cmd::Init { dir, name, description, password, password_stdin, template } => {
             let source = match (password, password_stdin) {
                 (Some(pw), _) => Some(Source::Arg(pw)),
                 (None, true) => Some(Source::Stdin),
                 (None, false) => inputs.env_password.is_some().then_some(Source::Env),
             };
             let password = source.map(|s| read_password(s, inputs)).transpose()?;
-            init(&dir, name, description, password, out)
+            init(&dir, name, description, password, &template, out)
         }
+        Cmd::Template { command: TemplateCmd::List { json } } => list_templates(json, out),
         Cmd::Run { dir, port, bind, tls_cert, tls_key, no_tls, self_signed } => {
             let tls = match (tls_cert, tls_key) {
                 (Some(cert), Some(key)) => Some(TlsFiles { cert, key }),
@@ -452,13 +474,18 @@ fn init(
     name: Option<String>,
     description: Option<String>,
     password: Option<String>,
+    template_name: &str,
     out: &mut dyn Write,
 ) -> anyhow::Result<()> {
     if world_exists(dir) {
         bail!("{} already holds a world; refusing to overwrite it", dir.display());
     }
-    let mut file = WorldFile::default();
-    if let Some(name) = name.or_else(|| dir.file_name().map(|n| n.to_string_lossy().into_owned())) {
+    let template = template::find(template_name)?;
+    let mut file = template.world.clone();
+    let default_name = (file.name == WorldFile::default().name)
+        .then(|| dir.file_name().map(|n| n.to_string_lossy().into_owned()))
+        .flatten();
+    if let Some(name) = name.or(default_name) {
         file.name = name;
     }
     if let Some(description) = description {
@@ -478,6 +505,10 @@ fn init(
         let mut store = Store::open(&paths.db())?;
         let (owner, token) =
             store.create_user("owner", ClientKind::Human, tv_world::Role::Owner, now_ms())?;
+        if !template.objects.is_empty() {
+            let (objects, next) = template.seed(&file.world_config(), &owner.id)?;
+            store.save_objects(&objects, &[], next)?;
+        }
         auth::write_secret_file(&paths.owner_token(), &format!("{token}\n"))
             .context("cannot write owner.token")?;
         write_new(&paths.toml(), &file.to_toml())?;
@@ -494,6 +525,14 @@ fn init(
     };
 
     writeln!(out, "created world {:?} in {}", file.name, dir.display())?;
+    if !template.objects.is_empty() {
+        writeln!(
+            out,
+            "  from the {} template: {} objects, owned by the owner and locked",
+            template.name,
+            template.objects.len()
+        )?;
+    }
     writeln!(
         out,
         "  {}  world description (edit to change bounds, sky, limits)",
@@ -511,6 +550,31 @@ fn init(
     }
     writeln!(out)?;
     writeln!(out, "run it with:  tinyverse-server run {}", dir.display())?;
+    Ok(())
+}
+
+fn list_templates(json: bool, out: &mut dyn Write) -> anyhow::Result<()> {
+    let all = template::all()?;
+    if json {
+        let list: Vec<serde_json::Value> = all
+            .iter()
+            .map(|t| {
+                serde_json::json!({
+                    "name": t.name,
+                    "title": t.title,
+                    "description": t.description,
+                    "objects": t.objects.len(),
+                })
+            })
+            .collect();
+        writeln!(out, "{}", serde_json::json!({ "templates": list }))?;
+        return Ok(());
+    }
+    let width = all.iter().map(|t| t.name.len()).max().unwrap_or(0);
+    for t in &all {
+        let default = if t.name == template::DEFAULT_TEMPLATE { " (default)" } else { "" };
+        writeln!(out, "{:<width$}  {}{default}: {}", t.name, t.title, t.description)?;
+    }
     Ok(())
 }
 
@@ -814,8 +878,99 @@ mod tests {
     fn init_refuses_an_existing_world() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("world.toml"), "").unwrap();
-        let err = init(dir.path(), None, None, None, &mut Vec::new()).unwrap_err();
+        let err = init(dir.path(), None, None, None, "empty", &mut Vec::new()).unwrap_err();
         assert!(err.to_string().contains("refusing"), "{err}");
+        let err = init(dir.path(), None, None, None, "island", &mut Vec::new()).unwrap_err();
+        assert!(err.to_string().contains("refusing"), "{err}");
+        assert_eq!(std::fs::read_to_string(dir.path().join("world.toml")).unwrap(), "");
+    }
+
+    #[test]
+    fn init_from_a_template_seeds_locked_objects_owned_by_the_owner() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("my-house");
+        let d = dir.to_str().unwrap();
+        let printed = exec(&["t", "init", d, "--template", "house"], "", None).unwrap();
+        assert!(printed.contains("house template"), "{printed}");
+        let file = WorldFile::load(&WorldDir::new(&dir)).unwrap();
+        let house = template::find("house").unwrap();
+        assert_eq!(file.name, house.world.name);
+        assert_eq!(file.spawn_point, house.world.spawn_point);
+        let store = open_store(&dir).unwrap();
+        let owner = store.users().unwrap().into_iter().find(|u| u.role == tv_world::Role::Owner);
+        let owner = owner.unwrap();
+        let loaded = store.load_world().unwrap();
+        assert_eq!(loaded.objects.len(), house.objects.len());
+        assert!(loaded.objects.iter().all(|o| o.owner == owner.id && o.spec.locked));
+        assert!(loaded.next_entity_id > loaded.objects.last().unwrap().id);
+        let specs: Vec<_> = loaded.objects.iter().map(|o| o.spec.clone()).collect();
+        assert_eq!(specs, house.objects);
+
+        // --name and --description win over the template's.
+        let named = tmp.path().join("named");
+        exec(
+            &[
+                "t",
+                "init",
+                named.to_str().unwrap(),
+                "--template",
+                "island",
+                "--name",
+                "Mine",
+                "--description",
+                "ours",
+            ],
+            "",
+            None,
+        )
+        .unwrap();
+        let file = WorldFile::load(&WorldDir::new(&named)).unwrap();
+        assert_eq!((file.name.as_str(), file.description.as_str()), ("Mine", "ours"));
+        assert_eq!(file.ground, template::find("island").unwrap().world.ground);
+
+        // Refuses to overwrite, and an unknown template creates nothing.
+        let err = exec(&["t", "init", d, "--template", "room"], "", None).unwrap_err().to_string();
+        assert!(err.contains("refusing"), "{err}");
+        assert_eq!(
+            open_store(&dir).unwrap().load_world().unwrap().objects.len(),
+            house.objects.len()
+        );
+        let none = tmp.path().join("none");
+        let err = exec(&["t", "init", none.to_str().unwrap(), "--template", "castle"], "", None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("castle"), "{err}");
+        assert!(!none.exists());
+    }
+
+    #[test]
+    fn init_without_a_template_is_the_empty_world_of_before() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("plain");
+        exec(&["t", "init", dir.to_str().unwrap()], "", None).unwrap();
+        let text = std::fs::read_to_string(dir.join("world.toml")).unwrap();
+        let expected = WorldFile { name: "plain".into(), ..WorldFile::default() };
+        assert_eq!(text, expected.to_toml());
+        assert!(!text.contains("ground ="), "{text}");
+        assert!(open_store(&dir).unwrap().load_world().unwrap().objects.is_empty());
+    }
+
+    #[test]
+    fn template_list_prints_every_template() {
+        let text = exec(&["t", "template", "list"], "", None).unwrap();
+        for name in template::names() {
+            assert!(text.lines().any(|l| l.starts_with(name)), "{name} missing from\n{text}");
+        }
+        assert!(text.contains("(default)"), "{text}");
+        let json = exec(&["t", "template", "list", "--json"], "", None).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let list = v["templates"].as_array().unwrap();
+        let names: Vec<&str> = list.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(names, template::names());
+        assert_eq!(list[0]["name"], "empty");
+        assert_eq!(list[0]["objects"], 0);
+        assert!(list.iter().all(|t| !t["description"].as_str().unwrap().is_empty()));
+        assert_eq!(json.lines().count(), 1, "one line of JSON");
     }
 
     #[test]

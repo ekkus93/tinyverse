@@ -186,9 +186,26 @@ myworld/
   world.db      SQLite: users, objects, bans, metadata
 ```
 
-The environment in v1 is a flat ground plane of configurable size, a sky preset
-and a time of day. Terrain and world templates (room, island) are later work.
+The environment in v1 is a flat ground plane of configurable size, a ground
+preset (its look: the default grid, `grass`, `sand`, `water` or `paving`), a sky
+preset and a time of day. Real terrain (hills, height) is later work: the
+ground stays a plane at y = 0, and the server keeps walking avatars on it.
 World bounds are an axis-aligned box. Nothing may be placed or moved outside it.
+
+A new world can start from a template, a ready-made place: `empty` (the
+default, a bare plane), `room` (a furnished living room), `house` (a small
+house in a fenced garden), `town` (a square with a fountain among houses and
+shops) or `island` (a sandy island with a hut and a jetty, in a sea that is
+the `water` ground). A template sets the defaults of `world.toml` (name,
+description, spawn point, ground, sky, time of day, optionally bounds) and
+lists primitive objects. `init --template` creates them owned by the world's
+owner and locked, so builders cannot take the place apart but the owner can
+edit it; after that they are ordinary objects. Templates are TOML files under
+`server/crates/tv-server/templates/`, compiled into the server and checked
+against the same rules as `ObjectCreate` (a unit test loads every one). The
+spawn point faces +Z, so each template puts its scene in front of it.
+Walkable surfaces (floors, paths, sand) are thin and within a few centimetres
+of y = 0, because neither the server nor `MoveTo` knows any other floor.
 
 ### 5.2 Avatars
 
@@ -281,7 +298,8 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
 - `tv-store` loads the world at start and writes behind: changed objects are
   flushed every 5 s and on shutdown, on a blocking thread. SIGINT and SIGTERM
   trigger a clean flush.
-- CLI: `tinyverse-server init <dir>`, `run <dir> [--port] [--bind]
+- CLI: `tinyverse-server init <dir> [--template <name>]` (refuses a directory
+  that already holds a world), `template list [--json]`, `run <dir> [--port] [--bind]
   [--self-signed | --tls-cert --tls-key | --no-tls]`,
   `tls self-signed|fingerprint`, `token create|list|revoke`,
   `user list|set-role|ban`, `password`.
@@ -316,8 +334,14 @@ retention period (default 3 hours, set in `world.toml`) or beyond the newest
 - There is a single scene. It contains one bootstrap object. Everything else is
   created from code or from prefabs loaded by the bootstrap, which keeps scene
   files out of merge conflicts.
-- Screens: connect (address, name, password, recent worlds), in-world HUD
-  (chat, people list, build toolbar), settings.
+- Screens: connect (address, name, password, recent worlds), host (world
+  name, folder, template, port, password; status, log and share address),
+  in-world HUD (chat, people list, build toolbar), settings.
+- Hosting: the Host screen lists the bundled server's templates (`template list
+  --json`; the client hard-codes none) with the chosen one's description. The
+  choice applies when the world folder is new (`init --template`); for a folder
+  that already holds a world it is disabled, with a note that the world opens as
+  it is.
 - Controls: WASD and mouse-look in third person, shift to run, `F` toggles fly,
   space and ctrl go up and down while flying, `Enter` focuses chat, `B` toggles
   build mode.
@@ -380,7 +404,8 @@ make this safe:
 - Voice chat with distance attenuation.
 - Sitting, gestures, and importing custom avatar models.
 - Imported meshes (glTF) and textures, with an asset store on the host.
-- Terrain and world templates.
+- Terrain: height and slopes, with walking avatars following them (world
+  templates are done, on a flat ground, section 5.1).
 - Joining over the internet without port forwarding (approach undecided).
 - Mac and Windows clients, then mobile.
 - Server-side collision so agents and `MoveTo` respect walls.

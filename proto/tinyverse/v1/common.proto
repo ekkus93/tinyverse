@@ -220,6 +220,10 @@ message WorldInfo {
   string sky = 7;
   // Hour of the day, 0..24.
   float time_of_day = 8;
+  // Name of a ground preset shipped with the client ("grass", "sand", "water",
+  // "paving"); empty means the default grid. Only the look changes: the ground
+  // is still a flat plane at y = 0 that avatars walk on.
+  string ground = 9;
 }
 
 // The limits the server enforces, so clients can validate before sending.

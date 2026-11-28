@@ -65,7 +65,7 @@ scripts/package-linux.sh           # writes dist/tinyverse-linux-x86_64.tar.gz
 From the client: on the start screen choose **Host a world**, pick a name and a folder, and press
 **Start world**. The client starts the bundled server, joins it as the world's owner and shows the
 address your friends should type. Stopping hosting (or quitting the client) saves the world.
-From the command line: `./tinyverse.x86_64 --host <world-folder> [--port <port>]`.
+From the command line: `./tinyverse.x86_64 --host <world-folder> [--port <port>] [--template <name>]`.
 
 Connections are encrypted (TLS, `wss://`) unless you untick **Encrypt connections**. The world gets
 a self-signed certificate on its first start, and the address under "Friends join with" carries its
@@ -73,13 +73,34 @@ fingerprint, for example `wss://192.168.1.20:7878/ws#sha256=041f8e50…0db7`: a 
 address trusts exactly this certificate, with nothing to install. Give it to them over a channel you
 trust.
 
-Without the client: `tinyverse-server init <dir>` then `tinyverse-server run <dir> --self-signed`
+Without the client: `tinyverse-server init <dir> [--template <name>]` then `tinyverse-server run <dir> --self-signed`
 (or without `--self-signed` for plain `ws://`). `run` prints the pinned addresses as
 `join with wss://…#sha256=…`; `tinyverse-server tls fingerprint <dir>` shows the fingerprint again.
 `init` writes an `owner.token` into the world folder; joining with it makes you the owner.
 
 Visitors on your local network can join directly. Over the internet you have to forward the port
 (7878 by default) on your router yourself.
+
+### Start from a template
+
+A new world does not have to be an empty plane. On the Host screen, **Start from** offers ready-made
+places (the list comes from the server, with a line about each); it applies when the world folder
+is new. From the command line: `tinyverse-server init <dir> --template island`, and
+`tinyverse-server template list` shows them all. The objects of a template belong to the world's
+owner and are locked, so visitors cannot take the place apart, but you can change anything.
+
+| Template | |
+|---|---|
+| `empty` | A flat plane to build on from scratch (the default). |
+| `room` | A furnished living room with big windows and a terrace. |
+| `house` | A small house with four rooms under a pitched roof, in a fenced garden with a pond and trees. |
+| `town` | A town square with a fountain, trees, benches and street lamps among houses and shops. |
+| `island` | A sandy island with palms, a thatched hut, a campfire and a jetty, in the sea. |
+
+![The room template: a living room with a sofa, a dining table, shelves and big windows](docs/images/template-room.png)
+![The house template: a small house with a pitched roof behind a garden fence](docs/images/template-house.png)
+![The town template: a square with a fountain among coloured houses and shops](docs/images/template-town.png)
+![The island template: a sandy island with palms and a hut, seen from the air](docs/images/template-island.png)
 
 ## Join a world
 

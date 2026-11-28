@@ -11,6 +11,11 @@ namespace Tinyverse.World
         public float GroundSize;
         /// <summary>Sky preset name: "day" (default) or "overcast". Unknown or empty names mean "day".</summary>
         public string Sky;
+        /// <summary>
+        /// Ground preset name: "grid" (default), "grass", "sand", "water" or "paving". Unknown or empty names
+        /// mean "grid". Only the look changes; the ground is always a flat plane at y = 0.
+        /// </summary>
+        public string Ground;
         /// <summary>Hour of the day, 0..24 (wrapped).</summary>
         public float TimeOfDay;
         /// <summary>World bounds; a soft border is drawn on the ground at their XZ footprint when max &gt; min.</summary>
@@ -27,6 +32,7 @@ namespace Tinyverse.World
     {
         public const float DefaultGroundSize = 256f;
         public const string DefaultSky = "day";
+        public const string DefaultGround = "grid";
         public const string GroundMaterialPath = "Tinyverse/World/Materials/Ground";
         public const string SkyMaterialPath = "Tinyverse/World/Materials/Sky";
 
@@ -36,6 +42,7 @@ namespace Tinyverse.World
         public const float FogDensityFactor = 2.6f;
 
         static readonly string[] skyNames = { "day", "overcast" };
+        static readonly string[] groundNames = { "grid", "grass", "sand", "water", "paving" };
 
         readonly Transform parent;
         GameObject root;
@@ -44,6 +51,7 @@ namespace Tinyverse.World
         ReflectionProbe probe;
         GameObject bounds;
         Material groundFallback;
+        string appliedGround;
         Material skyMaterial;
         Saved saved;
         bool hasSaved;
@@ -55,6 +63,16 @@ namespace Tinyverse.World
 
         /// <summary>The names <see cref="EnvironmentSettings.Sky"/> understands.</summary>
         public static string[] SkyPresets => (string[])skyNames.Clone();
+
+        /// <summary>The names <see cref="EnvironmentSettings.Ground"/> understands.</summary>
+        public static string[] GroundPresets => (string[])groundNames.Clone();
+
+        /// <summary>The Resources path of a ground preset's material: <c>Materials/Ground</c> for the grid, else <c>Materials/Ground&lt;Name&gt;</c>.</summary>
+        public static string GroundMaterialPathFor(string preset)
+        {
+            if (string.IsNullOrEmpty(preset) || preset == DefaultGround) return GroundMaterialPath;
+            return GroundMaterialPath + char.ToUpperInvariant(preset[0]) + preset.Substring(1);
+        }
 
         /// <summary>Root of everything this environment created, or null before Apply / after Clear.</summary>
         public GameObject Root => root;
@@ -76,7 +94,7 @@ namespace Tinyverse.World
             }
             if (root == null) Build();
 
-            ApplyGround(settings.GroundSize);
+            ApplyGround(settings.GroundSize, settings.Ground);
             ApplyBounds(settings);
             ApplyLighting(settings);
         }
@@ -87,6 +105,7 @@ namespace Tinyverse.World
             ObjectRegistry.DestroyObject(groundFallback);
             ObjectRegistry.DestroyObject(skyMaterial);
             root = ground = bounds = null;
+            appliedGround = null;
             sun = null;
             probe = null;
             groundFallback = skyMaterial = null;
@@ -103,6 +122,8 @@ namespace Tinyverse.World
             if (!(s.GroundSize > 0) || float.IsInfinity(s.GroundSize)) s.GroundSize = DefaultGroundSize;
             string sky = (s.Sky ?? "").Trim().ToLowerInvariant();
             s.Sky = Array.IndexOf(skyNames, sky) >= 0 ? sky : DefaultSky;
+            string groundName = (s.Ground ?? "").Trim().ToLowerInvariant();
+            s.Ground = Array.IndexOf(groundNames, groundName) >= 0 ? groundName : DefaultGround;
             float t = float.IsNaN(s.TimeOfDay) || float.IsInfinity(s.TimeOfDay) ? 12f : s.TimeOfDay;
             t %= 24f;
             if (t < 0) t += 24f;
@@ -137,15 +158,6 @@ namespace Tinyverse.World
             box.center = new Vector3(0, -0.5f, 0); // top face at y = 0
             box.size = Vector3.one;
 
-            // The grid is procedural in world space, so the shared asset is used unmodified.
-            var groundMaterial = Resources.Load<Material>(GroundMaterialPath);
-            if (groundMaterial == null)
-            {
-                Debug.LogError($"[World] {GroundMaterialPath} missing from Resources");
-                var shader = Shader.Find(GroundShaderName);
-                groundMaterial = groundFallback = new Material(shader != null ? shader : Shader.Find("Universal Render Pipeline/Lit")) { name = "Ground (runtime)" };
-            }
-            renderer.sharedMaterial = groundMaterial;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = true;
             renderer.lightProbeUsage = LightProbeUsage.Off;
@@ -196,10 +208,31 @@ namespace Tinyverse.World
             return groundMesh;
         }
 
-        void ApplyGround(float size)
+        void ApplyGround(float size, string preset)
         {
             ground.transform.localScale = new Vector3(size, 1f, size);
+            if (preset != appliedGround)
+            {
+                appliedGround = preset;
+                ground.GetComponent<MeshRenderer>().sharedMaterial = GroundMaterial(preset);
+            }
             if (probe != null) probe.size = new Vector3(size * 2f, Mathf.Max(200f, size), size * 2f);
+        }
+
+        // The patterns are procedural in world space, so the shared assets are used unmodified.
+        Material GroundMaterial(string preset)
+        {
+            string path = GroundMaterialPathFor(preset);
+            var m = Resources.Load<Material>(path);
+            if (m != null) return m;
+            Debug.LogError($"[World] {path} missing from Resources");
+            if (path != GroundMaterialPath && (m = Resources.Load<Material>(GroundMaterialPath)) != null) return m;
+            if (groundFallback == null)
+            {
+                var shader = Shader.Find(GroundShaderName);
+                groundFallback = new Material(shader != null ? shader : Shader.Find("Universal Render Pipeline/Lit")) { name = "Ground (runtime)" };
+            }
+            return groundFallback;
         }
 
         void ApplyBounds(EnvironmentSettings s)

@@ -212,7 +212,8 @@ Everything else depends on this. Do not parallelise.
 - [ ] Scripting and mini-games (SPEC 12)
 - [ ] Voice chat
 - [ ] glTF import and textures
-- [ ] Terrain and world templates (room, house, island)
+- [x] World templates: `empty`, `room`, `house`, `town`, `island` (`init --template`, Host screen), with ground presets (SPEC 5.1)
+- [ ] Terrain: height and slopes that walking avatars follow
 - [ ] Internet play without port forwarding
 - [ ] Server-side collision
 - [ ] Windows and Mac clients

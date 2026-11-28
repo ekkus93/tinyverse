@@ -27,6 +27,7 @@ pub mod persist;
 pub mod ratelimit;
 pub mod session;
 pub mod store;
+pub mod template;
 pub mod tls;
 
 use std::net::SocketAddr;

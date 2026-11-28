@@ -206,6 +206,55 @@ namespace Tinyverse.Bootstrap.Tests
             Assert.IsTrue(File.Exists(Path.Combine(world, "world.toml")));
         }
 
+        [UnityTest]
+        public IEnumerator Hosting_ANewWorldFromATemplate_ThroughTheHostScreen()
+        {
+            CreateApp();
+            app.ShowHostScreen();
+            var host = app.UI.Host;
+            Assert.IsFalse(host.IsExistingWorld, "the default folder is a new one");
+            // The choice comes from the bundled server's `template list --json`.
+            yield return Wait.For(() => app.TemplatesLoading == null || app.TemplatesLoading.IsCompleted, 30f, "the template list");
+            Assert.IsNotNull(host.SelectedTemplate, "templates were listed: " + string.Join(" | ", host.LogLines));
+            Assert.AreEqual("empty", host.SelectedTemplate, "empty is the default");
+            Assert.IsTrue(host.SelectTemplate("house"));
+            StringAssert.Contains("garden", host.TemplateText);
+            int expected = app.Hosting.ListTemplatesAsync().Result.Single(t => t.Name == "house").ObjectCount;
+
+            // Typing a folder that holds a world disables the choice (the glue looks at the disk).
+            string existing = Path.Combine(profile, "worlds", "old");
+            Directory.CreateDirectory(existing);
+            File.WriteAllText(Path.Combine(existing, "world.toml"), "name = \"Old\"\n");
+            var folderField = app.UI.RootElement.Q<UnityEngine.UIElements.TextField>("hostFolder");
+            folderField.value = existing;
+            Assert.IsTrue(host.IsExistingWorld);
+            Assert.AreEqual(HostScreen.ExistingWorldNote, host.TemplateText);
+            Assert.AreEqual("", host.Settings.Template);
+            Assert.IsNull(HostingController.ToHostSettings(host.Settings).Template);
+
+            string world = Path.Combine(profile, "worlds", "templated");
+            folderField.value = world;
+            Assert.IsFalse(host.IsExistingWorld);
+            Assert.AreEqual("house", host.Settings.Template, "the choice comes back");
+            var d = host.Settings;
+            d.WorldName = "Templated";
+            d.Port = Binaries.FreePort();
+            d.DisplayName = "Builder Bob";
+            host.SetDefaults(d);
+            host.Submit();
+            yield return Wait.For(() => app.State == AppState.InWorld && app.Session != null && app.Session.SnapshotComplete, 60f, "hosting and joining");
+            Assert.AreEqual("Templated", app.Session.WorldName, "the form's name wins over the template's");
+            Assert.AreEqual(expected, app.Session.Objects.Count, "every object of the template arrived");
+            var all = app.Session.Objects.All.ToList();
+            Assert.IsTrue(all.Any(o => o.Name == "front door"), "named objects: " + string.Join(", ", all.Take(10).Select(o => o.Name)));
+            Assert.IsTrue(all.All(o => o.Locked), "template objects are locked");
+            Assert.AreEqual("grass", app.Session.Environment.Current.Ground, "the template's ground");
+            Assert.AreEqual(P.Role.Owner, app.Session.Role);
+
+            app.Shutdown();
+            Assert.IsTrue(File.Exists(Path.Combine(world, "world.toml")));
+        }
+
         static bool ProcessAlive(int pid)
         {
             try { return !System.Diagnostics.Process.GetProcessById(pid).HasExited; }

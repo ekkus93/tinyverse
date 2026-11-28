@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -317,6 +318,72 @@ namespace Tinyverse.UI.Tests
         {
             H.AppendLog("<b>not bold</b> 2026-11-26 WARN something");
             Assert.That(H.LogLines[0], Is.EqualTo("<b>not bold</b> 2026-11-26 WARN something"));
+        }
+
+        static readonly WorldTemplateChoice[] Templates =
+        {
+            new WorldTemplateChoice("empty", "Empty", "A flat, empty plane."),
+            new WorldTemplateChoice("room", "Room", "One furnished room."),
+            new WorldTemplateChoice("island", "Island", "A sandy island."),
+        };
+
+        [Test]
+        public void TemplateChoiceShowsTheDescriptionAndGoesIntoTheSettings()
+        {
+            H.SetDefaults(Defaults);
+            Assert.That(H.TemplateField.enabledSelf, Is.False, "nothing to choose before the server has listed its templates");
+            Assert.That(H.Settings.Template, Is.EqualTo(""));
+
+            H.SetTemplates(Templates);
+            Assert.That(H.TemplateField.enabledSelf, Is.True);
+            Assert.That(H.TemplateField.choices, Is.EqualTo(new[] { "Empty", "Room", "Island" }));
+            Assert.That(H.SelectedTemplate, Is.EqualTo("empty"), "the first (the server's default) is preselected");
+            Assert.That(H.TemplateText, Is.EqualTo("A flat, empty plane."));
+
+            H.TemplateField.value = "Island";
+            Assert.That(H.SelectedTemplate, Is.EqualTo("island"));
+            Assert.That(H.TemplateText, Is.EqualTo("A sandy island."));
+            var got = new List<HostSettings>();
+            H.StartRequested += got.Add;
+            Click(H.StartButton);
+            Assert.That(got.Single().Template, Is.EqualTo("island"));
+
+            // A new list keeps the choice when it is still offered.
+            H.SetTemplates(Templates.Reverse().ToArray());
+            Assert.That(H.SelectedTemplate, Is.EqualTo("island"));
+            Assert.That(H.SelectTemplate("castle"), Is.False);
+            Assert.That(H.SelectTemplate("room"), Is.True);
+            Assert.That(H.Settings.Template, Is.EqualTo("room"));
+            H.SetDefaults(new HostSettings { WorldName = "W", WorldFolder = "/w", DisplayName = "A", Template = "empty" });
+            Assert.That(H.SelectedTemplate, Is.EqualTo("empty"), "defaults may name a template");
+        }
+
+        [Test]
+        public void ExistingWorldDisablesTheTemplateAndSaysWhy()
+        {
+            H.SetDefaults(Defaults);
+            H.SetTemplates(Templates);
+            H.SelectTemplate("room");
+            H.SetExistingWorld(true);
+            Assert.That(H.TemplateField.enabledSelf, Is.False);
+            Assert.That(H.TemplateText, Is.EqualTo(HostScreen.ExistingWorldNote));
+            Assert.That(H.Settings.Template, Is.EqualTo(""), "no template for a world that exists");
+
+            H.SetExistingWorld(false);
+            Assert.That(H.TemplateField.enabledSelf, Is.True);
+            Assert.That(H.TemplateText, Is.EqualTo("One furnished room."));
+            Assert.That(H.Settings.Template, Is.EqualTo("room"), "the choice is remembered");
+        }
+
+        [Test]
+        public void EditingTheFolderAsksTheGlueWhetherItIsAWorld()
+        {
+            var folders = new List<string>();
+            H.FolderChanged += folders.Add;
+            H.SetDefaults(Defaults);
+            Assert.That(folders, Is.Empty, "filling the form is not an edit");
+            Change(H.FolderField, " /home/ada/worlds/new ");
+            Assert.That(folders.Last(), Is.EqualTo("/home/ada/worlds/new"));
         }
 
         [Test]

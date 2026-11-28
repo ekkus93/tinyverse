@@ -139,9 +139,41 @@ namespace Tinyverse.Bootstrap
             if (!hosting.IsActive)
             {
                 UI.Host.SetDefaults(HostingController.Defaults(profile, LastName()));
+                UI.Host.SetExistingWorld(WorldDirectories.IsWorld(UI.Host.Settings.WorldFolder));
                 UI.Host.SetState(UIHostState.Stopped, null);
             }
             UI.ShowScreen(UIScreen.Host);
+            LoadTemplates();
+        }
+
+        System.Threading.Tasks.Task templatesLoading;
+
+        /// <summary>The template list being fetched for the Host screen, or null (tests wait on it).</summary>
+        public System.Threading.Tasks.Task TemplatesLoading => templatesLoading;
+
+        /// <summary>Asks the bundled server for its templates once, for the Host screen's choice.</summary>
+        void LoadTemplates()
+        {
+            if (templatesLoading != null) return;
+            templatesLoading = LoadTemplatesAsync();
+        }
+
+        async System.Threading.Tasks.Task LoadTemplatesAsync()
+        {
+            try
+            {
+                var list = await hosting.ListTemplatesAsync();
+                if (shutDown) return;
+                UI.Host.SetTemplates(HostingController.ToChoices(list));
+                Debug.Log("[App] world templates: " + string.Join(", ", list.Select(t => t.Name)));
+            }
+            catch (Exception e)
+            {
+                // Without the list a new world is simply the server's default; let a later visit try again.
+                templatesLoading = null;
+                Debug.LogWarning("[App] could not list world templates: " + e.Message);
+                if (!shutDown) UI.Host.AppendLog("[host] Could not list world templates: " + e.Message);
+            }
         }
 
         string LastName()
@@ -442,6 +474,7 @@ namespace Tinyverse.Bootstrap
                     UI.Host.Settings.Password, hosted: true);
             };
             UI.Host.AddressCopied += a => UI.Toasts.Info("Copied " + a);
+            UI.Host.FolderChanged += folder => UI.Host.SetExistingWorld(WorldDirectories.IsWorld(folder));
             hosting.LogLine += line => UI.Host.AppendLog(line);
             hosting.StateChanged += (s, text) => UI.Host.SetState(s, text);
             hosting.Died += msg =>
@@ -497,6 +530,7 @@ namespace Tinyverse.Bootstrap
             if (port.HasValue) d.Port = port.Value;
             if (!string.IsNullOrEmpty(args.Name)) d.DisplayName = args.Name;
             if (string.IsNullOrEmpty(d.DisplayName)) d.DisplayName = "Host";
+            if (!string.IsNullOrEmpty(args.Template)) d.Template = args.Template;
             UI.Host.SetDefaults(d);
             StartHosting(d);
         }

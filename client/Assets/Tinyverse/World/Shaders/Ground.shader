@@ -1,5 +1,6 @@
 // The ground: a matte lit surface with a procedural world-space grid (thin lines every
-// metre, stronger ones every 8 m, and a faint 8 m checker). Lines are anti-aliased with
+// metre, stronger ones every 8 m, and a faint 8 m checker), and optional soft mottling
+// (two octaves of value noise) for the grass, sand, water and paving presets. Lines are anti-aliased with
 // screen-space derivatives and fade out with distance, so there is no shimmer or moire and
 // no texture to tile. Fog is keyword-free (see TinyverseFog.hlsl).
 Shader "Tinyverse/World/Ground"
@@ -13,6 +14,8 @@ Shader "Tinyverse/World/Ground"
         _Checker("Checker darkening", Range(0, 0.5)) = 0.05
         _CellSize("Cell size (m)", Float) = 8
         _LineWidth("Line width (pixels)", Float) = 1.1
+        _Mottle("Mottle strength", Range(0, 0.5)) = 0
+        _MottleScale("Mottle size (m)", Float) = 4
     }
 
     SubShader
@@ -36,6 +39,8 @@ Shader "Tinyverse/World/Ground"
             half _Checker;
             float _CellSize;
             float _LineWidth;
+            half _Mottle;
+            float _MottleScale;
         CBUFFER_END
         ENDHLSL
 
@@ -108,6 +113,32 @@ Shader "Tinyverse/World/Ground"
                 return lerp(average, lineMask, fade);
             }
 
+            float Hash(float2 p)
+            {
+                p = frac(p * float2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return frac(p.x * p.y);
+            }
+
+            float ValueNoise(float2 p)
+            {
+                float2 i = floor(p);
+                float2 f = frac(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = Hash(i), b = Hash(i + float2(1, 0)), c = Hash(i + float2(0, 1)), d = Hash(i + float2(1, 1));
+                return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
+            }
+
+            // -1..1 patches about _MottleScale across; the fine octave fades out with distance.
+            float Mottle(float2 xz)
+            {
+                float2 p = xz / max(_MottleScale, 0.01);
+                float coarse = ValueNoise(p) - 0.5;
+                float fine = ValueNoise(p * 4.7 + 17.0) - 0.5;
+                float fw = max(fwidth(p.x), fwidth(p.y)) * 4.7;
+                return (coarse * 1.3 + fine * 0.7 * saturate(1.5 - fw * 2.0)) * 2.0;
+            }
+
             half4 GroundFragment(Varyings input) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(input);
@@ -119,6 +150,7 @@ Shader "Tinyverse/World/Ground"
                 half metre = GridLine(xz, 1.0, _LineWidth) * _MetreLine;
                 half cellLine = GridLine(xz, _CellSize, _LineWidth * 1.8) * _CellLine;
                 half shade = (1 - checker) * (1 - max(metre, cellLine));
+                shade *= 1 + _Mottle * Mottle(xz);
 
                 InputData inputData = (InputData)0;
                 inputData.positionWS = input.positionWS;

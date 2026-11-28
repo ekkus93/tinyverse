@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Fake tinyverse-server for the Host tests. Implements the CLI contract:
-#   init <dir> [--name n] [--description d]     (password from TINYVERSE_PASSWORD if set)
+#   init <dir> [--name n] [--description d] [--template t]   (password from TINYVERSE_PASSWORD if set)
+#       (templates: empty, room, island; the choice is written to world.toml as `template = "t"`)
+#   template list --json
 #   run <dir> [--port p] [--bind b] [--no-tls] [--self-signed]
 #       (wss:// if <dir> holds cert.pem and key.pem; --self-signed writes fake ones first)
 #   password <dir> --set-from-env | --clear
@@ -17,6 +19,8 @@
 #   FAKE_READY_STREAM=stdout run: print the ready line on stdout (default stderr)
 #   FAKE_LEAK=1              print the password and owner token in log lines
 #   FAKE_INIT_FAIL=1         init: fail with an error on stderr
+#   FAKE_TEMPLATES=fail      template list: exit 1 with an error
+#   FAKE_TEMPLATES=garbage   template list: print something that is not JSON
 # On a graceful SIGTERM/SIGINT, run writes "graceful" to <dir>/shutdown.marker and exits 0.
 # run writes "set" or "unset" to <dir>/run.env: whether TINYVERSE_PASSWORD reached it.
 set -u
@@ -25,16 +29,28 @@ log() { echo "$(date +%H:%M:%S) INFO tinyverse_server: $*" >&2; }
 toml_escape() { local s=${1//\\/\\\\}; s=${s//\"/\\\"}; printf '%s' "$s"; }
 nap() { sleep "$1" & wait $!; }
 
+if [ "${1:-}" = template ]; then
+  [ "${2:-}" = list ] && [ "${3:-}" = --json ] || { echo "error: fake server: use template list --json" >&2; exit 64; }
+  case "${FAKE_TEMPLATES:-}" in
+    fail) echo "Error: templates are broken" >&2; exit 1 ;;
+    garbage) echo "empty  Empty: nothing"; exit 0 ;;
+  esac
+  log "listing templates"
+  echo '{"templates":[{"name":"empty","title":"Empty","description":"A flat, empty plane.","objects":0},{"name":"room","title":"Room","description":"One furnished room.","objects":12},{"name":"island","title":"Island","description":"A sandy island with \"palms\".","objects":34}]}'
+  exit 0
+fi
+
 cmd=${1:-}; dir=${2:-}
 [ -n "$cmd" ] && [ -n "$dir" ] || { echo "usage: tinyverse-server <init|run|password> <dir> ..." >&2; exit 64; }
 shift 2
 
 case "$cmd" in
   init)
-    name=""; desc=""
+    name=""; desc=""; template=""
     while [ $# -gt 0 ]; do
       case "$1" in
         --name) name=$2; shift 2 ;;
+        --template) template=$2; shift 2 ;;
         --description) desc=$2; shift 2 ;;
         --password|--password-stdin) echo "error: fake server: password must come from TINYVERSE_PASSWORD" >&2; exit 64 ;;
         *) echo "error: unexpected argument '$1'" >&2; exit 64 ;;
@@ -49,6 +65,10 @@ case "$cmd" in
       echo "Error: cannot create $dir: Permission denied (os error 13)" >&2
       exit 1
     fi
+    case "$template" in
+      ""|empty|room|island) ;;
+      *) echo "Error: there is no template \"$template\"; choose one of: empty, room, island" >&2; exit 1 ;;
+    esac
     if [ -e "$dir/world.toml" ]; then
       echo "Error: a world already exists in $dir; refusing to overwrite it" >&2
       exit 2
@@ -58,6 +78,7 @@ case "$cmd" in
       echo "# Tinyverse world"
       echo "name = \"$(toml_escape "$name")\""
       echo "description = \"$(toml_escape "$desc")\""
+      [ -n "$template" ] && echo "template = \"$template\""
       if [ -n "$pw" ]; then echo "password_set = true"; else echo "password_set = false"; fi
       echo "[spawn]"
       echo "name = \"not the world name\""

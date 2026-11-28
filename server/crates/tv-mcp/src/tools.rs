@@ -966,8 +966,9 @@ fn world_info(s: &Session) -> Outcome {
     }
     out.push_str(&format!("Spawn point: {}\n", vec3(w.spawn_point.as_ref())));
     if w.ground_size > 0.0 {
+        let look = if w.ground.is_empty() { String::new() } else { format!(" {}", w.ground) };
         out.push_str(&format!(
-            "Ground: flat, {0} x {0} m, centred on (0, 0, 0) at y = 0\n",
+            "Ground: flat{look}, {0} x {0} m, centred on (0, 0, 0) at y = 0\n",
             num(w.ground_size)
         ));
     }

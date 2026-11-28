@@ -90,6 +90,47 @@ namespace Tinyverse.Bootstrap
                 }
                 touring = false;
             }
+
+            if (args.ScreenshotViews.Count > 0 && args.ScreenshotDirectory != null)
+                yield return Views();
+        }
+
+        /// <summary>
+        /// <c>--screenshot-views</c>: a shot from the spawn point, then the camera at each pose in turn without the
+        /// UI, then back to normal.
+        /// </summary>
+        IEnumerator Views()
+        {
+            float waited = 0f;
+            while ((app.Session == null || !app.Session.SnapshotComplete) && waited < 60f)
+            {
+                waited += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            var session = app.Session;
+            if (session == null) yield break;
+            yield return new WaitForSecondsRealtime(3f);
+            touring = true;
+            // First what a visitor sees on arrival, then the poses.
+            yield return Shot("spawn");
+            var orbit = session.Orbit;
+            if (orbit != null) orbit.enabled = false;
+            var ui = app.UI.RootElement;
+            var display = ui.style.display;
+            ui.style.display = UnityEngine.UIElements.DisplayStyle.None;
+            int n = 0;
+            foreach (var v in args.ScreenshotViews)
+            {
+                if (app.Session != session) break;
+                app.Camera.transform.SetPositionAndRotation(v.Position, Quaternion.Euler(v.Pitch, v.Yaw, 0f));
+                // Software rendering is slow: give it a few frames to settle.
+                yield return new WaitForSecondsRealtime(2.5f);
+                yield return Shot(string.Format(CultureInfo.InvariantCulture, "view-{0:00}", ++n));
+                yield return new WaitForSecondsRealtime(0.5f);
+            }
+            ui.style.display = display;
+            if (orbit != null) orbit.enabled = true;
+            touring = false;
         }
 
         IEnumerator Shot(string label)

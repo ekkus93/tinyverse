@@ -121,6 +121,7 @@ impl Default for Script {
                     ground_size: 256.0,
                     sky: "day".into(),
                     time_of_day: 13.5,
+                    ground: String::new(),
                 }),
                 limits: Some(Limits {
                     max_message_bytes: 65536,

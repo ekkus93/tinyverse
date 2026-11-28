@@ -20,6 +20,8 @@ pub const WORLD_DB: &str = "world.db";
 pub const OWNER_TOKEN: &str = "owner.token";
 /// Hard cap on `max_users` (SPEC 1).
 pub const MAX_USERS_CAP: usize = 64;
+/// Longest `ground` preset name.
+pub const MAX_PRESET_CHARS: usize = 32;
 
 /// The paths of one world directory.
 #[derive(Clone, Debug)]
@@ -158,6 +160,10 @@ pub struct WorldFile {
     pub spawn_point: [f32; 3],
     /// Side length of the square ground plane in metres.
     pub ground_size: f32,
+    /// Ground preset shipped with the client (`grass`, `sand`, `water`,
+    /// `paving`); empty is the default grid.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub ground: String,
     pub sky: String,
     /// Hour of the day, 0..24.
     pub time_of_day: f32,
@@ -181,6 +187,7 @@ impl Default for WorldFile {
             max_users: config.limits.max_users,
             spawn_point: config.spawn_point.to_array(),
             ground_size: config.ground_size,
+            ground: config.ground,
             sky: config.sky,
             time_of_day: config.time_of_day,
             chat_retention_minutes: 180,
@@ -258,6 +265,17 @@ impl WorldFile {
         if self.ground_size <= 0.0 {
             bail!("`ground_size` must be positive");
         }
+        if self.ground.chars().count() > MAX_PRESET_CHARS
+            || !self
+                .ground
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
+            bail!(
+                "`ground` must be a preset name of at most {MAX_PRESET_CHARS} lower-case letters, \
+                 digits or hyphens"
+            );
+        }
         if !(0.0..=24.0).contains(&self.time_of_day) {
             bail!("`time_of_day` must be between 0 and 24");
         }
@@ -314,6 +332,7 @@ impl WorldFile {
         config.bounds_max = Vec3::from(self.bounds.max);
         config.spawn_point = Vec3::from(self.spawn_point);
         config.ground_size = self.ground_size;
+        config.ground = self.ground.clone();
         config.sky = self.sky.clone();
         config.time_of_day = self.time_of_day;
         config.chat_retention_ms = (self.chat_retention_minutes as i64) * 60_000;
@@ -383,6 +402,7 @@ default_role = "visitor"
 max_users = 8
 spawn_point = [1.0, 2.0, 3.0]
 ground_size = 100
+ground = "sand"
 sky = "dusk"
 time_of_day = 18.5
 chat_retention_minutes = 10
@@ -405,6 +425,7 @@ walk_speed = 3.5
         assert_eq!(c.bounds_min, Vec3::new(-50.0, -5.0, -50.0));
         assert_eq!(c.bounds_max, Vec3::new(50.0, 100.0, 50.0));
         assert_eq!(c.ground_size, 100.0);
+        assert_eq!(c.ground, "sand");
         assert_eq!(c.sky, "dusk");
         assert_eq!(c.time_of_day, 18.5);
         assert_eq!(c.chat_retention_ms, 600_000);
@@ -434,6 +455,7 @@ walk_speed = 3.5
             ("max_users = 65", "max_users"),
             ("name = \"\"", "name"),
             ("time_of_day = 25", "time_of_day"),
+            ("ground = \"Deep Water\"", "ground"),
             ("spawn_point = [0, 0, 500]", "spawn_point"),
             ("[bounds]\nmin = [1,1,1]\nmax = [0,2,2]", "bounds"),
             ("password_hash = \"plain\"", "password_hash"),

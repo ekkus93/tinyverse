@@ -1,0 +1,4 @@
+# The empty template: a flat plane and nothing else, as every world started
+# before templates existed. The format is described in src/template.rs.
+title = "Empty"
+description = "A flat, empty plane to build on from scratch."

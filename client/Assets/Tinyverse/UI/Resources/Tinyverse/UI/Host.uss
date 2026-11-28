@@ -35,6 +35,15 @@
     margin-top: 0;
 }
 
+.tv-host__template-text {
+    white-space: normal;
+}
+
+/* The folder holds a world already: the template does not apply. */
+.tv-host__template-text--note {
+    color: var(--tv-warn);
+}
+
 .tv-host__pair {
     align-items: flex-start;
 }

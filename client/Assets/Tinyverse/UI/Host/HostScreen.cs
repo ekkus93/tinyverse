@@ -21,6 +21,10 @@ namespace Tinyverse.UI
         readonly TextField _password;
         readonly TextField _displayName;
         readonly Toggle _tls;
+        readonly DropdownField _template;
+        readonly Label _templateText;
+        readonly List<WorldTemplateChoice> _templates = new List<WorldTemplateChoice>();
+        bool _existingWorld;
         readonly Button _start;
         readonly Button _stop;
         readonly Button _back;
@@ -46,6 +50,14 @@ namespace Tinyverse.UI
         public event Action JoinRequested;
         /// <summary>The share address was copied to the clipboard.</summary>
         public event Action<string> AddressCopied;
+        /// <summary>
+        /// The world folder was edited (the trimmed text). The glue answers with <see cref="SetExistingWorld"/>,
+        /// since only it may look at the disk for a world.
+        /// </summary>
+        public event Action<string> FolderChanged;
+
+        /// <summary>Shown instead of the description when the folder already holds a world.</summary>
+        public const string ExistingWorldNote = "This folder already holds a world, which opens as it is. Choose a new folder to start from a template.";
 
         public HostState State { get; private set; } = HostState.Stopped;
         public string StatusText => _status.text;
@@ -62,6 +74,8 @@ namespace Tinyverse.UI
             _password = Q<TextField>("hostPassword");
             _displayName = Q<TextField>("hostDisplayName");
             _tls = Q<Toggle>("hostTls");
+            _template = Q<DropdownField>("hostTemplate");
+            _templateText = Q<Label>("hostTemplateDescription");
             _start = Q<Button>("hostStart");
             _stop = Q<Button>("hostStop");
             _back = Q<Button>("hostBack");
@@ -86,6 +100,9 @@ namespace Tinyverse.UI
             _error.enableRichText = false;
             _status.enableRichText = false;
             _shareAddress.enableRichText = false;
+            _templateText.enableRichText = false;
+            _template.RegisterValueChangedCallback(_ => ShowTemplateText());
+            _folder.RegisterValueChangedCallback(e => FolderChanged?.Invoke((e.newValue ?? "").Trim()));
             _shareAddress.selection.isSelectable = true;
             _log.verticalScroller.valueChanged += v => _logTracker.OnScrolled(v, _log.verticalScroller.highValue);
 
@@ -96,6 +113,7 @@ namespace Tinyverse.UI
             _copy.clicked += CopyAddress;
             Root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
 
+            SetTemplates(null);
             SetDefaults(new HostSettings { WorldName = "My world", Port = HostSettings.DefaultPort, WorldFolder = "", DisplayName = "" });
             UIUtil.SetShown(_error, false);
             SetState(HostState.Stopped, null);
@@ -112,6 +130,79 @@ namespace Tinyverse.UI
             _password.SetValueWithoutNotify(s.Password ?? "");
             _displayName.SetValueWithoutNotify(s.DisplayName ?? "");
             _tls.SetValueWithoutNotify(!s.Unencrypted);
+            if (!string.IsNullOrEmpty(s.Template)) SelectTemplate(s.Template);
+        }
+
+        /// <summary>
+        /// The templates to offer, in order; the first is selected unless the current choice is among them. Null or
+        /// empty disables the choice (the server makes its default world).
+        /// </summary>
+        public void SetTemplates(IReadOnlyList<WorldTemplateChoice> templates)
+        {
+            string current = SelectedTemplate;
+            _templates.Clear();
+            if (templates != null)
+                foreach (var t in templates)
+                    if (!string.IsNullOrEmpty(t.Name)) _templates.Add(t);
+            var titles = new List<string>();
+            foreach (var t in _templates) titles.Add(string.IsNullOrEmpty(t.Title) ? t.Name : t.Title);
+            _template.choices = titles.Count > 0 ? titles : new List<string> { "Empty world" };
+            int i = _templates.FindIndex(t => t.Name == current);
+            _template.SetValueWithoutNotify(_template.choices[Math.Max(0, i)]);
+            UpdateTemplateEnabled();
+            ShowTemplateText();
+        }
+
+        /// <summary>Selects a template by name; false (and no change) if it is not offered.</summary>
+        public bool SelectTemplate(string name)
+        {
+            int i = _templates.FindIndex(t => t.Name == name);
+            if (i < 0) return false;
+            _template.SetValueWithoutNotify(_template.choices[i]);
+            ShowTemplateText();
+            return true;
+        }
+
+        /// <summary>
+        /// Whether the world folder already holds a world. Then the template does not apply: the choice is
+        /// disabled and a note says why, and <see cref="Settings"/> carries no template.
+        /// </summary>
+        public void SetExistingWorld(bool existing)
+        {
+            _existingWorld = existing;
+            UpdateTemplateEnabled();
+            ShowTemplateText();
+        }
+
+        /// <summary>The name of the selected template, or null when none is offered.</summary>
+        public string SelectedTemplate
+        {
+            get
+            {
+                int i = _template.index;
+                return i >= 0 && i < _templates.Count ? _templates[i].Name : null;
+            }
+        }
+
+        public bool IsExistingWorld => _existingWorld;
+
+        /// <summary>The description under the choice (or the note for an existing world).</summary>
+        public string TemplateText => UIUtil.IsShown(_templateText) ? _templateText.text : null;
+
+        void UpdateTemplateEnabled() => _template.SetEnabled(!_existingWorld && _templates.Count > 0);
+
+        void ShowTemplateText()
+        {
+            string text;
+            if (_existingWorld) text = ExistingWorldNote;
+            else
+            {
+                int i = _template.index;
+                text = i >= 0 && i < _templates.Count ? _templates[i].Description : "";
+            }
+            _templateText.text = text ?? "";
+            UIUtil.SetClass(_templateText, "tv-host__template-text--note", _existingWorld);
+            UIUtil.SetShown(_templateText, !string.IsNullOrEmpty(text));
         }
 
         /// <summary>The form as typed. An unparsable port is reported as 0.</summary>
@@ -124,6 +215,7 @@ namespace Tinyverse.UI
             Password = _password.value ?? "",
             DisplayName = (_displayName.value ?? "").Trim(),
             Unencrypted = !_tls.value,
+            Template = _existingWorld ? "" : SelectedTemplate ?? "",
         };
 
         /// <summary>Validates the form and raises <see cref="StartRequested"/>, or shows the problem.</summary>
@@ -252,6 +344,7 @@ namespace Tinyverse.UI
         internal Button BackButton => _back;
         internal Button JoinButton => _join;
         internal Button CopyButton => _copy;
+        internal DropdownField TemplateField => _template;
 
         protected override void OnShown() => Root.schedule.Execute(() => { if (IsVisible) _worldName.Focus(); });
 

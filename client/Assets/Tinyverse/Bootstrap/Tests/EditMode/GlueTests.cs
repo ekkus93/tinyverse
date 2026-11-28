@@ -295,6 +295,19 @@ namespace Tinyverse.Bootstrap.Tests
         }
 
         [Test]
+        public void Host_WithTemplate_AndScreenshotViews()
+        {
+            var c = CommandLine.Parse(new[] { "--host", "/w", "--template", "island", "--screenshot-views", "1,1.7,-3,90,10; -4.5,2,0,-45,-5 ;bad" });
+            Assert.AreEqual("island", c.Template);
+            Assert.AreEqual(2, c.ScreenshotViews.Count);
+            Assert.AreEqual(new Vector3(-4.5f, 2f, 0f), c.ScreenshotViews[1].Position);
+            Assert.AreEqual(-45f, c.ScreenshotViews[1].Yaw);
+            Assert.AreEqual(-5f, c.ScreenshotViews[1].Pitch);
+            Assert.AreEqual(1, c.Errors.Count, string.Join("; ", c.Errors));
+            StringAssert.Contains("bad", c.Errors[0]);
+        }
+
+        [Test]
         public void BadValues_AreReported()
         {
             var c = CommandLine.Parse(new[] { "--port", "99999", "--quit-after", "soon", "--connect" });
@@ -423,6 +436,54 @@ namespace Tinyverse.Bootstrap.Tests
             Assert.IsFalse(s.ShouldSend(At(0), 0.01));
             s.Reset();
             Assert.IsTrue(s.ShouldSend(At(0), 0.02));
+        }
+    }
+
+    public sealed class TemplateGlueTests
+    {
+        [Test]
+        public void TheTemplateGoesToInit_OnlyForANewWorld()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "tv-glue-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            try
+            {
+                var form = new UI.HostSettings { WorldName = "W", WorldFolder = Path.Combine(dir, "new"), Port = 7878, Template = " island " };
+                Assert.AreEqual("island", HostingController.ToHostSettings(form).Template);
+                form.Template = "";
+                Assert.IsNull(HostingController.ToHostSettings(form).Template, "empty: the server's default");
+
+                Directory.CreateDirectory(Path.Combine(dir, "old"));
+                File.WriteAllText(Path.Combine(dir, "old", "world.toml"), "name = \"Old\"\n");
+                form.WorldFolder = Path.Combine(dir, "old");
+                form.Template = "room";
+                Assert.IsNull(HostingController.ToHostSettings(form).Template, "an existing world opens as it is");
+            }
+            finally
+            {
+                try { Directory.Delete(dir, true); } catch (Exception) { }
+            }
+        }
+
+        [Test]
+        public void TemplatesBecomeHostScreenChoices()
+        {
+            var choices = HostingController.ToChoices(new[]
+            {
+                new Tinyverse.Host.WorldTemplate("empty", "Empty", "Nothing.", 0),
+                new Tinyverse.Host.WorldTemplate("town", "Town", "A square.", 300),
+            });
+            Assert.AreEqual(new[] { "empty", "town" }, choices.Select(c => c.Name).ToArray());
+            Assert.AreEqual("Town", choices[1].Title);
+            Assert.AreEqual("A square.", choices[1].Description);
+            Assert.IsEmpty(HostingController.ToChoices(null));
+        }
+
+        [Test]
+        public void TheGroundPresetReachesTheEnvironment()
+        {
+            var env = ProtoConvert.ToEnvironment(new P.WorldInfo { Ground = "water", Sky = "day", GroundSize = 512 });
+            Assert.AreEqual("water", env.Ground);
+            Assert.AreEqual("", ProtoConvert.ToEnvironment(new P.WorldInfo()).Ground ?? "");
         }
     }
 }

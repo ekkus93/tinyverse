@@ -503,6 +503,7 @@ pub fn world_info(c: &WorldConfig) -> v1::WorldInfo {
         ground_size: c.ground_size,
         sky: c.sky.clone(),
         time_of_day: c.time_of_day,
+        ground: c.ground.clone(),
     }
 }
 

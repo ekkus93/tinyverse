@@ -6,6 +6,9 @@
 #   creates one object of every shape and material (including a #ff8000 box), says something in
 #   chat, sends an agent to walk 90 m away next to a far box (distance haze), then runs client/Builds/Linux/tinyverse.x86_64 with --connect, --demo-walk (DEMO_WALK= to drop it),
 #   --screenshot-dir, --screenshot-tour and --quit-after. Everything it started is stopped on exit.
+#   TEMPLATE=<name> starts the world from that template (see `tinyverse-server template list`) instead,
+#   with no bots and none of the demo objects; pass --screenshot-views "x,y,z,yaw,pitch;..."
+#   among the extra player args for shots from chosen camera poses.
 set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,7 +34,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"$bin/tinyverse-server" init "$work/world" --name "Screenshot World" >/dev/null 2>&1
+"$bin/tinyverse-server" init "$work/world" --name "Screenshot World" --template "${TEMPLATE:-empty}" >/dev/null 2>&1 \
+  || { echo "cannot create the world (template ${TEMPLATE:-empty}?)" >&2; exit 1; }
 "$bin/tinyverse-server" run "$work/world" --port 0 --bind 127.0.0.1 >"$work/server.log" 2>&1 &
 pids+=($!)
 for _ in $(seq 50); do grep -q 'listening on' "$work/server.log" && break; sleep 0.1; done
@@ -40,6 +44,7 @@ url="$(grep -o 'ws://[^ ]*' "$work/server.log" | head -1)"
 echo "server at $url"
 
 cli() { "$bin/tv-cli" --url "$url" "$@"; }
+if [ -z "${TEMPLATE:-}" ]; then
 cli --name Wanderer bot wander >"$work/wander.log" 2>&1 & pids+=($!)
 cli --name Circler bot circle --radius 4 >"$work/circle.log" 2>&1 & pids+=($!)
 
@@ -55,6 +60,7 @@ cli --name Builder say "Hello from tv-cli, the world chat works" >/dev/null
 # Far away (90 m ahead of the spawn point): a box and an agent walking there, to show the distance haze.
 cli --name Builder create --shape box --pos -30,1,90 --scale 2 --color '#ff8000' --object-name "far box" >/dev/null
 ( echo "/goto -26 0 90"; sleep "$(( ${secs%.*} + 60 ))" ) | cli --name Faraway connect >/dev/null 2>&1 & pids+=($!)
+fi
 
 "$player" -logFile "$out/player.log" -screen-width "$width" -screen-height "$height" -screen-fullscreen 0 \
   --fresh-profile "$work/profile" --connect "$url" --name "Camera" ${DEMO_WALK---demo-walk} \

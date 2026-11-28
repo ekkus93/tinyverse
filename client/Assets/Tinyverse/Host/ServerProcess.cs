@@ -196,6 +196,11 @@ namespace Tinyverse.Host
                 var args = new List<string> { "init", dir };
                 if (!string.IsNullOrWhiteSpace(settings.WorldName)) { args.Add("--name"); args.Add(settings.WorldName.Trim()); }
                 if (!string.IsNullOrWhiteSpace(settings.Description)) { args.Add("--description"); args.Add(settings.Description.Trim()); }
+                if (!string.IsNullOrWhiteSpace(settings.Template))
+                {
+                    args.Add("--template"); args.Add(settings.Template.Trim());
+                    HostLog("Starting from the " + settings.Template.Trim() + " template");
+                }
                 // The password goes through the environment, never the command line (visible in the process list).
                 string password = string.IsNullOrEmpty(settings.Password) ? null : settings.Password;
                 await RunToolAsync(args, dir, "create the world", password, ct).ConfigureAwait(false);

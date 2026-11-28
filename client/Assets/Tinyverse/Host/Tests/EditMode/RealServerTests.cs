@@ -86,6 +86,28 @@ namespace Tinyverse.Host.Tests
         }
 
         [Test]
+        public void Templates_AreListedAndANewWorldStartsFromOne()
+        {
+            var templates = Wait(WorldTemplates.ListAsync(_real), 30);
+            Assert.That(templates.First().Name, Is.EqualTo(WorldTemplates.DefaultName), "empty comes first and is the default");
+            Assert.That(templates.Select(t => t.Name), Is.SupersetOf(new[] { "room", "house", "town", "island" }));
+            Assert.That(templates.All(t => t.Description.Length > 0 && t.Title.Length > 0), Is.True);
+            var house = templates.Single(t => t.Name == "house");
+            Assert.That(house.ObjectCount, Is.GreaterThan(20));
+
+            var server = Real();
+            HostSettings settings = Settings("templated", "Templated World");
+            settings.Template = "house";
+            Wait(server.StartAsync(settings), 60);
+            Track(server.ProcessId);
+            Assert.That(WorldDirectories.ReadName(settings.WorldDirectory), Is.EqualTo("Templated World"));
+            Assert.That(server.Launches.First().Arguments, Does.Contain("--template"));
+            string info = Info(settings.Port);
+            Assert.That(info, Does.Contain("\"name\":\"Templated World\""));
+            Assert.That(Wait(server.StopAsync(TimeSpan.FromSeconds(10)), 30).Graceful, Is.True);
+        }
+
+        [Test]
         public void GracefulStop_ExitsZeroWithinTimeout()
         {
             var server = Real();

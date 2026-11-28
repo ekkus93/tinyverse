@@ -32,6 +32,12 @@ namespace Tinyverse.Host
         /// <summary>Description for a new world. Ignored for an existing world.</summary>
         public string Description { get; set; }
 
+        /// <summary>
+        /// The template a new world starts from (<c>init --template</c>; see <see cref="WorldTemplates"/>). Null or
+        /// empty leaves it to the server, which makes an empty world. Ignored for an existing world.
+        /// </summary>
+        public string Template { get; set; }
+
         public int Port { get; set; } = DefaultPort;
 
         public string BindAddress { get; set; } = DefaultBindAddress;
@@ -57,7 +63,7 @@ namespace Tinyverse.Host
 
         /// <summary>Never includes the password.</summary>
         public override string ToString() =>
-            $"HostSettings(dir={WorldDirectory}, name={WorldName}, port={Port}, bind={BindAddress}, tls={(DisableTls ? "off" : CreateCertificate ? "self-signed" : "auto")}, password={(Password == null ? "unchanged" : Password.Length == 0 ? "none" : "set")})";
+            $"HostSettings(dir={WorldDirectory}, name={WorldName}, template={(string.IsNullOrEmpty(Template) ? "default" : Template)}, port={Port}, bind={BindAddress}, tls={(DisableTls ? "off" : CreateCertificate ? "self-signed" : "auto")}, password={(Password == null ? "unchanged" : Password.Length == 0 ? "none" : "set")})";
     }
 
     /// <summary>Returned by <see cref="ServerProcess.StartAsync"/> once the server is listening.</summary>

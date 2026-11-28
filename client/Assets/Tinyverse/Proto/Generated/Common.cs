@@ -55,42 +55,43 @@ namespace Tinyverse.Proto {
             "DnNlbmRlcl91c2VyX2lkGAIgASgJEhMKC3NlbmRlcl9uYW1lGAMgASgJEi0K",
             "C3NlbmRlcl9raW5kGAQgASgOMhgudGlueXZlcnNlLnYxLkNsaWVudEtpbmQS",
             "KgoHY2hhbm5lbBgFIAEoDjIZLnRpbnl2ZXJzZS52MS5DaGF0Q2hhbm5lbBIM",
-            "CgR0ZXh0GAYgASgJEhQKDHRpbWVzdGFtcF9tcxgHIAEoAyLeAQoJV29ybGRJ",
+            "CgR0ZXh0GAYgASgJEhQKDHRpbWVzdGFtcF9tcxgHIAEoAyLuAQoJV29ybGRJ",
             "bmZvEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSJgoKYm91",
             "bmRzX21pbhgDIAEoCzISLnRpbnl2ZXJzZS52MS5WZWMzEiYKCmJvdW5kc19t",
             "YXgYBCABKAsyEi50aW55dmVyc2UudjEuVmVjMxInCgtzcGF3bl9wb2ludBgF",
             "IAEoCzISLnRpbnl2ZXJzZS52MS5WZWMzEhMKC2dyb3VuZF9zaXplGAYgASgC",
-            "EgsKA3NreRgHIAEoCRITCgt0aW1lX29mX2RheRgIIAEoAiL/AQoGTGltaXRz",
-            "EhkKEW1heF9tZXNzYWdlX2J5dGVzGAEgASgNEhYKDm1heF9jaGF0X2NoYXJz",
-            "GAIgASgNEhYKDm1heF9uYW1lX2NoYXJzGAMgASgNEhMKC21heF9vYmplY3Rz",
-            "GAQgASgNEhkKEWxvY2FsX2NoYXRfcmFkaXVzGAUgASgCEhEKCW1pbl9zY2Fs",
-            "ZRgGIAEoAhIRCgltYXhfc2NhbGUYByABKAISEgoKd2Fsa19zcGVlZBgIIAEo",
-            "AhIRCglydW5fc3BlZWQYCSABKAISEQoJZmx5X3NwZWVkGAogASgCEhoKEm1h",
-            "eF9vYnNlcnZlX3JhZGl1cxgLIAEoAipXCgpDbGllbnRLaW5kEhsKF0NMSUVO",
-            "VF9LSU5EX1VOU1BFQ0lGSUVEEAASFQoRQ0xJRU5UX0tJTkRfSFVNQU4QARIV",
-            "ChFDTElFTlRfS0lORF9BR0VOVBACKlAKBFJvbGUSFAoQUk9MRV9VTlNQRUNJ",
-            "RklFRBAAEhAKDFJPTEVfVklTSVRPUhABEhAKDFJPTEVfQlVJTERFUhACEg4K",
-            "ClJPTEVfT1dORVIQAypfCghNb3ZlTW9kZRIZChVNT1ZFX01PREVfVU5TUEVD",
-            "SUZJRUQQABISCg5NT1ZFX01PREVfV0FMSxABEhEKDU1PVkVfTU9ERV9SVU4Q",
-            "AhIRCg1NT1ZFX01PREVfRkxZEAMqWwoLQ2hhdENoYW5uZWwSHAoYQ0hBVF9D",
-            "SEFOTkVMX1VOU1BFQ0lGSUVEEAASFgoSQ0hBVF9DSEFOTkVMX0xPQ0FMEAES",
-            "FgoSQ0hBVF9DSEFOTkVMX1dPUkxEEAIqhQEKBVNoYXBlEhUKEVNIQVBFX1VO",
-            "U1BFQ0lGSUVEEAASDQoJU0hBUEVfQk9YEAESEAoMU0hBUEVfU1BIRVJFEAIS",
-            "EgoOU0hBUEVfQ1lMSU5ERVIQAxIOCgpTSEFQRV9DT05FEAQSDwoLU0hBUEVf",
-            "V0VER0UQBRIPCgtTSEFQRV9QTEFORRAGKowBCghNYXRlcmlhbBIYChRNQVRF",
-            "UklBTF9VTlNQRUNJRklFRBAAEhIKDk1BVEVSSUFMX01BVFRFEAESEwoPTUFU",
-            "RVJJQUxfR0xPU1NZEAISEgoOTUFURVJJQUxfTUVUQUwQAxISCg5NQVRFUklB",
-            "TF9HTEFTUxAEEhUKEU1BVEVSSUFMX0VNSVNTSVZFEAUqowMKCUVycm9yQ29k",
-            "ZRIaChZFUlJPUl9DT0RFX1VOU1BFQ0lGSUVEEAASGgoWRVJST1JfQ09ERV9C",
-            "QURfUkVRVUVTVBABEiIKHkVSUk9SX0NPREVfVU5TVVBQT1JURURfVkVSU0lP",
-            "ThACEhoKFkVSUk9SX0NPREVfQVVUSF9GQUlMRUQQAxIcChhFUlJPUl9DT0RF",
-            "X0lOVkFMSURfVE9LRU4QBBIVChFFUlJPUl9DT0RFX0JBTk5FRBAFEhkKFUVS",
-            "Uk9SX0NPREVfV09STERfRlVMTBAGEiAKHEVSUk9SX0NPREVfUEVSTUlTU0lP",
-            "Tl9ERU5JRUQQBxIYChRFUlJPUl9DT0RFX05PVF9GT1VORBAIEh8KG0VSUk9S",
-            "X0NPREVfSU5WQUxJRF9BUkdVTUVOVBAJEhwKGEVSUk9SX0NPREVfT1VUX09G",
-            "X0JPVU5EUxAKEh0KGUVSUk9SX0NPREVfTElNSVRfRVhDRUVERUQQCxIbChdF",
-            "UlJPUl9DT0RFX1JBVEVfTElNSVRFRBAMEhcKE0VSUk9SX0NPREVfSU5URVJO",
-            "QUwQDUISqgIPVGlueXZlcnNlLlByb3RvYgZwcm90bzM="));
+            "EgsKA3NreRgHIAEoCRITCgt0aW1lX29mX2RheRgIIAEoAhIOCgZncm91bmQY",
+            "CSABKAki/wEKBkxpbWl0cxIZChFtYXhfbWVzc2FnZV9ieXRlcxgBIAEoDRIW",
+            "Cg5tYXhfY2hhdF9jaGFycxgCIAEoDRIWCg5tYXhfbmFtZV9jaGFycxgDIAEo",
+            "DRITCgttYXhfb2JqZWN0cxgEIAEoDRIZChFsb2NhbF9jaGF0X3JhZGl1cxgF",
+            "IAEoAhIRCgltaW5fc2NhbGUYBiABKAISEQoJbWF4X3NjYWxlGAcgASgCEhIK",
+            "CndhbGtfc3BlZWQYCCABKAISEQoJcnVuX3NwZWVkGAkgASgCEhEKCWZseV9z",
+            "cGVlZBgKIAEoAhIaChJtYXhfb2JzZXJ2ZV9yYWRpdXMYCyABKAIqVwoKQ2xp",
+            "ZW50S2luZBIbChdDTElFTlRfS0lORF9VTlNQRUNJRklFRBAAEhUKEUNMSUVO",
+            "VF9LSU5EX0hVTUFOEAESFQoRQ0xJRU5UX0tJTkRfQUdFTlQQAipQCgRSb2xl",
+            "EhQKEFJPTEVfVU5TUEVDSUZJRUQQABIQCgxST0xFX1ZJU0lUT1IQARIQCgxS",
+            "T0xFX0JVSUxERVIQAhIOCgpST0xFX09XTkVSEAMqXwoITW92ZU1vZGUSGQoV",
+            "TU9WRV9NT0RFX1VOU1BFQ0lGSUVEEAASEgoOTU9WRV9NT0RFX1dBTEsQARIR",
+            "Cg1NT1ZFX01PREVfUlVOEAISEQoNTU9WRV9NT0RFX0ZMWRADKlsKC0NoYXRD",
+            "aGFubmVsEhwKGENIQVRfQ0hBTk5FTF9VTlNQRUNJRklFRBAAEhYKEkNIQVRf",
+            "Q0hBTk5FTF9MT0NBTBABEhYKEkNIQVRfQ0hBTk5FTF9XT1JMRBACKoUBCgVT",
+            "aGFwZRIVChFTSEFQRV9VTlNQRUNJRklFRBAAEg0KCVNIQVBFX0JPWBABEhAK",
+            "DFNIQVBFX1NQSEVSRRACEhIKDlNIQVBFX0NZTElOREVSEAMSDgoKU0hBUEVf",
+            "Q09ORRAEEg8KC1NIQVBFX1dFREdFEAUSDwoLU0hBUEVfUExBTkUQBiqMAQoI",
+            "TWF0ZXJpYWwSGAoUTUFURVJJQUxfVU5TUEVDSUZJRUQQABISCg5NQVRFUklB",
+            "TF9NQVRURRABEhMKD01BVEVSSUFMX0dMT1NTWRACEhIKDk1BVEVSSUFMX01F",
+            "VEFMEAMSEgoOTUFURVJJQUxfR0xBU1MQBBIVChFNQVRFUklBTF9FTUlTU0lW",
+            "RRAFKqMDCglFcnJvckNvZGUSGgoWRVJST1JfQ09ERV9VTlNQRUNJRklFRBAA",
+            "EhoKFkVSUk9SX0NPREVfQkFEX1JFUVVFU1QQARIiCh5FUlJPUl9DT0RFX1VO",
+            "U1VQUE9SVEVEX1ZFUlNJT04QAhIaChZFUlJPUl9DT0RFX0FVVEhfRkFJTEVE",
+            "EAMSHAoYRVJST1JfQ09ERV9JTlZBTElEX1RPS0VOEAQSFQoRRVJST1JfQ09E",
+            "RV9CQU5ORUQQBRIZChVFUlJPUl9DT0RFX1dPUkxEX0ZVTEwQBhIgChxFUlJP",
+            "Ul9DT0RFX1BFUk1JU1NJT05fREVOSUVEEAcSGAoURVJST1JfQ09ERV9OT1Rf",
+            "Rk9VTkQQCBIfChtFUlJPUl9DT0RFX0lOVkFMSURfQVJHVU1FTlQQCRIcChhF",
+            "UlJPUl9DT0RFX09VVF9PRl9CT1VORFMQChIdChlFUlJPUl9DT0RFX0xJTUlU",
+            "X0VYQ0VFREVEEAsSGwoXRVJST1JfQ09ERV9SQVRFX0xJTUlURUQQDBIXChNF",
+            "UlJPUl9DT0RFX0lOVEVSTkFMEA1CEqoCD1Rpbnl2ZXJzZS5Qcm90b2IGcHJv",
+            "dG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Tinyverse.Proto.ClientKind), typeof(global::Tinyverse.Proto.Role), typeof(global::Tinyverse.Proto.MoveMode), typeof(global::Tinyverse.Proto.ChatChannel), typeof(global::Tinyverse.Proto.Shape), typeof(global::Tinyverse.Proto.Material), typeof(global::Tinyverse.Proto.ErrorCode), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -103,7 +104,7 @@ namespace Tinyverse.Proto {
             new pbr::GeneratedClrTypeInfo(typeof(global::Tinyverse.Proto.ObjectSpec), global::Tinyverse.Proto.ObjectSpec.Parser, new[]{ "Name", "Shape", "Position", "Rotation", "Scale", "Color", "Material", "Solid", "Locked" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Tinyverse.Proto.ObjectInfo), global::Tinyverse.Proto.ObjectInfo.Parser, new[]{ "Id", "OwnerId", "Spec" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Tinyverse.Proto.ChatEntry), global::Tinyverse.Proto.ChatEntry.Parser, new[]{ "SenderAvatarId", "SenderUserId", "SenderName", "SenderKind", "Channel", "Text", "TimestampMs" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Tinyverse.Proto.WorldInfo), global::Tinyverse.Proto.WorldInfo.Parser, new[]{ "Name", "Description", "BoundsMin", "BoundsMax", "SpawnPoint", "GroundSize", "Sky", "TimeOfDay" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Tinyverse.Proto.WorldInfo), global::Tinyverse.Proto.WorldInfo.Parser, new[]{ "Name", "Description", "BoundsMin", "BoundsMax", "SpawnPoint", "GroundSize", "Sky", "TimeOfDay", "Ground" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Tinyverse.Proto.Limits), global::Tinyverse.Proto.Limits.Parser, new[]{ "MaxMessageBytes", "MaxChatChars", "MaxNameChars", "MaxObjects", "LocalChatRadius", "MinScale", "MaxScale", "WalkSpeed", "RunSpeed", "FlySpeed", "MaxObserveRadius" }, null, null, null, null)
           }));
     }
@@ -3686,6 +3687,7 @@ namespace Tinyverse.Proto {
       groundSize_ = other.groundSize_;
       sky_ = other.sky_;
       timeOfDay_ = other.timeOfDay_;
+      ground_ = other.ground_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -3806,6 +3808,23 @@ namespace Tinyverse.Proto {
       }
     }
 
+    /// <summary>Field number for the "ground" field.</summary>
+    public const int GroundFieldNumber = 9;
+    private string ground_ = "";
+    /// <summary>
+    /// Name of a ground preset shipped with the client ("grass", "sand", "water",
+    /// "paving"); empty means the default grid. Only the look changes: the ground
+    /// is still a flat plane at y = 0 that avatars walk on.
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Ground {
+      get { return ground_; }
+      set {
+        ground_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -3829,6 +3848,7 @@ namespace Tinyverse.Proto {
       if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(GroundSize, other.GroundSize)) return false;
       if (Sky != other.Sky) return false;
       if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(TimeOfDay, other.TimeOfDay)) return false;
+      if (Ground != other.Ground) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -3844,6 +3864,7 @@ namespace Tinyverse.Proto {
       if (GroundSize != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(GroundSize);
       if (Sky.Length != 0) hash ^= Sky.GetHashCode();
       if (TimeOfDay != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(TimeOfDay);
+      if (Ground.Length != 0) hash ^= Ground.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -3894,6 +3915,10 @@ namespace Tinyverse.Proto {
         output.WriteRawTag(69);
         output.WriteFloat(TimeOfDay);
       }
+      if (Ground.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(Ground);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -3936,6 +3961,10 @@ namespace Tinyverse.Proto {
         output.WriteRawTag(69);
         output.WriteFloat(TimeOfDay);
       }
+      if (Ground.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(Ground);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -3969,6 +3998,9 @@ namespace Tinyverse.Proto {
       }
       if (TimeOfDay != 0F) {
         size += 1 + 4;
+      }
+      if (Ground.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Ground);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -4014,6 +4046,9 @@ namespace Tinyverse.Proto {
       }
       if (other.TimeOfDay != 0F) {
         TimeOfDay = other.TimeOfDay;
+      }
+      if (other.Ground.Length != 0) {
+        Ground = other.Ground;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -4071,6 +4106,10 @@ namespace Tinyverse.Proto {
             TimeOfDay = input.ReadFloat();
             break;
           }
+          case 74: {
+            Ground = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -4125,6 +4164,10 @@ namespace Tinyverse.Proto {
           }
           case 69: {
             TimeOfDay = input.ReadFloat();
+            break;
+          }
+          case 74: {
+            Ground = input.ReadString();
             break;
           }
         }

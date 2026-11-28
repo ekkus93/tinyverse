@@ -285,6 +285,7 @@ namespace Tinyverse.Bootstrap
             {
                 GroundSize = w.GroundSize,
                 Sky = w.Sky ?? "",
+                Ground = w.Ground ?? "",
                 TimeOfDay = w.TimeOfDay,
                 BoundsMin = ToVector3(w.BoundsMin),
                 BoundsMax = ToVector3(w.BoundsMax),
